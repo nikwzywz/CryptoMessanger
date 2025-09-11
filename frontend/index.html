@@ -83,6 +83,7 @@
 <body>
     <div class="container">
         <h1>🔐 CryptoMessenger - Тест ECIES Шифрования</h1>
+        <button class="btn" id="logoutBtn" style="margin-bottom: 20px;">Выйти</button>
         
         <div class="test-section">
             <h2>Тестирование библиотек шифрования</h2>
@@ -108,12 +109,25 @@
     <!-- Подключение библиотек -->
     <script src="lib/crypto-js.min.js"></script>
     <script type="module">
+        // Проверяем авторизацию
+        const walletAddress = localStorage.getItem('cryptoMessenger_walletAddress');
+        const encryptionKeys = localStorage.getItem('cryptoMessenger_encryptionKeys');
+        const isRegistered = localStorage.getItem('cryptoMessenger_isRegistered');
+        
+        if (!walletAddress || !encryptionKeys) {
+            // Перенаправляем на страницу авторизации
+            window.location.href = 'auth.html';
+        } else if (!isRegistered) {
+            // Перенаправляем на регистрацию публичного ключа
+            window.location.href = 'regpub.html';
+        }
+
         // Загружаем @noble/curves/secp256k1 как ES модуль
         import { secp256k1 } from './lib/secp256k1-wrapper.js?v=9';
         window.secp256k1 = secp256k1;
         console.log('🔍 secp256k1 загружен в window:', typeof window.secp256k1);
         console.log('🔍 secp256k1 функции:', Object.keys(window.secp256k1));
-        console.log('📦 Версия кода: v2.1 - 2025-01-11 19:50 (добавлен utils в secp256k1)');
+        console.log('📦 Версия кода: v3.0 - 2025-01-11 20:30 (авторизация)');
         
         // Запускаем проверку библиотек после загрузки модуля
         setTimeout(() => {
@@ -220,6 +234,13 @@
                 
                 console.log('🚀 Готов к тестированию! Нажмите "Запустить тест"');
             }, 500);
+        });
+
+        // Обработчик кнопки выхода
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            localStorage.removeItem('cryptoMessenger_walletAddress');
+            localStorage.removeItem('cryptoMessenger_encryptionKeys');
+            window.location.href = 'auth.html';
         });
     </script>
     
