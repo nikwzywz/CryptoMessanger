@@ -63,6 +63,27 @@ export const secp256k1 = {
         return new Uint8Array(65);
     },
     
+    getSharedSecret: (privateKey, publicKey) => {
+        console.log('Mock getSharedSecret called');
+        console.log('  privateKey length:', privateKey.length);
+        console.log('  publicKey length:', publicKey.length);
+        console.log('  privateKey first 4 bytes:', Array.from(privateKey.slice(0, 4)));
+        console.log('  publicKey first 4 bytes:', Array.from(publicKey.slice(0, 4)));
+        
+        // Return a deterministic mock shared secret for testing
+        // Combine both keys to ensure consistency between encryption and decryption
+        const sharedSecret = new Uint8Array(32);
+        for (let i = 0; i < 32; i++) {
+            // XOR privateKey and publicKey bytes to create deterministic shared secret
+            const privateByte = privateKey[i] || 0;
+            const publicByte = publicKey[i] || 0;
+            sharedSecret[i] = privateByte ^ publicByte;
+        }
+        
+        console.log('  sharedSecret first 4 bytes:', Array.from(sharedSecret.slice(0, 4)));
+        return sharedSecret;
+    },
+    
     utils: {
         randomPrivateKey: () => {
             console.log('Mock randomPrivateKey called');

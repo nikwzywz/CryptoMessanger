@@ -28,7 +28,7 @@ class CryptoMessengerEncryption {
      * @param {string} seedPhrase - SEED фраза для генерации ключей
      * @returns {Object} - Объект с приватным и публичным ключами
      */
-    generateKeyPairFromSeed(seedPhrase) {
+    generateKeyPairFromSeed(seedPhrase, secp256k1) {
         try {
             // Создаем хэш из SEED фразы для детерминистической генерации
             const seedHash = CryptoJS.SHA256(seedPhrase).toString();
@@ -40,6 +40,9 @@ class CryptoMessengerEncryption {
             }
             
             // Генерируем приватный ключ
+            console.log('🔍 secp256k1 в generateKeyPairFromSeed:', typeof secp256k1);
+            console.log('🔍 secp256k1.utils:', typeof secp256k1?.utils);
+            console.log('🔍 secp256k1 функции:', Object.keys(secp256k1 || {}));
             const privateKey = secp256k1.utils.randomPrivateKey();
             
             // Генерируем публичный ключ
@@ -48,8 +51,8 @@ class CryptoMessengerEncryption {
             return {
                 privateKey: privateKey,
                 publicKey: publicKey,
-                privateKeyHex: Buffer.from(privateKey).toString('hex'),
-                publicKeyHex: Buffer.from(publicKey).toString('hex')
+                privateKeyHex: Array.from(privateKey).map(b => b.toString(16).padStart(2, '0')).join(''),
+                publicKeyHex: Array.from(publicKey).map(b => b.toString(16).padStart(2, '0')).join('')
             };
         } catch (error) {
             console.error('Ошибка генерации ключей:', error);
@@ -63,7 +66,7 @@ class CryptoMessengerEncryption {
      * @param {Uint8Array} recipientPublicKey - Публичный ключ получателя
      * @returns {Object} - Зашифрованное сообщение и данные для дешифровки
      */
-    encryptMessage(message, recipientPublicKey) {
+    encryptMessage(message, recipientPublicKey, secp256k1) {
         try {
             // Генерируем эфемерную пару ключей
             const ephemeralPrivateKey = secp256k1.utils.randomPrivateKey();
@@ -73,14 +76,15 @@ class CryptoMessengerEncryption {
             const sharedSecret = secp256k1.getSharedSecret(ephemeralPrivateKey, recipientPublicKey);
             
             // Создаем ключ для AES из общего секрета
-            const aesKey = CryptoJS.SHA256(Buffer.from(sharedSecret).toString('hex')).toString();
+            const sharedSecretHex = Array.from(sharedSecret).map(b => b.toString(16).padStart(2, '0')).join('');
+            const aesKey = CryptoJS.SHA256(sharedSecretHex).toString();
             
             // Шифруем сообщение
             const encrypted = CryptoJS.AES.encrypt(message, aesKey).toString();
             
             return {
                 encryptedMessage: encrypted,
-                ephemeralPublicKey: Buffer.from(ephemeralPublicKey).toString('hex'),
+                ephemeralPublicKey: Array.from(ephemeralPublicKey).map(b => b.toString(16).padStart(2, '0')).join(''),
                 algorithm: this.algorithm
             };
         } catch (error) {
@@ -95,7 +99,7 @@ class CryptoMessengerEncryption {
      * @param {Uint8Array} privateKey - Приватный ключ получателя
      * @returns {string} - Расшифрованное сообщение
      */
-    decryptMessage(encryptedData, privateKey) {
+    decryptMessage(encryptedData, privateKey, secp256k1) {
         try {
             // Конвертируем эфемерный публичный ключ
             const ephemeralPublicKey = new Uint8Array(
@@ -106,7 +110,8 @@ class CryptoMessengerEncryption {
             const sharedSecret = secp256k1.getSharedSecret(privateKey, ephemeralPublicKey);
             
             // Создаем ключ для AES
-            const aesKey = CryptoJS.SHA256(Buffer.from(sharedSecret).toString('hex')).toString();
+            const sharedSecretHex = Array.from(sharedSecret).map(b => b.toString(16).padStart(2, '0')).join('');
+            const aesKey = CryptoJS.SHA256(sharedSecretHex).toString();
             
             // Дешифруем сообщение
             const decrypted = CryptoJS.AES.decrypt(encryptedData.encryptedMessage, aesKey);
@@ -167,8 +172,8 @@ class CryptoMessengerEncryption {
             const recipientSeed = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon";
             
             console.log('1. Генерируем ключи...');
-            const senderKeys = this.generateKeyPairFromSeed(senderSeed);
-            const recipientKeys = this.generateKeyPairFromSeed(recipientSeed);
+            const senderKeys = this.generateKeyPairFromSeed(senderSeed, secp256k1);
+            const recipientKeys = this.generateKeyPairFromSeed(recipientSeed, secp256k1);
             
             console.log('   Отправитель публичный ключ:', senderKeys.publicKeyHex);
             console.log('   Получатель публичный ключ:', recipientKeys.publicKeyHex);
@@ -179,13 +184,13 @@ class CryptoMessengerEncryption {
             
             // 3. Шифруем сообщение
             console.log('\n3. Шифруем сообщение...');
-            const encrypted = this.encryptMessage(testMessage, recipientKeys.publicKey);
+            const encrypted = this.encryptMessage(testMessage, recipientKeys.publicKey, secp256k1);
             console.log('   Зашифрованное сообщение:', encrypted.encryptedMessage.substring(0, 50) + '...');
             console.log('   Эфемерный публичный ключ:', encrypted.ephemeralPublicKey);
             
             // 4. Дешифруем сообщение
             console.log('\n4. Дешифруем сообщение...');
-            const decrypted = this.decryptMessage(encrypted, recipientKeys.privateKey);
+            const decrypted = this.decryptMessage(encrypted, recipientKeys.privateKey, secp256k1);
             console.log('   Расшифрованное сообщение:', decrypted);
             
             // 5. Проверяем результат
