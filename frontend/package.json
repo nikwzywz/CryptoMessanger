@@ -1,0 +1,32 @@
+{
+  "name": "cryptomessenger-frontend",
+  "version": "1.0.0",
+  "description": "Frontend для CryptoMessenger - децентрализованного мессенджера с ECIES шифрованием",
+  "main": "test-encryption.js",
+  "scripts": {
+    "test": "node test-encryption.js",
+    "test-browser": "open test-encryption.html",
+    "install-deps": "npm install"
+  },
+  "dependencies": {
+    "crypto-js": "^4.1.1",
+    "@noble/secp256k1": "^2.0.0",
+    "@noble/ciphers": "^0.7.0"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  },
+  "keywords": [
+    "cryptomessenger",
+    "encryption",
+    "ecies",
+    "secp256k1",
+    "blockchain",
+    "messenger"
+  ],
+  "author": "CryptoMessenger Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

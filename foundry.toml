@@ -1,0 +1,35 @@
+[profile.default]
+src = "contracts"
+out = "out"
+libs = ["lib"]
+solc = "0.8.19"
+optimizer = true
+optimizer_runs = 200
+via_ir = false
+verbosity = 2
+
+# RPC endpoints
+[rpc_endpoints]
+base = "https://mainnet.base.org"
+baseSepolia = "https://sepolia.base.org"
+local = "http://localhost:8545"
+
+# Etherscan V2 API - единый ключ для всех сетей
+[etherscan]
+base = { key = "${ETHERSCAN_API_KEY}", url = "https://api.etherscan.io/v2/api" }
+baseSepolia = { key = "${ETHERSCAN_API_KEY}", url = "https://api.etherscan.io/v2/api" }
+
+# Gas reports
+[profile.gas]
+gas_reports = ["*"]
+
+# Test configuration
+[profile.test]
+fuzz = { runs = 1000 }
+invariant = { runs = 256, depth = 15 }
+
+# Deployment configuration
+[profile.deploy]
+optimizer = true
+optimizer_runs = 1000
+via_ir = true
