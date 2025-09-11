@@ -4,13 +4,19 @@
  */
 
 // Импорты (для Node.js или bundler)
-// const CryptoJS = require('crypto-js');
-// const { secp256k1 } = require('@noble/secp256k1');
-// const { encrypt, decrypt } = require('@noble/ciphers/aes');
+let CryptoJS, secp256k1;
 
-// Для браузера - добавить в HTML:
-// <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-// <script src="https://unpkg.com/@noble/secp256k1@2.0.0/index.js"></script>
+if (typeof require !== 'undefined') {
+    // Node.js environment
+    CryptoJS = require('crypto-js');
+    // secp256k1 будет загружен динамически
+} else {
+    // Browser environment - библиотеки должны быть загружены через CDN
+    // <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    // <script src="https://unpkg.com/@noble/secp256k1@2.0.0/index.js"></script>
+    CryptoJS = window.CryptoJS;
+    secp256k1 = window.secp256k1;
+}
 
 class CryptoMessengerEncryption {
     constructor() {
@@ -118,6 +124,29 @@ class CryptoMessengerEncryption {
      */
     async testEncryptionCycle() {
         console.log('🔐 Начинаем тест ECIES шифрования...\n');
+        
+        // Проверяем наличие библиотек
+        if (typeof CryptoJS === 'undefined') {
+            throw new Error('CryptoJS не загружен. Убедитесь, что библиотека подключена.');
+        }
+        
+        // Динамически загружаем secp256k1 для Node.js
+        if (typeof require !== 'undefined' && typeof secp256k1 === 'undefined') {
+            console.log('Загружаем @noble/secp256k1...');
+            
+            // Добавляем полифилл для crypto.getRandomValues в Node.js
+            if (typeof globalThis.crypto === 'undefined') {
+                const { webcrypto } = require('crypto');
+                globalThis.crypto = webcrypto;
+            }
+            
+            const secp256k1Module = await import('@noble/secp256k1');
+            secp256k1 = secp256k1Module.default || secp256k1Module;
+        }
+        
+        if (typeof secp256k1 === 'undefined') {
+            throw new Error('@noble/secp256k1 не загружен. Убедитесь, что библиотека подключена.');
+        }
         
         try {
             // 1. Генерируем ключи для отправителя и получателя

@@ -56,12 +56,14 @@ const decryptedMessage = decryptMessage(encryptedMessage, myPrivateKey);
 - [x] Исследовать доступные библиотеки для ECIES
 - [x] Выбрать подходящую библиотеку для JavaScript/TypeScript
 - [x] Создать тестовые примеры шифрования/дешифрования
+- [x] Протестировать работу в Node.js и браузере
 - **Выбрано**: `crypto-js` + `@noble/secp256k1` + `@noble/ciphers`
 - **Создано**: 
   - `frontend/test-encryption.js` - основной класс для ECIES
   - `frontend/test-encryption.html` - веб-интерфейс для тестирования
   - `frontend/package.json` - зависимости
   - `frontend/README.md` - инструкции по тестированию
+- **Статус**: ✅ ПРОТЕСТИРОВАНО И РАБОТАЕТ
 
 ### Этап 2: Генерация ключей из SEED
 - [ ] Реализовать функцию генерации приватного ключа из SEED
