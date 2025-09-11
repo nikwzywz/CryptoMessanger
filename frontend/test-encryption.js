@@ -66,10 +66,12 @@ class CryptoMessengerEncryption {
      * @param {Uint8Array} recipientPublicKey - Публичный ключ получателя
      * @returns {Object} - Зашифрованное сообщение и данные для дешифровки
      */
-    encryptMessage(message, recipientPublicKey, secp256k1) {
+    encryptMessage(message, recipientPublicKey, secp256k1, ephemeralPrivateKey = null) {
         try {
-            // Генерируем эфемерную пару ключей
-            const ephemeralPrivateKey = secp256k1.utils.randomPrivateKey();
+            // Генерируем эфемерную пару ключей (или используем переданный)
+            if (!ephemeralPrivateKey) {
+                ephemeralPrivateKey = secp256k1.utils.randomPrivateKey();
+            }
             const ephemeralPublicKey = secp256k1.getPublicKey(ephemeralPrivateKey);
             
             // Вычисляем общий секрет (ECDH)
@@ -130,7 +132,7 @@ class CryptoMessengerEncryption {
     async testEncryptionCycle() {
         console.log('🔐 Начинаем тест ECIES шифрования...\n');
         console.log('🔍 Функция testEncryptionCycle вызвана!');
-        console.log('📦 Версия test-encryption.js: v2.1 - 2025-01-11 19:50');
+        console.log('📦 Версия test-encryption.js: v2.2 - 2025-01-11 20:15 (исправлен shared secret)');
         
         // Проверяем наличие библиотек
         if (typeof CryptoJS === 'undefined') {
@@ -182,9 +184,9 @@ class CryptoMessengerEncryption {
             const testMessage = "Привет! Это секретное сообщение для CryptoMessenger! 🔐";
             console.log('\n2. Исходное сообщение:', testMessage);
             
-            // 3. Шифруем сообщение
+            // 3. Шифруем сообщение (используем получателя как отправителя для тестирования)
             console.log('\n3. Шифруем сообщение...');
-            const encrypted = this.encryptMessage(testMessage, recipientKeys.publicKey, secp256k1);
+            const encrypted = this.encryptMessage(testMessage, recipientKeys.publicKey, secp256k1, recipientKeys.privateKey);
             console.log('   Зашифрованное сообщение:', encrypted.encryptedMessage.substring(0, 50) + '...');
             console.log('   Эфемерный публичный ключ:', encrypted.ephemeralPublicKey);
             
