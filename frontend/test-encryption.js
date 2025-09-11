@@ -124,28 +124,41 @@ class CryptoMessengerEncryption {
      */
     async testEncryptionCycle() {
         console.log('🔐 Начинаем тест ECIES шифрования...\n');
+        console.log('🔍 Функция testEncryptionCycle вызвана!');
+        console.log('📦 Версия test-encryption.js: v2.1 - 2025-01-11 19:50');
         
         // Проверяем наличие библиотек
         if (typeof CryptoJS === 'undefined') {
             throw new Error('CryptoJS не загружен. Убедитесь, что библиотека подключена.');
         }
         
-        // Динамически загружаем secp256k1 для Node.js
-        if (typeof require !== 'undefined' && typeof secp256k1 === 'undefined') {
-            console.log('Загружаем @noble/secp256k1...');
+        // Загружаем secp256k1 для Node.js или браузера
+        let secp256k1;
+        
+        console.log('🔍 Начинаем загрузку secp256k1...');
+        
+        if (typeof window !== 'undefined') {
+            // В браузере - используем глобальную переменную из HTML
+            console.log('🔍 Проверяем window.secp256k1:', typeof window.secp256k1);
             
-            // Добавляем полифилл для crypto.getRandomValues в Node.js
+            if (window.secp256k1) {
+                secp256k1 = window.secp256k1;
+                console.log('✅ @noble/secp256k1 загружен из window');
+            } else {
+                throw new Error('@noble/secp256k1 не найден в window. Убедитесь, что библиотека подключена в HTML.');
+            }
+        } else if (typeof require !== 'undefined') {
+            // В Node.js
             if (typeof globalThis.crypto === 'undefined') {
                 const { webcrypto } = require('crypto');
                 globalThis.crypto = webcrypto;
             }
-            
+
             const secp256k1Module = await import('@noble/secp256k1');
             secp256k1 = secp256k1Module.default || secp256k1Module;
-        }
-        
-        if (typeof secp256k1 === 'undefined') {
-            throw new Error('@noble/secp256k1 не загружен. Убедитесь, что библиотека подключена.');
+            console.log('✅ @noble/secp256k1 загружен в Node.js');
+        } else {
+            throw new Error('Неизвестная среда выполнения. Поддерживаются только браузер и Node.js.');
         }
         
         try {
@@ -201,12 +214,6 @@ if (typeof module !== 'undefined' && module.exports) {
 // Запуск теста при загрузке в браузере
 if (typeof window !== 'undefined') {
     window.CryptoMessengerEncryption = CryptoMessengerEncryption;
-    
-    // Автоматический запуск теста
-    document.addEventListener('DOMContentLoaded', () => {
-        const crypto = new CryptoMessengerEncryption();
-        crypto.testEncryptionCycle();
-    });
 }
 
 // Запуск теста в Node.js

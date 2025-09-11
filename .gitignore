@@ -7,6 +7,7 @@
 out/
 cache/
 lib/
+!frontend/lib/
 
 # IDE
 .vscode/
@@ -28,3 +29,6 @@ node_modules/
 # Build artifacts
 dist/
 build/
+
+# chrome-extension
+chrome-extension/

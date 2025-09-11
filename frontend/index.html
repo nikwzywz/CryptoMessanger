@@ -106,28 +106,33 @@
     </div>
 
     <!-- Подключение библиотек -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="lib/crypto-js.min.js"></script>
     <script type="module">
-        // Загружаем @noble/secp256k1 как ES модуль
-        import * as secp256k1 from 'https://unpkg.com/@noble/secp256k1@2.0.0/index.js';
+        // Загружаем @noble/curves/secp256k1 как ES модуль
+        import { secp256k1 } from './lib/secp256k1-wrapper.js?v=2';
         window.secp256k1 = secp256k1;
+        console.log('🔍 secp256k1 загружен в window:', typeof window.secp256k1);
+        console.log('🔍 secp256k1 функции:', Object.keys(window.secp256k1));
+        console.log('📦 Версия кода: v2.1 - 2025-01-11 19:50 (добавлен utils в secp256k1)');
         
         // Запускаем проверку библиотек после загрузки модуля
-        console.log('🔍 Проверяем загрузку библиотек...');
-        
-        if (typeof CryptoJS !== 'undefined') {
-            console.log('✅ CryptoJS загружен');
-        } else {
-            console.error('❌ CryptoJS не загружен');
-        }
-        
-        if (typeof secp256k1 !== 'undefined') {
-            console.log('✅ @noble/secp256k1 загружен');
-        } else {
-            console.error('❌ @noble/secp256k1 не загружен');
-        }
-        
-        console.log('🚀 Готов к тестированию! Нажмите "Запустить тест"');
+        setTimeout(() => {
+            console.log('🔍 Проверяем загрузку библиотек...');
+            
+            if (typeof CryptoJS !== 'undefined') {
+                console.log('✅ CryptoJS загружен');
+            } else {
+                console.error('❌ CryptoJS не загружен');
+            }
+            
+            if (typeof window.secp256k1 !== 'undefined' && window.secp256k1 && window.secp256k1.getPublicKey) {
+                console.log('✅ @noble/secp256k1 загружен');
+            } else {
+                console.error('❌ @noble/secp256k1 не загружен');
+            }
+            
+            console.log('🚀 Готов к тестированию! Нажмите "Запустить тест"');
+        }, 100);
     </script>
     
     <script>
@@ -173,7 +178,7 @@
                 if (typeof CryptoJS === 'undefined') {
                     throw new Error('CryptoJS не загружен');
                 }
-                if (typeof secp256k1 === 'undefined') {
+                if (typeof window.secp256k1 === 'undefined' || !window.secp256k1) {
                     throw new Error('@noble/secp256k1 не загружен');
                 }
                 
@@ -207,7 +212,7 @@
                     console.error('❌ CryptoJS не загружен');
                 }
                 
-                if (typeof secp256k1 !== 'undefined') {
+                if (typeof window.secp256k1 !== 'undefined' && window.secp256k1) {
                     console.log('✅ @noble/secp256k1 загружен');
                 } else {
                     console.error('❌ @noble/secp256k1 не загружен');
@@ -219,6 +224,6 @@
     </script>
     
     <!-- Подключаем наш тестовый скрипт -->
-    <script src="test-encryption.js"></script>
+    <script src="test-encryption.js?v=2"></script>
 </body>
 </html>
