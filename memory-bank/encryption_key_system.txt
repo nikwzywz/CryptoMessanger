@@ -1,0 +1,76 @@
+# Система ключей шифрования CryptoMessenger
+## Дата: 2025-01-12 21:45
+
+## 🔑 ДВЕ ПАРЫ КЛЮЧЕЙ У КАЖДОГО ПОЛЬЗОВАТЕЛЯ
+
+### 1. **Ключи для транзакций (PRIVATE_KEY_XX)**
+- **Источник**: Переменные окружения `PRIVATE_KEY_01`, `PRIVATE_KEY_02`, etc.
+- **Назначение**: Подписание транзакций в блокчейне
+- **Использование**: 
+  - Отправка транзакций в контракт
+  - Получение адреса кошелька (`web3.eth.accounts.privateKeyToAccount(privateKey).address`)
+  - Подписание транзакций
+
+### 2. **Ключи для шифрования (PrivateKeyForEncode / PublicKeyForEncode)**
+- **Источник**: Генерируются из подписи пользователя в `auth-v2.html`
+- **Процесс генерации**:
+  1. Пользователь подписывает сообщение через MetaMask (`personal_sign`)
+  2. Из подписи генерируется `PrivateKeyForEncode` (детерминистически)
+  3. Из `PrivateKeyForEncode` генерируется `PublicKeyForEncode`
+- **Назначение**: Шифрование/расшифровка сообщений
+- **Использование**:
+  - `PublicKeyForEncode` - регистрируется в контракте
+  - `PrivateKeyForEncode` - используется для расшифровки сообщений
+
+## 📋 ПРОЦЕСС РЕГИСТРАЦИИ ПОЛЬЗОВАТЕЛЯ
+
+### В интерфейсе (auth-v2.html):
+1. Пользователь подключает MetaMask
+2. Подписывает сообщение
+3. Генерируются ключи шифрования:
+   ```javascript
+   const signature = await ethereum.request({...});
+   const privateKeyForEncode = CryptoJS.SHA256(signature).toString();
+   const publicKeyForEncode = generatePublicKey(privateKeyForEncode);
+   ```
+4. `PublicKeyForEncode` регистрируется в контракте
+
+### В скрипте populate-contract-test-data.js:
+**НЕПРАВИЛЬНО** (текущий код):
+```javascript
+const publicKey = `0x${privateKey.slice(2, 66)}`; // ❌ Используем PRIVATE_KEY как публичный ключ
+```
+
+**ПРАВИЛЬНО** (нужно исправить):
+```javascript
+// 1. Получаем адрес из PRIVATE_KEY для транзакций
+const address = web3.eth.accounts.privateKeyToAccount(privateKey).address;
+
+// 2. Генерируем ключи шифрования (как в auth-v2.html)
+const signature = "мок-подпись для тестирования";
+const privateKeyForEncode = CryptoJS.SHA256(signature).toString();
+const publicKeyForEncode = generatePublicKey(privateKeyForEncode);
+
+// 3. Регистрируем PublicKeyForEncode в контракте
+const tx = contract.methods.registerPublicKey(publicKeyForEncode);
+```
+
+## 🎯 КЛЮЧЕВЫЕ ПРИНЦИПЫ
+
+1. **PRIVATE_KEY_XX** - только для транзакций, НЕ для шифрования
+2. **PublicKeyForEncode** - только для шифрования, регистрируется в контракте
+3. **Детерминистическая генерация** - одни и те же ключи шифрования из одной подписи
+4. **Разделение ответственности** - разные ключи для разных целей
+
+## ⚠️ КРИТИЧЕСКИ ВАЖНО
+
+- В скрипте `populate-contract-test-data.js` нужно исправить генерацию ключей
+- Использовать правильную логику из `auth-v2.html`
+- Не путать ключи для транзакций и ключи для шифрования
+- При регистрации передавать `PublicKeyForEncode`, а не модифицированный `PRIVATE_KEY`
+
+## 📁 СВЯЗАННЫЕ ФАЙЛЫ
+
+- `pwa/frontend/auth-v2.html` - правильная генерация ключей шифрования
+- `pwa/scripts/populate-contract-test-data.js` - нужно исправить
+- `contracts/CryptoMessenger.sol` - функция `registerPublicKey(bytes publicKey)`

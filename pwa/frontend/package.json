@@ -9,9 +9,11 @@
     "install-deps": "npm install"
   },
   "dependencies": {
-    "crypto-js": "^4.1.1",
+    "@noble/ciphers": "^0.5.0",
     "@noble/secp256k1": "^2.0.0",
-    "@noble/ciphers": "^0.5.0"
+    "crypto-js": "^4.2.0",
+    "dotenv": "^17.2.2",
+    "web3": "^4.16.0"
   },
   "devDependencies": {
     "http-server": "^14.1.1"

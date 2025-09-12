@@ -477,14 +477,14 @@
 
                 // Используем подпись как источник энтропии
                 const seed = CryptoJS.SHA256(signature).toString();
-                const privateKey = CryptoJS.SHA256(seed + userAddress).toString();
+                const privateKeyForEncode = CryptoJS.SHA256(seed + userAddress).toString();
                 
                 // Генерируем публичный ключ (упрощенная версия)
-                const publicKey = CryptoJS.SHA256(privateKey + 'public').toString();
+                const publicKeyForEncode = CryptoJS.SHA256(privateKeyForEncode + 'public').toString();
 
                 encryptionKeys = {
-                    privateKey: privateKey,
-                    publicKey: publicKey,
+                    privateKeyForEncode: privateKeyForEncode,
+                    publicKeyForEncode: publicKeyForEncode,
                     address: userAddress
                 };
 
@@ -495,10 +495,10 @@
                 showStatus('step4Status', 'success', 'Ключи сгенерированы и сохранены');
                 elements.generateBtn.innerHTML = 'Сгенерировать ключи';
                 elements.keyDisplay.innerHTML = `
-                    <strong>Публичный ключ:</strong><br>
-                    ${publicKey.substring(0, 50)}...<br><br>
-                    <strong>Приватный ключ:</strong><br>
-                    ${privateKey.substring(0, 50)}...
+                    <strong>PublicKeyForEncode:</strong><br>
+                    ${publicKeyForEncode.substring(0, 50)}...<br><br>
+                    <strong>PrivateKeyForEncode:</strong><br>
+                    ${privateKeyForEncode.substring(0, 50)}...
                 `;
                 elements.keyDisplay.classList.remove('hidden');
 
@@ -530,7 +530,7 @@
                     showStatus('step5Status', 'success', 'Пользователь уже зарегистрирован');
                 } else {
                     // Регистрируем публичный ключ
-                    const publicKeyHex = '0x' + encryptionKeys.publicKey;
+                    const publicKeyHex = '0x' + encryptionKeys.publicKeyForEncode;
                     
                     console.log('🔑 Регистрируем публичный ключ:', publicKeyHex);
                     console.log('📊 Длина ключа:', publicKeyHex.length);

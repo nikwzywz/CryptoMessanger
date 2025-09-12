@@ -14,7 +14,7 @@ window.CryptoMessengerConfig = {
     },
     
     // Адрес развернутого контракта (обновлен)
-    contractAddress: '0xc8F47D1A4018D3e4Df136832d42c479A2C5eB4df',
+    contractAddress: '0x541a49c4f9A97a274ADf0623beDCF6A8F9F17bF8',
     
     // ABI контракта (полный)
     contractABI: [
@@ -424,6 +424,19 @@ window.CryptoMessengerConfig = {
         "type": "function"
     },
     {
+        "inputs": [],
+        "name": "helloWorld",
+        "outputs": [
+            {
+                "internalType": "address",
+                "name": "",
+                "type": "address"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
         "inputs": [
             {
                 "internalType": "address",
@@ -742,6 +755,6 @@ window.CryptoMessengerConfig = {
 ]
 };
 
-console.log('📦 Конфигурация CryptoMessenger загружена v1.0.0 - 2025-09-12 21:24 (полный ABI)');
+console.log('📦 Конфигурация CryptoMessenger загружена v1.0.0 - 2025-09-12 23:03 (полный ABI)');
 console.log('🌐 Сеть:', window.CryptoMessengerConfig.network.chainName);
 console.log('📄 Контракт:', window.CryptoMessengerConfig.contractAddress);

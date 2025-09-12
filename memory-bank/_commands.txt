@@ -16,7 +16,11 @@ open http://localhost:8081/main.html        - главная страница м
 
 ## ABI Management
 make update-abi          - обновить ABI из Basescan
-node scripts/update-abi.js  - прямой вызов скрипта обновления ABI
+node pwa/scripts/update-abi.js  - прямой вызов скрипта обновления ABI
+
+## Тестовые данные
+make populate-contract  - заполнить контракт тестовыми данными
+node pwa/scripts/populate-contract-test-data.js  - прямой вызов скрипта
 
 ## Контракт
 - Адрес: 0xc8F47D1A4018D3e4Df136832d42c479A2C5eB4df

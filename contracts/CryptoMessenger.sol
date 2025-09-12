@@ -26,6 +26,9 @@ contract CryptoMessenger {
     // Максимальное количество контактов на пользователя
     uint256 public maxContactsPerUser;
     
+    // Дефолтная плата за запрос на добавление в контакты (1 цент при курсе ETH $4600)
+    uint256 public defaultRequestFee;
+    
     // Владелец контракта
     address public owner;
     
@@ -49,6 +52,7 @@ contract CryptoMessenger {
     event MessageSent(address indexed from, address indexed to, bytes encryptedData, uint256 timestamp);
     event ContactRequestFeeUpdated(address indexed user, uint256 newFee);
     event MaxContactsLimitUpdated(uint256 newLimit);
+    event DefaultRequestFeeUpdated(uint256 newDefaultFee);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     
     // Модификаторы
@@ -82,6 +86,7 @@ contract CryptoMessenger {
     constructor() {       
         owner = msg.sender; // Устанавливаем создателя контракта как владельца
         maxContactsPerUser = 2000; // Лимит контактов на пользователя
+        defaultRequestFee = 0.00000217 ether; // 1 цент при курсе ETH $4600
     }
     
     /**
@@ -94,7 +99,7 @@ contract CryptoMessenger {
         
         userPublicKeys[msg.sender] = _user_public_key;
         userSettings[msg.sender] = UserSettings({
-            contactRequestFee: 0.0002 ether, // Дефолтная плата ~$1
+            contactRequestFee: defaultRequestFee, // Используем дефолтную плату
             isRegistered: true
         });
         
@@ -110,6 +115,14 @@ contract CryptoMessenger {
         
         userPublicKeys[msg.sender] = _updated_public_key;
         emit PublicKeyRegistered(msg.sender, _updated_public_key);
+    }
+    
+    /**
+     * @dev Тестовая функция для проверки Web3 вызовов
+     * @return Адрес отправителя транзакции
+     */
+    function helloWorld() external view returns (address) {
+        return msg.sender;
     }
     
     /**
@@ -259,6 +272,16 @@ contract CryptoMessenger {
         require(_new_contacts_limit >= 1000 && _new_contacts_limit <= 10000, "Invalid limit");
         maxContactsPerUser = _new_contacts_limit;
         emit MaxContactsLimitUpdated(_new_contacts_limit);
+    }
+    
+    /**
+     * @dev Установка дефолтной платы за запрос на добавление в контакты
+     * @param _new_default_fee Новая дефолтная плата в wei
+     */
+    function setDefaultRequestFee(uint256 _new_default_fee) external onlyOwner {
+        require(_new_default_fee <= 0.01 ether, "Default fee too high"); // Максимум 1 цент
+        defaultRequestFee = _new_default_fee;
+        emit DefaultRequestFeeUpdated(_new_default_fee);
     }
     
     /**
