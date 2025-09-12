@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
-import "../contracts/CryptoMessenger.sol";
+import "../CryptoMessenger.sol";
 
 /**
  * @title CryptoMessengerTest

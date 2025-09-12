@@ -6,7 +6,7 @@
  * Приоритет источников ABI:
  * 1. abi-raw.json - основной источник (скопируйте сюда ABI с Basescan)
  * 2. Basescan API - резервный источник (требует API ключ)
- * 3. Локальный контракт - fallback (out/CryptoMessenger.sol/CryptoMessenger.json)
+ * 3. Локальный контракт - fallback (contracts/out/CryptoMessenger.sol/CryptoMessenger.json)
  * 
  * Использование:
  * 1. Скопируйте ABI с https://basescan.org/address/0x... в abi-raw.json
@@ -20,12 +20,12 @@ const path = require('path');
 const CONTRACT_ADDRESS = '0xc8F47D1A4018D3e4Df136832d42c479A2C5eB4df';
 const BASESCAN_API_URL = 'https://api.basescan.org/api';
 const CONFIG_FILE = path.join(__dirname, '../frontend/config.js');
-const ABI_RAW_FILE = path.join(__dirname, '../abi-raw.json');
+const ABI_RAW_FILE = path.join(__dirname, '../../abi-raw.json');
 
 // Загружаем API ключ из .env файла
 let ETHERSCAN_API_KEY = '';
 try {
-    const envPath = path.join(__dirname, '../.env');
+    const envPath = path.join(__dirname, '../../.env');
     if (fs.existsSync(envPath)) {
         const envContent = fs.readFileSync(envPath, 'utf8');
         const match = envContent.match(/ETHERSCAN_API_KEY=([^\s\n\r]+)/);
@@ -116,7 +116,7 @@ function getABIFromLocalContract() {
     try {
         console.log('📁 Попытка получить ABI из локального контракта...');
         
-        const contractPath = path.join(__dirname, '../out/CryptoMessenger.sol/CryptoMessenger.json');
+        const contractPath = path.join(__dirname, '../../contracts/out/CryptoMessenger.sol/CryptoMessenger.json');
         if (fs.existsSync(contractPath)) {
             const contractData = JSON.parse(fs.readFileSync(contractPath, 'utf8'));
             if (contractData.abi) {

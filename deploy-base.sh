@@ -7,7 +7,7 @@ echo "🚀 Deploying CryptoMessenger to Base Mainnet..."
 source .env
 
 # Deploy contract
-forge script script/Deploy.s.sol --rpc-url base --broadcast --verify --etherscan-api-key $ETHERSCAN_API_KEY --chain 8453
+forge script contracts/script/Deploy.s.sol --rpc-url base --broadcast --verify --etherscan-api-key $ETHERSCAN_API_KEY --chain 8453
 
 echo "✅ Deployment completed!"
 

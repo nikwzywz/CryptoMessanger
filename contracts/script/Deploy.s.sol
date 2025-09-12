@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Script.sol";
-import "../contracts/CryptoMessenger.sol";
+import "../CryptoMessenger.sol";
 
 /**
  * @title Deploy
@@ -11,7 +11,7 @@ import "../contracts/CryptoMessenger.sol";
 contract Deploy is Script {
     
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY_01");
         address deployer = vm.addr(deployerPrivateKey);
         
         console.log("Deploying contracts with the account:", deployer);

@@ -33,17 +33,17 @@ deploy-base:
 	@echo "Deploying to Base Mainnet..."
 	@./deploy-base.sh
 	@echo "Updating ABI in config.js..."
-	@node scripts/update-abi.js
+	@node pwa/scripts/update-abi.js
 
 .PHONY: deploy-sepolia
 deploy-sepolia:
 	@echo "Deploying to Base Sepolia..."
-	@source .env && forge script script/Deploy.s.sol --rpc-url baseSepolia --broadcast --verify --etherscan-api-key $$ETHERSCAN_API_KEY --chain 84532
+	@source .env && forge script contracts/script/Deploy.s.sol --rpc-url baseSepolia --broadcast --verify --etherscan-api-key $$ETHERSCAN_API_KEY --chain 84532
 
 .PHONY: deploy-local
 deploy-local:
 	@echo "Deploying to local network..."
-	@source .env && forge script script/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast
+	@source .env && forge script contracts/script/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast
 
 # Установка зависимостей
 .PHONY: install
@@ -79,7 +79,13 @@ config:
 .PHONY: update-abi
 update-abi:
 	@echo "Updating ABI from Basescan..."
-	@node scripts/update-abi.js
+	@node pwa/scripts/update-abi.js
+
+# Заполнение контракта тестовыми данными
+.PHONY: populate-contract
+populate-contract:
+	@echo "Populating contract with test data..."
+	@node pwa/scripts/populate-contract-test-data.js
 
 # Помощь
 .PHONY: help
@@ -101,4 +107,5 @@ help:
 	@echo "  snapshot       - Создание gas snapshot"
 	@echo "  config         - Показать конфигурацию"
 	@echo "  update-abi     - Обновить ABI из Basescan"
+	@echo "  populate-contract - Заполнить контракт тестовыми данными"
 	@echo "  help           - Показать эту справку"

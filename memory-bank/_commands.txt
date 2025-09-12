@@ -10,7 +10,7 @@ make deploy-local           - локальное развертывание
 make clean                  - очистка артефактов
 
 ## Frontend
-cd frontend && python3 -m http.server 8081  - запуск локального сервера
+cd pwa/frontend && python3 -m http.server 8081  - запуск локального сервера
 open http://localhost:8081/auth-v2.html     - новая авторизация (с подписанием)
 open http://localhost:8081/main.html        - главная страница мессенджера
 
