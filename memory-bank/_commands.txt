@@ -1,7 +1,20 @@
 
-### Доступные команды:
+# Команды проекта CryptoMessenger
+
+## Разработка
 make build                  - компиляция
-make test                   - тестирование
+make test                   - тестирование (18/18 тестов проходят)
 make deploy-base            - развертывание в Base Mainnet
 make deploy-sepolia         - развертывание в Base Sepolia
 make deploy-local           - локальное развертывание
+make clean                  - очистка артефактов
+
+## Frontend
+cd frontend && python3 -m http.server 8080  - запуск локального сервера
+open http://localhost:8080/auth.html        - страница авторизации
+open http://localhost:8080/regpub.html      - регистрация ключа
+
+## Контракт
+- Адрес: 0xc8F47D1A4018D3e4Df136832d42c479A2C5eB4df
+- Сеть: Base Mainnet
+- Верификация: https://basescan.org/address/0xc8f47d1a4018d3e4df136832d42c479a2c5eb4df
