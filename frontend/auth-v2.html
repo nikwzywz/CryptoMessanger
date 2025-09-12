@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CryptoMessenger - Авторизация v2</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+        }
+
+        .auth-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 1.1rem;
+        }
+
+        .step {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 2px solid #f0f0f0;
+            border-radius: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .step.active {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        .step.completed {
+            border-color: #28a745;
+            background: #f0fff4;
+        }
+
+        .step-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .step-description {
+            color: #666;
+            margin-bottom: 15px;
+            font-size: 0.95rem;
+        }
+
+        .wallet-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 0.9rem;
+            word-break: break-all;
+        }
+
+        .signature-message {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 0.9rem;
+            border-left: 4px solid #2196f3;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px;
+            min-width: 200px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+            opacity: 0.6;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #e83e8c 100%);
+        }
+
+        .status {
+            margin: 15px 0;
+            padding: 10px;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #f0f0f0;
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s ease;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .key-display {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 0.8rem;
+            word-break: break-all;
+            border: 1px solid #e9ecef;
+        }
+
+        .security-note {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="logo">🔐 CryptoMessenger</div>
+        <div class="subtitle">Децентрализованный мессенджер с end-to-end шифрованием</div>
+        
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+        </div>
+
+        <!-- Шаг 1: Подключение кошелька -->
+        <div class="step active" id="step1">
+            <div class="step-title">1. Подключение кошелька</div>
+            <div class="step-description">
+                Подключите ваш MetaMask кошелек для авторизации
+            </div>
+            <button class="btn" id="connectWalletBtn">
+                Подключить MetaMask
+            </button>
+            <div class="status hidden" id="step1Status"></div>
+        </div>
+
+        <!-- Шаг 2: Проверка сети -->
+        <div class="step" id="step2">
+            <div class="step-title">2. Проверка сети</div>
+            <div class="step-description">
+                Проверяем, что кошелек подключен к сети Base
+            </div>
+            <button class="btn" id="checkNetworkBtn" disabled>Проверить сеть</button>
+            <div class="status hidden" id="networkStatus"></div>
+        </div>
+
+        <!-- Шаг 3: Подписание сообщения -->
+        <div class="step" id="step3">
+            <div class="step-title">3. Подтверждение владения</div>
+            <div class="step-description">
+                Подпишите сообщение для подтверждения владения кошельком
+            </div>
+            <div class="signature-message" id="signatureMessage">
+                I confirm that I am the owner of this wallet for CryptoMessenger
+            </div>
+            <button class="btn" id="signMessageBtn" disabled>
+                Подписать сообщение
+            </button>
+            <div class="status hidden" id="step3Status"></div>
+        </div>
+
+        <!-- Шаг 4: Генерация ключей -->
+        <div class="step" id="step4">
+            <div class="step-title">4. Генерация ключей шифрования</div>
+            <div class="step-description">
+                На основе подписи генерируются ключи для шифрования сообщений
+            </div>
+            <button class="btn" id="generateKeysBtn" disabled>
+                Сгенерировать ключи
+            </button>
+            <div class="status hidden" id="step4Status"></div>
+            <div class="key-display hidden" id="keyDisplay"></div>
+        </div>
+
+        <!-- Шаг 5: Регистрация в контракте -->
+        <div class="step" id="step5">
+            <div class="step-title">5. Регистрация в контракте</div>
+            <div class="step-description">
+                Регистрация публичного ключа в смарт-контракте
+            </div>
+            <button class="btn" id="registerBtn" disabled>
+                Зарегистрироваться
+            </button>
+            <div class="status hidden" id="step5Status"></div>
+        </div>
+
+        <!-- Шаг 6: Завершение -->
+        <div class="step" id="step6">
+            <div class="step-title">6. Готово!</div>
+            <div class="step-description">
+                Авторизация завершена. Переходим к мессенджеру
+            </div>
+            <button class="btn btn-success" id="goToMessengerBtn" disabled>
+                Открыть мессенджер
+            </button>
+            <div class="status hidden" id="step6Status"></div>
+        </div>
+
+        <div class="security-note">
+            <strong>🔒 Безопасность:</strong> Ваши ключи шифрования генерируются локально и никогда не передаются на сервер. 
+            Только вы можете расшифровать ваши сообщения.
+        </div>
+    </div>
+
+    <script src="lib/web3.min.js"></script>
+    <script src="lib/crypto-js.min.js"></script>
+    <script src="config.js"></script>
+    <script>
+        // Версия приложения
+        const APP_VERSION = '1.0.0';
+        console.log(`CryptoMessenger v${APP_VERSION} - Auth v2 Loaded`);
+
+        // Состояние приложения
+        let userAddress = null;
+        let signature = null;
+        let encryptionKeys = null;
+        let contract = null;
+
+        // Адрес контракта (Base Mainnet)
+        const CONTRACT_ADDRESS = window.CryptoMessengerConfig.contractAddress;
+        const CONTRACT_ABI = window.CryptoMessengerConfig.contractABI;
+        
+        console.log('🔧 CONTRACT_ADDRESS:', CONTRACT_ADDRESS);
+        console.log('🔧 CONTRACT_ABI loaded:', CONTRACT_ABI ? 'Yes' : 'No');
+        console.log('🔧 ABI functions count:', CONTRACT_ABI ? CONTRACT_ABI.filter(item => item.type === 'function').length : 0);
+
+        // Элементы DOM
+        const elements = {
+            connectBtn: document.getElementById('connectWalletBtn'),
+            signBtn: document.getElementById('signMessageBtn'),
+            generateBtn: document.getElementById('generateKeysBtn'),
+            registerBtn: document.getElementById('registerBtn'),
+            goToMessengerBtn: document.getElementById('goToMessengerBtn'),
+            progressFill: document.getElementById('progressFill'),
+            signatureMessage: document.getElementById('signatureMessage'),
+            keyDisplay: document.getElementById('keyDisplay')
+        };
+
+        // Инициализация
+        document.addEventListener('DOMContentLoaded', function() {
+            checkWalletConnection();
+            setupEventListeners();
+        });
+
+        function setupEventListeners() {
+            document.getElementById('checkNetworkBtn').addEventListener('click', checkNetwork);
+            elements.connectBtn.addEventListener('click', connectWallet);
+            elements.signBtn.addEventListener('click', signMessage);
+            elements.generateBtn.addEventListener('click', generateEncryptionKeys);
+            elements.registerBtn.addEventListener('click', registerInContract);
+            elements.goToMessengerBtn.addEventListener('click', goToMessenger);
+        }
+
+        async function checkNetwork() {
+            try {
+                const btn = document.getElementById('checkNetworkBtn');
+                btn.innerHTML = '<span class="loading"></span> Проверка...';
+                btn.disabled = true;
+
+                const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                const expectedChainId = window.CryptoMessengerConfig.network.chainId;
+
+                console.log('🌐 Текущая сеть:', chainId, 'Ожидаемая:', expectedChainId);
+
+                if (chainId === expectedChainId) {
+                    completeStep('step2');
+                    showStatus('networkStatus', 'success', '✅ Подключены к сети Base');
+                    document.getElementById('step3').classList.add('active');
+                    document.getElementById('signMessageBtn').disabled = false;
+                    updateProgress(40);
+                } else {
+                    showStatus('networkStatus', 'error', '❌ Неправильная сеть. Переключитесь на Base');
+                    showSwitchNetworkButton();
+                }
+            } catch (error) {
+                console.error('Ошибка проверки сети:', error);
+                showStatus('networkStatus', 'error', 'Ошибка проверки сети: ' + error.message);
+            } finally {
+                const btn = document.getElementById('checkNetworkBtn');
+                btn.innerHTML = 'Проверить сеть';
+                btn.disabled = false;
+            }
+        }
+
+        function showSwitchNetworkButton() {
+            const status = document.getElementById('networkStatus');
+            status.innerHTML += '<br><button class="btn btn-danger" onclick="window.ethereum.request({method: \'wallet_switchEthereumChain\', params: [{chainId: \'0x2105\'}]})">Переключиться на Base</button>';
+        }
+
+        async function checkWalletConnection() {
+            if (typeof window.ethereum !== 'undefined') {
+                try {
+                    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                    if (accounts.length > 0) {
+                        userAddress = accounts[0];
+                        showStatus('step1Status', 'success', `Кошелек уже подключен: ${userAddress.substring(0, 6)}...${userAddress.substring(38)}`);
+                        elements.connectBtn.disabled = true;
+                        elements.connectBtn.innerHTML = 'Кошелек подключен';
+                        elements.connectBtn.style.opacity = '0.6';
+                        elements.connectBtn.style.cursor = 'not-allowed';
+                        completeStep('step1');
+                        enableStep('step2');
+                        document.getElementById('checkNetworkBtn').disabled = false;
+                        updateProgress(20);
+                        return true;
+                    }
+                } catch (error) {
+                    console.error('Ошибка проверки подключения:', error);
+                }
+            } else {
+                showStatus('step1Status', 'error', 'MetaMask не установлен');
+            }
+            return false;
+        }
+
+        async function connectWallet() {
+            try {
+                showStatus('step1Status', 'info', 'Подключение к MetaMask...');
+                elements.connectBtn.disabled = true;
+                elements.connectBtn.innerHTML = '<div class="loading"></div>Подключение...';
+
+                const accounts = await window.ethereum.request({ 
+                    method: 'eth_requestAccounts' 
+                });
+
+                if (accounts.length > 0) {
+                    userAddress = accounts[0];
+                    showStatus('step1Status', 'success', `Кошелек подключен: ${userAddress.substring(0, 6)}...${userAddress.substring(38)}`);
+                    elements.connectBtn.disabled = true;
+                    elements.connectBtn.innerHTML = 'Кошелек подключен';
+                    elements.connectBtn.style.opacity = '0.6';
+                    elements.connectBtn.style.cursor = 'not-allowed';
+                    completeStep('step1');
+                    enableStep('step2');
+                    document.getElementById('checkNetworkBtn').disabled = false;
+                    updateProgress(20);
+                }
+            } catch (error) {
+                console.error('Ошибка подключения:', error);
+                showStatus('step1Status', 'error', 'Ошибка подключения к кошельку');
+                elements.connectBtn.disabled = false;
+                elements.connectBtn.innerHTML = 'Подключить MetaMask';
+                elements.connectBtn.style.opacity = '1';
+                elements.connectBtn.style.cursor = 'pointer';
+            }
+        }
+
+        async function signMessage() {
+            try {
+                showStatus('step3Status', 'info', 'Подписание сообщения...');
+                elements.signBtn.disabled = true;
+                elements.signBtn.innerHTML = '<div class="loading"></div>Подписание...';
+
+                const message = "I confirm that I am the owner of this wallet for CryptoMessenger";
+                signature = await window.ethereum.request({
+                    method: 'personal_sign',
+                    params: [message, userAddress]
+                });
+
+                showStatus('step3Status', 'success', 'Сообщение подписано успешно');
+                elements.signBtn.innerHTML = 'Подписать сообщение';
+                completeStep('step3');
+                enableStep('step4');
+                updateProgress(60);
+            } catch (error) {
+                console.error('Ошибка подписания:', error);
+                showStatus('step3Status', 'error', 'Ошибка подписания сообщения');
+                elements.signBtn.disabled = false;
+                elements.signBtn.innerHTML = 'Подписать сообщение';
+            }
+        }
+
+        function generateEncryptionKeys() {
+            try {
+                showStatus('step4Status', 'info', 'Генерация ключей...');
+                elements.generateBtn.disabled = true;
+                elements.generateBtn.innerHTML = '<div class="loading"></div>Генерация...';
+
+                // Используем подпись как источник энтропии
+                const seed = CryptoJS.SHA256(signature).toString();
+                const privateKey = CryptoJS.SHA256(seed + userAddress).toString();
+                
+                // Генерируем публичный ключ (упрощенная версия)
+                const publicKey = CryptoJS.SHA256(privateKey + 'public').toString();
+
+                encryptionKeys = {
+                    privateKey: privateKey,
+                    publicKey: publicKey,
+                    address: userAddress
+                };
+
+                // Сохраняем в localStorage
+                localStorage.setItem('cryptoMessengerKeys', JSON.stringify(encryptionKeys));
+                localStorage.setItem('cryptoMessengerAddress', userAddress);
+
+                showStatus('step4Status', 'success', 'Ключи сгенерированы и сохранены');
+                elements.generateBtn.innerHTML = 'Сгенерировать ключи';
+                elements.keyDisplay.innerHTML = `
+                    <strong>Публичный ключ:</strong><br>
+                    ${publicKey.substring(0, 50)}...<br><br>
+                    <strong>Приватный ключ:</strong><br>
+                    ${privateKey.substring(0, 50)}...
+                `;
+                elements.keyDisplay.classList.remove('hidden');
+
+                completeStep('step4');
+                enableStep('step5');
+                updateProgress(80);
+            } catch (error) {
+                console.error('Ошибка генерации ключей:', error);
+                showStatus('step4Status', 'error', 'Ошибка генерации ключей');
+                elements.generateBtn.disabled = false;
+                elements.generateBtn.innerHTML = 'Сгенерировать ключи';
+            }
+        }
+
+        async function registerInContract() {
+            try {
+                showStatus('step5Status', 'info', 'Регистрация в контракте...');
+                elements.registerBtn.disabled = true;
+                elements.registerBtn.innerHTML = '<div class="loading"></div>Регистрация...';
+
+                // Инициализация Web3
+                const web3 = new Web3(window.ethereum);
+                contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
+
+                // Проверяем, не зарегистрирован ли уже пользователь
+                const isRegistered = await contract.methods.isUserRegistered(userAddress).call();
+                
+                if (isRegistered) {
+                    showStatus('step5Status', 'success', 'Пользователь уже зарегистрирован');
+                } else {
+                    // Регистрируем публичный ключ
+                    const publicKeyHex = '0x' + encryptionKeys.publicKey;
+                    
+                    console.log('🔑 Регистрируем публичный ключ:', publicKeyHex);
+                    console.log('📊 Длина ключа:', publicKeyHex.length);
+                    
+                    try {
+                        const result = await contract.methods.registerPublicKey(publicKeyHex).send({
+                            from: userAddress,
+                            gas: 300000,
+                            gasPrice: '20000000000' // 20 gwei
+                        });
+                        
+                        console.log('✅ Результат регистрации:', result);
+                        showStatus('step5Status', 'success', 'Регистрация в контракте завершена');
+                    } catch (sendError) {
+                        console.error('❌ Ошибка при отправке транзакции:', sendError);
+                        throw sendError;
+                    }
+                }
+
+                elements.registerBtn.innerHTML = 'Зарегистрироваться';
+                completeStep('step5');
+                enableStep('step6');
+                updateProgress(100);
+            } catch (error) {
+                console.error('Ошибка регистрации:', error);
+                showStatus('step5Status', 'error', 'Ошибка регистрации в контракте');
+                elements.registerBtn.disabled = false;
+                elements.registerBtn.innerHTML = 'Зарегистрироваться';
+            }
+        }
+
+        function goToMessenger() {
+            showStatus('step6Status', 'success', 'Переход к мессенджеру...');
+            updateProgress(100);
+            
+            setTimeout(() => {
+                window.location.href = 'main.html';
+            }, 1000);
+        }
+
+        function completeStep(stepId) {
+            const step = document.getElementById(stepId);
+            step.classList.remove('active');
+            step.classList.add('completed');
+        }
+
+        function enableStep(stepId) {
+            const step = document.getElementById(stepId);
+            step.classList.add('active');
+            
+            const button = step.querySelector('button');
+            if (button) {
+                button.disabled = false;
+            }
+        }
+
+        function showStatus(elementId, type, message) {
+            const statusElement = document.getElementById(elementId);
+            statusElement.className = `status ${type}`;
+            statusElement.textContent = message;
+            statusElement.classList.remove('hidden');
+        }
+
+        function updateProgress(percent) {
+            elements.progressFill.style.width = percent + '%';
+        }
+
+        // Обработка изменений аккаунта
+        if (window.ethereum) {
+            window.ethereum.on('accountsChanged', function(accounts) {
+                if (accounts.length === 0) {
+                    // Пользователь отключил кошелек
+                    location.reload();
+                } else {
+                    // Пользователь сменил аккаунт
+                    location.reload();
+                }
+            });
+        }
+    </script>
+</body>
+</html>

@@ -32,6 +32,8 @@ lint:
 deploy-base:
 	@echo "Deploying to Base Mainnet..."
 	@./deploy-base.sh
+	@echo "Updating ABI in config.js..."
+	@node scripts/update-abi.js
 
 .PHONY: deploy-sepolia
 deploy-sepolia:
@@ -73,6 +75,12 @@ snapshot:
 config:
 	forge config
 
+# Обновление ABI
+.PHONY: update-abi
+update-abi:
+	@echo "Updating ABI from Basescan..."
+	@node scripts/update-abi.js
+
 # Помощь
 .PHONY: help
 help:
@@ -92,4 +100,5 @@ help:
 	@echo "  coverage       - Проверка покрытия тестами"
 	@echo "  snapshot       - Создание gas snapshot"
 	@echo "  config         - Показать конфигурацию"
+	@echo "  update-abi     - Обновить ABI из Basescan"
 	@echo "  help           - Показать эту справку"

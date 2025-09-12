@@ -10,9 +10,13 @@ make deploy-local           - локальное развертывание
 make clean                  - очистка артефактов
 
 ## Frontend
-cd frontend && python3 -m http.server 8080  - запуск локального сервера
-open http://localhost:8080/auth.html        - страница авторизации
-open http://localhost:8080/regpub.html      - регистрация ключа
+cd frontend && python3 -m http.server 8081  - запуск локального сервера
+open http://localhost:8081/auth-v2.html     - новая авторизация (с подписанием)
+open http://localhost:8081/main.html        - главная страница мессенджера
+
+## ABI Management
+make update-abi          - обновить ABI из Basescan
+node scripts/update-abi.js  - прямой вызов скрипта обновления ABI
 
 ## Контракт
 - Адрес: 0xc8F47D1A4018D3e4Df136832d42c479A2C5eB4df
