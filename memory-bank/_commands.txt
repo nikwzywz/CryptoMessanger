@@ -1,0 +1,7 @@
+
+### Доступные команды:
+make build                  - компиляция
+make test                   - тестирование
+make deploy-base            - развертывание в Base Mainnet
+make deploy-sepolia         - развертывание в Base Sepolia
+make deploy-local           - локальное развертывание
