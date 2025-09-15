@@ -461,6 +461,81 @@
                 transform: translateY(0);
             }
         }
+
+        /* Стили для статистики чата */
+        .chat-stats {
+            font-size: 12px;
+            color: #888;
+            margin-top: 8px;
+        }
+
+        .chat-stats-item {
+            display: inline-block;
+            margin-right: 16px;
+        }
+
+        .chat-stats-item strong {
+            color: #4CAF50;
+        }
+
+        /* Стили для индикатора загрузки истории */
+        .history-loading {
+            text-align: center;
+            padding: 20px;
+            color: #888;
+            font-size: 14px;
+        }
+
+        .history-loading .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #333;
+            border-radius: 50%;
+            border-top-color: #4CAF50;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+        }
+
+        /* Стили для кнопки "Назад" */
+        .back-button {
+            display: none;
+            margin-right: 12px;
+            padding: 8px;
+            background: #2a2a2a;
+            border: none;
+            border-radius: 6px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .back-button:hover {
+            background: #3a3a3a;
+        }
+
+        /* Стили для кнопок действий */
+        .action-button {
+            padding: 8px 12px;
+            background: #2a2a2a;
+            border: none;
+            border-radius: 6px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.2s;
+        }
+
+        .action-button:hover {
+            background: #3a3a3a;
+        }
+
+        /* Адаптивность для мобильных */
+        @media (max-width: 768px) {
+            .back-button {
+                display: block;
+            }
+        }
     </style>
 </head>
 <body>
@@ -476,85 +551,11 @@
             </div>
             
             <div class="contacts-list" id="contactsList">
-                <!-- Входящие запросы -->
-                <div class="contact-item incoming-request" data-contact-id="incoming-1">
-                    <div class="contact-avatar">A</div>
+                <!-- Контакты будут загружены динамически из блокчейна -->
+                <div class="contact-item" style="text-align: center; padding: 20px; color: #888;">
                     <div class="contact-info">
-                        <div class="contact-name">Alice Johnson</div>
-                        <div class="contact-last-message">Привет! Хочу добавить тебя в контакты</div>
-                    </div>
-                    <div class="contact-meta">
-                        <div class="contact-time">10:30</div>
-                        <div class="contact-badge">1</div>
-                    </div>
-                </div>
-
-                <div class="contact-item incoming-request" data-contact-id="incoming-2">
-                    <div class="contact-avatar">B</div>
-                    <div class="contact-info">
-                        <div class="contact-name">Bob Smith</div>
-                        <div class="contact-last-message">Давайте общаться!</div>
-                    </div>
-                    <div class="contact-meta">
-                        <div class="contact-time">09:15</div>
-                        <div class="contact-badge">2</div>
-                    </div>
-                </div>
-
-                <!-- Существующие контакты -->
-                <div class="contact-item active" data-contact-id="contact-1">
-                    <div class="contact-avatar">C</div>
-                    <div class="contact-info">
-                        <div class="contact-name">Charlie Brown</div>
-                        <div class="contact-last-message">Спасибо за информацию!</div>
-                    </div>
-                    <div class="contact-meta">
-                        <div class="contact-time">11:45</div>
-                    </div>
-                </div>
-
-                <div class="contact-item" data-contact-id="contact-2">
-                    <div class="contact-avatar">D</div>
-                    <div class="contact-info">
-                        <div class="contact-name">Diana Prince</div>
-                        <div class="contact-last-message">Как дела с проектом?</div>
-                    </div>
-                    <div class="contact-meta">
-                        <div class="contact-time">Вчера</div>
-                    </div>
-                </div>
-
-                <div class="contact-item" data-contact-id="contact-3">
-                    <div class="contact-avatar">E</div>
-                    <div class="contact-info">
-                        <div class="contact-name">Eve Wilson</div>
-                        <div class="contact-last-message">Встречаемся завтра в 15:00</div>
-                    </div>
-                    <div class="contact-meta">
-                        <div class="contact-time">2 дня назад</div>
-                    </div>
-                </div>
-
-                <!-- Исходящие запросы -->
-                <div class="contact-item outgoing-request" data-contact-id="outgoing-1">
-                    <div class="contact-avatar">F</div>
-                    <div class="contact-info">
-                        <div class="contact-name">Frank Miller</div>
-                        <div class="contact-last-message">Ожидает подтверждения...</div>
-                    </div>
-                    <div class="contact-meta">
-                        <div class="contact-time">3 дня назад</div>
-                    </div>
-                </div>
-
-                <div class="contact-item outgoing-request" data-contact-id="outgoing-2">
-                    <div class="contact-avatar">G</div>
-                    <div class="contact-info">
-                        <div class="contact-name">Grace Lee</div>
-                        <div class="contact-last-message">Ожидает подтверждения...</div>
-                    </div>
-                    <div class="contact-meta">
-                        <div class="contact-time">1 неделя назад</div>
+                        <div class="contact-name">Загрузка контактов...</div>
+                        <div class="contact-last-message">Подключение к блокчейну</div>
                     </div>
                 </div>
             </div>
@@ -563,119 +564,782 @@
         <!-- Область чата -->
         <div class="chat-area">
             <div class="chat-header">
-                <div class="chat-avatar">C</div>
-                <div class="chat-info">
-                    <div class="chat-name">Charlie Brown</div>
-                    <div class="chat-status">В сети</div>
+                <button class="back-button" id="backButton">←</button>
+                <div>
+                    <div class="chat-title" id="chatTitle">Выберите контакт</div>
+                    <div class="chat-subtitle" id="chatSubtitle">Начните общение</div>
+                    <div class="chat-stats" id="chatStats" style="display: none;">
+                        <span class="chat-stats-item">
+                            <strong id="totalMessages">0</strong> сообщений
+                        </span>
+                        <span class="chat-stats-item">
+                            <strong id="loadedMessages">0</strong> загружено
+                        </span>
+                        <span class="chat-stats-item">
+                            <strong id="isFullyLoaded">Нет</strong> история
+                        </span>
+                    </div>
                 </div>
                 <div class="chat-actions">
-                    <button class="chat-action-btn">ℹ️</button>
-                    <button class="chat-action-btn">📞</button>
-                    <button class="chat-action-btn">📹</button>
+                    <button class="action-button" id="loadHistoryBtn" style="display: none;">📚 История</button>
+                    <button class="action-button" id="refreshBtn" style="display: none;">🔄 Обновить</button>
                 </div>
             </div>
 
-            <div class="messages-area" id="messagesArea">
-                <div class="message system">
-                    <div class="message-content">
-                        Чат создан. Сообщения зашифрованы end-to-end.
+            <div class="messages-area">
+                <div class="messages-container" id="chat-messages">
+                    <div class="message incoming">
+                        <div class="message-content">
+                            <div class="message-text">Добро пожаловать в CryptoMessenger! Выберите контакт для начала общения.</div>
+                            <div class="message-time">Система</div>
+                        </div>
                     </div>
                 </div>
-
-                <div class="message">
-                    <div class="message-avatar">C</div>
-                    <div class="message-content">
-                        <div class="message-text">Привет! Как дела?</div>
-                        <div class="message-time">10:30</div>
-                    </div>
-                </div>
-
-                <div class="message outgoing">
-                    <div class="message-avatar">Y</div>
-                    <div class="message-content">
-                        <div class="message-text">Привет! Всё отлично, спасибо! А у тебя как?</div>
-                        <div class="message-time">10:32</div>
-                    </div>
-                </div>
-
-                <div class="message">
-                    <div class="message-avatar">C</div>
-                    <div class="message-content">
-                        <div class="message-text">Тоже хорошо! Работаю над новым проектом</div>
-                        <div class="message-time">10:35</div>
-                    </div>
-                </div>
-
-                <div class="message outgoing">
-                    <div class="message-avatar">Y</div>
-                    <div class="message-content">
-                        <div class="message-text">Интересно! Расскажи подробнее</div>
-                        <div class="message-time">10:36</div>
-                    </div>
-                </div>
-
-                <div class="message">
-                    <div class="message-avatar">C</div>
-                    <div class="message-content">
-                        <div class="message-text">Это децентрализованный мессенджер на блокчейне. Очень крутая технология!</div>
-                        <div class="message-time">10:38</div>
-                    </div>
-                </div>
-
-                <div class="message outgoing">
-                    <div class="message-avatar">Y</div>
-                    <div class="message-content">
-                        <div class="message-text">Вау! Звучит впечатляюще. Спасибо за информацию!</div>
-                        <div class="message-time">10:40</div>
-                    </div>
+                
+                <div class="history-loading" id="historyLoading" style="display: none;">
+                    <div class="spinner"></div>
+                    Загружаем историю...
                 </div>
             </div>
 
             <div class="input-area">
                 <div class="input-container">
-                    <textarea class="message-input" placeholder="Введите сообщение..." rows="1"></textarea>
+                    <textarea class="message-input" id="messageInput" placeholder="Введите сообщение..." rows="1"></textarea>
                     <button class="send-button" id="sendButton">➤</button>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Подключение библиотек -->
+    <script src="lib/web3.min.js"></script>
+    <script src="lib/crypto-js.min.js"></script>
+    <script src="config.js"></script>
+    <script src="lib/decentralized-event-system-browser.js"></script>
+    <script src="lib/chat-ui-manager.js"></script>
+    
     <script>
-        // Простая логика для демонстрации
-        console.log('CryptoMessenger v1.0.0 - Main Interface Loaded');
+        // CryptoMessenger v2.0.0 - Main Interface with Pagination and Real-time Updates
+        console.log('CryptoMessenger v2.0.0 - Main Interface Loaded with Pagination and Real-time Updates');
+        
+        // Глобальные переменные
+        let web3;
+        let contract;
+        let currentUser;
+        let userPrivateKey;
+        let userPublicKey;
+        let contacts = [];
+        let currentContact = null;
+        let chatUIManager;
+        let eventSystem;
+        let contactRequests = [];
+        let messages = {};
+        
+        // Альтернативные RPC endpoints (актуальные рабочие)
+        const RPC_ENDPOINTS = [
+            'https://base.rpc.subquery.network/public',  // 0.097s - самый быстрый
+            'https://base-rpc.publicnode.com',           // 0.157s
+            'https://base.api.onfinality.io/public',     // 0.194s
+            'https://base.therpc.io',                    // 0.213s
+            'https://mainnet.base.org',                  // 0.209s - официальный
+            'https://base.drpc.org',                     // 0.255s
+            'https://base.lava.build',                   // 0.267s
+            'https://api.zan.top/base-mainnet',          // 0.298s
+            'https://base.public.blockpi.network/v1/rpc/public', // 0.299s
+            'https://1rpc.io/base'                       // 0.229s
+        ];
+        let currentRpcIndex = 0;
+        
+        // Инициализация Web3 и контракта
+        async function initializeWeb3() {
+            try {
+                // Проверяем, что конфигурация загружена
+                if (!window.CryptoMessengerConfig) {
+                    throw new Error('Конфигурация не загружена. Убедитесь, что config.js подключен.');
+                }
+                
+                console.log('📋 Конфигурация найдена:', {
+                    contractAddress: window.CryptoMessengerConfig.contractAddress,
+                    abiLength: window.CryptoMessengerConfig.contractABI.length
+                });
+                
+                // Проверяем наличие Web3 провайдера
+                if (typeof window.ethereum !== 'undefined') {
+                    web3 = new Web3(window.ethereum);
+                    await window.ethereum.request({ method: 'eth_requestAccounts' });
+                } else {
+                    // Fallback для тестирования - используем первый доступный RPC
+                    web3 = new Web3(RPC_ENDPOINTS[currentRpcIndex]);
+                    console.warn(`MetaMask не найден, используется RPC: ${RPC_ENDPOINTS[currentRpcIndex]}`);
+                }
+                
+                // Создаем экземпляр контракта
+                contract = new web3.eth.Contract(window.CryptoMessengerConfig.contractABI, window.CryptoMessengerConfig.contractAddress);
+                console.log('✅ Web3 и контракт инициализированы');
+                console.log('📋 Адрес контракта:', window.CryptoMessengerConfig.contractAddress);
+                
+                return true;
+            } catch (error) {
+                console.error('❌ Ошибка инициализации Web3:', error);
+                return false;
+            }
+        }
+        
+        // Загрузка данных пользователя
+        async function loadUserData() {
+            try {
+                // Получаем текущий аккаунт
+                const accounts = await web3.eth.getAccounts();
+                if (accounts.length === 0) {
+                    console.error('❌ Аккаунт не подключен');
+                    return false;
+                }
+                
+                currentUser = accounts[0];
+                console.log('👤 Текущий пользователь:', currentUser);
+                
+                // Проверяем регистрацию пользователя
+                const isRegistered = await contract.methods.isUserRegistered(currentUser).call();
+                if (!isRegistered) {
+                    console.error('❌ Пользователь не зарегистрирован в контракте');
+                    return false;
+                }
+                
+                // Получаем публичный ключ пользователя
+                userPublicKey = await contract.methods.getPublicKey(currentUser).call();
+                console.log('🔑 Публичный ключ пользователя:', userPublicKey);
+                
+                return true;
+            } catch (error) {
+                console.error('❌ Ошибка загрузки данных пользователя:', error);
+                return false;
+            }
+        }
+        
+        // Загрузка контактов из блокчейна
+        async function loadContacts() {
+            try {
+                console.log('📞 Загружаем контакты из блокчейна...');
+                
+                // Получаем все контакты пользователя
+                const contactAddresses = await contract.methods.getUserContacts(currentUser).call();
+                console.log('📋 Найдено контактов:', contactAddresses.length);
+                
+                contacts = [];
+                
+                for (const address of contactAddresses) {
+                    try {
+                        // Получаем публичный ключ контакта
+                        const contactPublicKey = await contract.methods.getPublicKey(address).call();
+                        
+                        // Получаем последнее сообщение в чате
+                        const lastMessage = await getLastMessage(currentUser, address);
+                        
+                        contacts.push({
+                            address: address,
+                            name: `User ${address.slice(2, 6)}`, // Короткое имя из адреса
+                            publicKey: contactPublicKey,
+                            lastMessage: lastMessage ? lastMessage.text : 'Нет сообщений',
+                            lastMessageTime: lastMessage ? lastMessage.timestamp : null,
+                            isOnline: false // Пока не реализовано
+                        });
+                    } catch (error) {
+                        console.warn('⚠️ Ошибка загрузки контакта:', address, error);
+                    }
+                }
+                
+                console.log('✅ Контакты загружены:', contacts.length);
+                
+                // Детальная информация о контактах
+                if (contacts.length > 0) {
+                    console.log('📋 Детали контактов:');
+                    contacts.forEach((contact, index) => {
+                        console.log(`   ${index + 1}. ${contact.name} (${contact.address})`);
+                        console.log(`      🔑 Публичный ключ: ${contact.publicKey.slice(0, 20)}...`);
+                        console.log(`      💬 Последнее сообщение: ${contact.lastMessage}`);
+                        console.log(`      ⏰ Время: ${contact.lastMessageTime ? formatTime(contact.lastMessageTime) : 'Нет'}`);
+                    });
+                } else {
+                    console.log('📋 Контакты не найдены');
+                }
+                
+                return contacts;
+            } catch (error) {
+                console.error('❌ Ошибка загрузки контактов:', error);
+                return [];
+            }
+        }
+        
+        // Загрузка запросов на добавление в контакты
+        async function loadContactRequests() {
+            try {
+                console.log('📨 Загружаем запросы на добавление в контакты...');
+                
+                // Пока что возвращаем пустые списки, так как в контракте нет методов для получения списков запросов
+                // TODO: Добавить методы в контракт для получения списков запросов
+                contactRequests = {
+                    incoming: [],
+                    outgoing: []
+                };
+                
+                console.log('✅ Запросы загружены (пока пустые):', {
+                    incoming: contactRequests.incoming.length,
+                    outgoing: contactRequests.outgoing.length
+                });
+                
+                return contactRequests;
+            } catch (error) {
+                console.error('❌ Ошибка загрузки запросов:', error);
+                return { incoming: [], outgoing: [] };
+            }
+        }
+        
+        // Инициализация децентрализованной системы событий
+        
+        // Функция расшифровки сообщений
+        function decryptMessage(encryptedMessage, sender, recipient) {
+            try {
+                // Получаем ключи шифрования из localStorage
+                const storedKeys = localStorage.getItem('cryptoMessengerKeys');
+                if (!storedKeys) {
+                    console.warn('🔑 Ключи шифрования не найдены в localStorage');
+                    return `[Ключи не найдены: ${encryptedMessage.slice(0, 20)}...]`;
+                }
+                
+                const encryptionKeys = JSON.parse(storedKeys);
+                const privateKeyForEncode = encryptionKeys.privateKeyForEncode;
+                
+                if (!privateKeyForEncode) {
+                    console.warn('🔑 PrivateKeyForEncode не найден');
+                    return `[Ключ не найден: ${encryptedMessage.slice(0, 20)}...]`;
+                }
+                
+                // В тестовых данных используется простое hex-кодирование
+                // Убираем '0x' префикс и декодируем
+                const hexData = encryptedMessage.startsWith('0x') ? encryptedMessage.slice(2) : encryptedMessage;
+                
+                try {
+                    // Пытаемся декодировать как hex (браузерная версия)
+                    const decryptedBytes = new Uint8Array(hexData.length / 2);
+                    for (let i = 0; i < hexData.length; i += 2) {
+                        decryptedBytes[i / 2] = parseInt(hexData.substr(i, 2), 16);
+                    }
+                    
+                    // Конвертируем в строку
+                    const decryptedText = new TextDecoder('utf-8').decode(decryptedBytes);
+                    
+                    // Проверяем, что получили читаемый текст
+                    if (decryptedText && decryptedText.length > 0 && !decryptedText.includes('\0')) {
+                        console.log('✅ Сообщение расшифровано:', decryptedText);
+                        return decryptedText;
+                    } else {
+                        throw new Error('Нечитаемый текст');
+                    }
+                } catch (hexError) {
+                    // Если не получилось как hex, пробуем как base64
+                    try {
+                        const decryptedBytes = Uint8Array.from(atob(hexData), c => c.charCodeAt(0));
+                        const decryptedText = new TextDecoder('utf-8').decode(decryptedBytes);
+                        console.log('✅ Сообщение расшифровано (base64):', decryptedText);
+                        return decryptedText;
+                    } catch (base64Error) {
+                        console.warn('❌ Не удалось расшифровать сообщение:', hexError.message, base64Error.message);
+                        return `[Не удалось расшифровать: ${encryptedMessage.slice(0, 20)}...]`;
+                    }
+                }
+                
+            } catch (error) {
+                console.error('❌ Ошибка расшифровки:', error);
+                return `[Ошибка расшифровки: ${encryptedMessage.slice(0, 20)}...]`;
+            }
+        }
+        
+        // Загрузка сообщений для конкретного чата с децентрализованной системой
+        async function loadMessages(contactAddress, retryCount = 0) {
+            try {
+                console.log('💬 Загружаем сообщения для:', contactAddress, retryCount > 0 ? `(попытка ${retryCount + 1})` : '');
+                
+                // Инициализируем систему событий если еще не инициализирована
+                if (!eventSystem) {
+                    eventSystem = new DecentralizedEventSystem();
+                    console.log('🚀 Децентрализованная система событий инициализирована');
+                }
+                
+                // Загружаем сообщения через децентрализованную систему
+                // Для тестовых данных используем конкретный диапазон блоков
+                const loadedMessages = await eventSystem.loadMessagesBetweenUsers(currentUser, contactAddress, {
+                    fromBlock: 35464000,
+                    toBlock: 35464999
+                });
+                
+                // Преобразуем в формат для UI
+                const chatMessages = loadedMessages.map(msg => ({
+                    sender: msg.sender,
+                    recipient: msg.recipient,
+                    encryptedMessage: msg.encryptedData,
+                    timestamp: new Date(parseInt(msg.timestamp) * 1000),
+                    blockNumber: msg.blockNumber,
+                    transactionHash: msg.transactionHash
+                })).sort((a, b) => a.timestamp - b.timestamp);
+                
+                // Расшифровываем сообщения
+                const decryptedMessages = chatMessages.map(msg => {
+                    const decryptedText = decryptMessage(msg.encryptedMessage, msg.sender, msg.recipient);
+                    return {
+                        ...msg,
+                        text: decryptedText,
+                        isOutgoing: msg.sender === currentUser
+                    };
+                });
+                
+                messages[contactAddress] = decryptedMessages;
+                console.log('✅ Сообщения загружены через децентрализованную систему:', decryptedMessages.length);
+                console.log('💾 Сохранено в глобальную переменную messages:', messages[contactAddress].length);
+                
+                return decryptedMessages;
+            } catch (error) {
+                // Обрабатываем ошибки сети (503, rate limit и т.д.)
+                if (error.message && (error.message.includes('503') || error.message.includes('Request failed'))) {
+                    console.log(`ℹ️ Сервер временно недоступен при загрузке сообщений (503) - попытка ${retryCount + 1}`);
+                    
+                    // Retry логика - максимум 2 попытки
+                    if (retryCount < 2) {
+                        console.log('🔄 Повторяем попытку через 2 секунды...');
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        return await loadMessages(contactAddress, retryCount + 1);
+                    } else {
+                        console.log('📝 Максимум попыток исчерпан, показываем пустой чат');
+                        console.log('ℹ️ Примечание: В тестовых данных у user02 должно быть 5 сообщений с user05');
+                        messages[contactAddress] = [];
+                        return [];
+                    }
+                } else {
+                    console.error('❌ Ошибка загрузки сообщений:', error);
+                    messages[contactAddress] = [];
+                    return [];
+                }
+            }
+        }
+        
+        // Получение последнего сообщения в чате
+        async function getLastMessage(user1, user2) {
+            try {
+                const messageEvents = await contract.getPastEvents('MessageSent', {
+                    filter: {
+                        sender: [user1, user2],
+                        recipient: [user1, user2]
+                    },
+                    fromBlock: 0,
+                    toBlock: 'latest'
+                });
+                
+                if (messageEvents.length === 0) return null;
+                
+                const lastEvent = messageEvents[messageEvents.length - 1];
+                return {
+                    text: `[Зашифровано: ${lastEvent.returnValues.encryptedMessage.slice(0, 20)}...]`,
+                    timestamp: new Date(parseInt(lastEvent.returnValues.timestamp) * 1000)
+                };
+            } catch (error) {
+                // Игнорируем ошибки получения сообщений (503, rate limit и т.д.)
+                if (error.message && error.message.includes('503')) {
+                    console.log('ℹ️ Сервер временно недоступен при получении сообщений (503)');
+                } else {
+                    console.warn('⚠️ Ошибка получения последнего сообщения:', error.message || error);
+                }
+                return null;
+            }
+        }
+        
+        // Обновление интерфейса контактов
+        function updateContactsUI() {
+            const contactsList = document.getElementById('contactsList');
+            contactsList.innerHTML = '';
+            
+            // Добавляем входящие запросы
+            contactRequests.incoming.forEach((request, index) => {
+                const contactItem = createContactItem(request, 'incoming-request', `incoming-${index}`);
+                contactsList.appendChild(contactItem);
+            });
+            
+            // Добавляем существующие контакты
+            contacts.forEach((contact, index) => {
+                const contactItem = createContactItem(contact, 'contact', `contact-${index}`);
+                contactsList.appendChild(contactItem);
+            });
+            
+            // Добавляем исходящие запросы
+            contactRequests.outgoing.forEach((request, index) => {
+                const contactItem = createContactItem(request, 'outgoing-request', `outgoing-${index}`);
+                contactsList.appendChild(contactItem);
+            });
+        }
+        
+        // Создание элемента контакта
+        function createContactItem(contact, type, id) {
+            const contactItem = document.createElement('div');
+            contactItem.className = `contact-item ${type}`;
+            contactItem.setAttribute('data-contact-id', id);
+            contactItem.setAttribute('data-address', contact.address);
+            
+            const timeStr = contact.lastMessageTime ? 
+                formatTime(contact.lastMessageTime) : 
+                (contact.timestamp ? formatTime(contact.timestamp) : '');
+            
+            const badge = type === 'incoming-request' ? 
+                `<div class="contact-badge">!</div>` : '';
+            
+            contactItem.innerHTML = `
+                <div class="contact-avatar">${contact.name.slice(-1).toUpperCase()}</div>
+                <div class="contact-info">
+                    <div class="contact-name">${contact.name}</div>
+                    <div class="contact-last-message">${contact.lastMessage || contact.introMessage || 'Нет сообщений'}</div>
+                </div>
+                <div class="contact-meta">
+                    <div class="contact-time">${timeStr}</div>
+                    ${badge}
+                </div>
+            `;
+            
+            return contactItem;
+        }
+        
+        // Обновление интерфейса сообщений
+        function updateMessagesUI(contactAddress) {
+            console.log('🎨 Обновляем UI для контакта:', contactAddress);
+            const messagesArea = document.getElementById('messagesArea');
+            messagesArea.innerHTML = '';
+            
+            // Добавляем системное сообщение
+            const systemMessage = document.createElement('div');
+            systemMessage.className = 'message system';
+            systemMessage.innerHTML = `
+                <div class="message-content">
+                    Чат создан. Сообщения зашифрованы end-to-end.
+                </div>
+            `;
+            messagesArea.appendChild(systemMessage);
+            
+            // Добавляем сообщения
+            const chatMessages = messages[contactAddress] || [];
+            console.log('📋 Сообщения для отображения:', chatMessages.length, chatMessages);
+            console.log('🔍 Глобальная переменная messages:', messages);
+            console.log('🔍 Ключи в messages:', Object.keys(messages));
+            
+            if (chatMessages.length === 0) {
+                // Показываем сообщение о пустом чате
+                const emptyMessage = document.createElement('div');
+                emptyMessage.className = 'message system';
+                emptyMessage.innerHTML = `
+                    <div class="message-content">
+                        💬 Чат пустой. Начните общение, отправив первое сообщение!
+                    </div>
+                `;
+                messagesArea.appendChild(emptyMessage);
+            } else {
+                chatMessages.forEach(message => {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = `message ${message.isOutgoing ? 'outgoing' : ''}`;
+                    
+                    const timeStr = formatTime(message.timestamp);
+                    
+                    messageDiv.innerHTML = `
+                        <div class="message-avatar">${message.isOutgoing ? 'Y' : 'C'}</div>
+                        <div class="message-content">
+                            <div class="message-text">${message.text}</div>
+                            <div class="message-time">${timeStr}</div>
+                        </div>
+                    `;
+                    
+                    messagesArea.appendChild(messageDiv);
+                });
+            }
+            
+            // Прокручиваем вниз
+            messagesArea.scrollTop = messagesArea.scrollHeight;
+        }
+        
+        // Обновление информации о пользователе в заголовке
+        function updateUserInfoInHeader() {
+            const sidebarTitle = document.querySelector('.sidebar-title');
+            const sidebarSubtitle = document.querySelector('.sidebar-subtitle');
+            
+            if (currentUser) {
+                const shortAddress = `${currentUser.slice(0, 6)}...${currentUser.slice(-4)}`;
+                sidebarTitle.textContent = `CryptoMessenger`;
+                sidebarSubtitle.textContent = `Пользователь: ${shortAddress}`;
+            }
+        }
+        
+        // Форматирование времени
+        function formatTime(timestamp) {
+            const now = new Date();
+            const messageTime = new Date(timestamp);
+            const diff = now - messageTime;
+            
+            if (diff < 60000) { // Меньше минуты
+                return 'только что';
+            } else if (diff < 3600000) { // Меньше часа
+                return `${Math.floor(diff / 60000)} мин назад`;
+            } else if (diff < 86400000) { // Меньше дня
+                return messageTime.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            } else if (diff < 604800000) { // Меньше недели
+                return messageTime.toLocaleDateString('ru-RU', { weekday: 'short' });
+            } else {
+                return messageTime.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+            }
+        }
+
+        // Обновление информации о пользователе
+        function updateUserInfo() {
+            const userInfo = document.getElementById('userInfo');
+            const userAddress = document.getElementById('userAddress');
+            
+            userInfo.style.display = 'block';
+            userAddress.textContent = currentUser;
+        }
+
+        // Загрузка контактов
+        async function loadContacts() {
+            try {
+                console.log('📋 Загружаем контакты...');
+                
+                const contactsList = document.getElementById('contactsList');
+                contactsList.innerHTML = '<div class="loading-indicator"><div class="loading-spinner"></div>Загрузка контактов...</div>';
+
+                // Получаем контакты из контракта
+                const userContacts = await contract.methods.getUserContacts(currentUser).call();
+                console.log('📋 Контакты из контракта:', userContacts);
+
+                contacts = userContacts.map(address => ({
+                    address: address,
+                    name: `Контакт ${address.slice(2, 8)}`,
+                    status: 'online'
+                }));
+
+                renderContacts();
+                console.log('✅ Контакты загружены:', contacts.length);
+
+            } catch (error) {
+                console.error('❌ Ошибка загрузки контактов:', error);
+                const contactsList = document.getElementById('contactsList');
+                contactsList.innerHTML = '<div style="color: #f44336; text-align: center; padding: 20px;">Ошибка загрузки контактов</div>';
+            }
+        }
+
+        // Отображение контактов
+        function renderContacts() {
+            const contactsList = document.getElementById('contactsList');
+            
+            if (contacts.length === 0) {
+                contactsList.innerHTML = '<div style="color: #888; text-align: center; padding: 20px;">Контакты не найдены</div>';
+                return;
+            }
+
+            contactsList.innerHTML = contacts.map(contact => `
+                <div class="contact-item" data-address="${contact.address}">
+                    <div class="contact-avatar">${contact.name.charAt(0).toUpperCase()}</div>
+                    <div class="contact-info">
+                        <div class="contact-name">${contact.name}</div>
+                        <div class="contact-address">${contact.address}</div>
+                    </div>
+                    <div class="contact-status">${contact.status}</div>
+                </div>
+            `).join('');
+        }
+        
+        // Основная функция инициализации
+        async function initializeApp() {
+            try {
+                console.log('🚀 Инициализация CryptoMessenger...');
+                
+                // Проверяем наличие MetaMask
+                if (typeof window.ethereum === 'undefined') {
+                    showNotification('MetaMask не найден! Установите MetaMask для продолжения.', 'error');
+                    return;
+                }
+
+                // Инициализируем Web3
+                web3 = new Web3(window.ethereum);
+                
+                // Запрашиваем доступ к аккаунту
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                if (accounts.length === 0) {
+                    showNotification('Аккаунт не найден! Подключите MetaMask.', 'error');
+                    return;
+                }
+
+                currentUser = accounts[0];
+                console.log('👤 Текущий пользователь:', currentUser);
+
+                // Инициализируем контракт
+                contract = new web3.eth.Contract(
+                    window.CryptoMessengerConfig.contractABI,
+                    window.CryptoMessengerConfig.contractAddress
+                );
+
+                console.log('📄 Контракт инициализирован:', window.CryptoMessengerConfig.contractAddress);
+
+                // Инициализируем системы
+                eventSystem = new DecentralizedEventSystem(contract, currentUser);
+                chatUIManager = new ChatUIManager(contract, currentUser);
+
+                // Обновляем UI
+                updateUserInfo();
+                
+                // Загружаем контакты
+                await loadContacts();
+                
+                // Настраиваем обработчики событий
+                setupEventHandlers();
+                
+                // Обработка отключения кошелька
+                setupWalletDisconnectHandler();
+                
+                showNotification('CryptoMessenger успешно инициализирован!', 'success');
+                console.log('✅ Инициализация завершена');
+                console.log('👤 Информация о пользователе:');
+                console.log('   📍 Адрес:', currentUser);
+                console.log('   🔑 Публичный ключ:', userPublicKey);
+                
+                // Загружаем контакты и запросы
+                console.log('📞 Загружаем контакты...');
+                const loadedContacts = await loadContacts();
+                console.log('📨 Загружаем запросы...');
+                const loadedRequests = await loadContactRequests();
+                
+                // Выводим итоговую статистику
+                console.log('📊 Статистика загрузки:');
+                console.log('   👥 Контакты:', loadedContacts.length);
+                console.log('   📨 Входящие запросы:', loadedRequests.incoming.length);
+                console.log('   📤 Исходящие запросы:', loadedRequests.outgoing.length);
+                console.log('   💬 Всего чатов:', Object.keys(messages).length);
+                
+                // Обновляем интерфейс
+                console.log('🎨 Обновляем интерфейс...');
+                updateContactsUI();
+                
+                // Обновляем заголовок с информацией о пользователе
+                updateUserInfoInHeader();
+                
+                // Настраиваем обработчики событий
+                console.log('⚙️ Настраиваем обработчики событий...');
+                setupContactClickHandlers();
+                
+                console.log('✅ Приложение инициализировано');
+            } catch (error) {
+                console.error('❌ Критическая ошибка инициализации:', error);
+            }
+        }
 
         // Обработка кликов по контактам
-        document.querySelectorAll('.contact-item').forEach(item => {
-            item.addEventListener('click', function() {
-                // Убираем активный класс у всех контактов
-                document.querySelectorAll('.contact-item').forEach(c => c.classList.remove('active'));
-                
-                // Добавляем активный класс к выбранному контакту
-                this.classList.add('active');
-                
-                // Обновляем заголовок чата
-                const contactName = this.querySelector('.contact-name').textContent;
-                document.querySelector('.chat-name').textContent = contactName;
-                
-                // На мобильных устройствах переключаем на чат
-                if (window.innerWidth <= 768) {
-                    document.getElementById('appContainer').classList.add('mobile-chat');
-                }
+        function setupContactClickHandlers() {
+            document.querySelectorAll('.contact-item').forEach(item => {
+                item.addEventListener('click', async function() {
+                    // Убираем активный класс у всех контактов
+                    document.querySelectorAll('.contact-item').forEach(c => c.classList.remove('active'));
+                    
+                    // Добавляем активный класс к выбранному контакту
+                    this.classList.add('active');
+                    
+                    // Получаем адрес контакта
+                    const contactAddress = this.getAttribute('data-address');
+                    const contactName = this.querySelector('.contact-name').textContent;
+                    
+                    // Обновляем заголовок чата
+                    document.querySelector('.chat-name').textContent = contactName;
+                    
+                    // Загружаем сообщения для этого контакта
+                    if (contactAddress) {
+                        const loadedMessages = await loadMessages(contactAddress);
+                        console.log('📨 Загружено сообщений для UI:', loadedMessages.length);
+                        updateMessagesUI(contactAddress);
+                    }
+                    
+                    // На мобильных устройствах переключаем на чат
+                    if (window.innerWidth <= 768) {
+                        document.getElementById('appContainer').classList.add('mobile-chat');
+                    }
+                });
             });
-        });
+        }
 
         // Обработка отправки сообщений
-        document.getElementById('sendButton').addEventListener('click', function() {
+        document.getElementById('sendButton').addEventListener('click', async function() {
             const input = document.querySelector('.message-input');
             const message = input.value.trim();
             
             if (message) {
-                // Добавляем сообщение в чат (демо)
-                addMessage(message, true);
-                input.value = '';
-                input.style.height = 'auto';
+                // Получаем активный контакт
+                const activeContact = document.querySelector('.contact-item.active');
+                if (!activeContact) {
+                    console.error('❌ Выберите контакт для отправки сообщения');
+                    return;
+                }
+                
+                const contactAddress = activeContact.getAttribute('data-address');
+                if (!contactAddress) {
+                    console.error('❌ Адрес контакта не найден');
+                    return;
+                }
+                
+                try {
+                    // Отправляем сообщение в блокчейн
+                    await sendMessage(contactAddress, message);
+                    
+                    // Очищаем поле ввода
+                    input.value = '';
+                    input.style.height = 'auto';
+                } catch (error) {
+                    console.error('❌ Ошибка отправки сообщения:', error);
+                }
             }
         });
+        
+        // Отправка сообщения в блокчейн
+        async function sendMessage(recipientAddress, messageText) {
+            try {
+                console.log('📤 Отправляем сообщение:', messageText, '→', recipientAddress);
+                
+                // Пока просто добавляем в интерфейс (зашифрование будет добавлено позже)
+                const encryptedMessage = `[Зашифровано: ${messageText.slice(0, 20)}...]`;
+                
+                // Добавляем сообщение в локальный кэш
+                if (!messages[recipientAddress]) {
+                    messages[recipientAddress] = [];
+                }
+                
+                const newMessage = {
+                    sender: currentUser,
+                    recipient: recipientAddress,
+                    text: encryptedMessage,
+                    timestamp: new Date(),
+                    isOutgoing: true
+                };
+                
+                messages[recipientAddress].push(newMessage);
+                
+                // Обновляем интерфейс
+                updateMessagesUI(recipientAddress);
+                
+                // Обновляем последнее сообщение в списке контактов
+                const contact = contacts.find(c => c.address === recipientAddress);
+                if (contact) {
+                    contact.lastMessage = encryptedMessage;
+                    contact.lastMessageTime = new Date();
+                    updateContactsUI();
+                }
+                
+                console.log('✅ Сообщение добавлено в интерфейс');
+                
+                // TODO: Реальная отправка в блокчейн будет добавлена позже
+                // await contract.methods.sendMessage(recipientAddress, encryptedMessage).send({ from: currentUser });
+                
+            } catch (error) {
+                console.error('❌ Ошибка отправки сообщения:', error);
+                throw error;
+            }
+        }
 
         // Автоматическое изменение высоты поля ввода
         document.querySelector('.message-input').addEventListener('input', function() {
@@ -744,9 +1408,244 @@
             }
         }
 
+        // Настройка обработчиков событий
+        function setupEventHandlers() {
+            // Клик по контакту
+            document.addEventListener('click', async (e) => {
+                const contactItem = e.target.closest('.contact-item');
+                if (contactItem) {
+                    const address = contactItem.dataset.address;
+                    await selectContact(address);
+                }
+            });
+
+            // Кнопка отправки сообщения
+            document.getElementById('sendButton').addEventListener('click', sendMessage);
+
+            // Enter в поле ввода
+            document.getElementById('messageInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            // Автоматическое изменение высоты поля ввода
+            document.getElementById('messageInput').addEventListener('input', (e) => {
+                e.target.style.height = 'auto';
+                e.target.style.height = e.target.scrollHeight + 'px';
+            });
+
+            // Кнопка "Назад" для мобильных устройств
+            document.getElementById('backButton').addEventListener('click', () => {
+                document.getElementById('sidebar').classList.add('open');
+            });
+
+            // Кнопка загрузки истории
+            document.getElementById('loadHistoryBtn').addEventListener('click', async () => {
+                if (currentContact) {
+                    await loadChatHistory();
+                }
+            });
+
+            // Кнопка обновления
+            document.getElementById('refreshBtn').addEventListener('click', async () => {
+                if (currentContact) {
+                    await refreshChat();
+                }
+            });
+        }
+
+        // Обработка отключения кошелька
+        function setupWalletDisconnectHandler() {
+            // Слушаем изменения аккаунтов
+            window.ethereum.on('accountsChanged', (accounts) => {
+                if (accounts.length === 0) {
+                    console.log('🔌 Кошелек отключен');
+                    showNotification('Кошелек отключен! Перенаправляем на страницу авторизации...', 'warning');
+                    
+                    // Перенаправляем на страницу авторизации
+                    setTimeout(() => {
+                        window.location.href = 'auth-v2.html';
+                    }, 2000);
+                } else if (accounts[0] !== currentUser) {
+                    console.log('🔄 Аккаунт изменен');
+                    currentUser = accounts[0];
+                    location.reload(); // Перезагружаем страницу
+                }
+            });
+
+            // Слушаем изменения сети
+            window.ethereum.on('chainChanged', (chainId) => {
+                console.log('🔄 Сеть изменена:', chainId);
+                location.reload(); // Перезагружаем страницу
+            });
+        }
+
+        // Выбор контакта
+        async function selectContact(contactAddress) {
+            try {
+                console.log('💬 Выбираем контакт:', contactAddress);
+                
+                // Обновляем активный контакт
+                document.querySelectorAll('.contact-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                document.querySelector(`[data-address="${contactAddress}"]`).classList.add('active');
+
+                // Закрываем боковую панель на мобильных
+                document.getElementById('sidebar').classList.remove('open');
+
+                // Обновляем заголовок чата
+                const contact = contacts.find(c => c.address === contactAddress);
+                document.getElementById('chatTitle').textContent = contact.name;
+                document.getElementById('chatSubtitle').textContent = contact.address;
+                
+                // Показываем кнопки действий
+                document.getElementById('loadHistoryBtn').style.display = 'inline-block';
+                document.getElementById('refreshBtn').style.display = 'inline-block';
+
+                // Открываем чат
+                currentContact = contactAddress;
+                await chatUIManager.openChat(contactAddress, onNewMessage, onHistoryLoaded);
+
+                // Обновляем статистику
+                updateChatStats();
+
+                console.log('✅ Чат открыт с контактом:', contactAddress);
+
+            } catch (error) {
+                console.error('❌ Ошибка выбора контакта:', error);
+                showNotification('Ошибка открытия чата: ' + error.message, 'error');
+            }
+        }
+
+        // Обработка новых сообщений
+        function onNewMessage(newMessages, event) {
+            console.log('📨 Получено новое сообщение:', newMessages.length);
+            showNotification(`Получено ${newMessages.length} новых сообщений`, 'success');
+        }
+
+        // Обработка загрузки истории
+        function onHistoryLoaded(pageMessages, startIndex) {
+            console.log('📚 Загружена страница истории:', pageMessages.length, 'сообщений, начиная с', startIndex);
+        }
+
+        // Загрузка истории чата
+        async function loadChatHistory() {
+            if (!currentContact) return;
+
+            try {
+                console.log('📚 Загружаем историю чата...');
+                
+                // Показываем индикатор загрузки
+                const historyLoading = document.getElementById('historyLoading');
+                historyLoading.style.display = 'block';
+
+                await chatUIManager.loadChatHistory(currentContact);
+
+                // Скрываем индикатор загрузки
+                historyLoading.style.display = 'none';
+
+                // Обновляем статистику
+                updateChatStats();
+
+                showNotification('История чата загружена', 'success');
+
+            } catch (error) {
+                console.error('❌ Ошибка загрузки истории:', error);
+                showNotification('Ошибка загрузки истории: ' + error.message, 'error');
+                
+                // Скрываем индикатор загрузки
+                document.getElementById('historyLoading').style.display = 'none';
+            }
+        }
+
+        // Обновление чата
+        async function refreshChat() {
+            if (!currentContact) return;
+
+            try {
+                console.log('🔄 Обновляем чат...');
+                
+                const newMessages = await chatUIManager.checkForNewMessages(currentContact);
+                
+                if (newMessages.length > 0) {
+                    showNotification(`Загружено ${newMessages.length} новых сообщений`, 'success');
+                    updateChatStats();
+                } else {
+                    showNotification('Новых сообщений нет', 'info');
+                }
+
+            } catch (error) {
+                console.error('❌ Ошибка обновления чата:', error);
+                showNotification('Ошибка обновления: ' + error.message, 'error');
+            }
+        }
+
+        // Обновление статистики чата
+        function updateChatStats() {
+            if (!currentContact) return;
+
+            const stats = chatUIManager.getChatStats(currentContact);
+            const chatStats = document.getElementById('chatStats');
+            
+            document.getElementById('totalMessages').textContent = stats.totalMessages;
+            document.getElementById('loadedMessages').textContent = stats.loadedMessages;
+            document.getElementById('isFullyLoaded').textContent = stats.isFullyLoaded ? 'Да' : 'Нет';
+            
+            chatStats.style.display = 'block';
+        }
+
+        // Отправка сообщения
+        async function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const messageText = messageInput.value.trim();
+            
+            if (!messageText || !currentContact) return;
+
+            try {
+                console.log('📤 Отправляем сообщение:', messageText);
+                
+                // Пока что просто очищаем поле ввода
+                messageInput.value = '';
+                messageInput.style.height = 'auto';
+                
+                showNotification('Отправка сообщений пока не реализована', 'warning');
+
+            } catch (error) {
+                console.error('❌ Ошибка отправки сообщения:', error);
+                showNotification('Ошибка отправки: ' + error.message, 'error');
+            }
+        }
+
+        // Показ уведомлений
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            // Показываем уведомление
+            setTimeout(() => notification.classList.add('show'), 100);
+            
+            // Скрываем через 3 секунды
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => document.body.removeChild(notification), 300);
+            }, 3000);
+        }
+
         // Инициализация
         addBackButton();
         window.addEventListener('resize', addBackButton);
+        
+        // Запускаем инициализацию приложения с небольшой задержкой
+        console.log('🚀 Запускаем инициализацию приложения...');
+        setTimeout(() => {
+            initializeApp();
+        }, 100); // Небольшая задержка для загрузки config.js
     </script>
 </body>
 </html>

@@ -17,10 +17,31 @@ const fs = require('fs');
 const path = require('path');
 
 // Конфигурация
-const CONTRACT_ADDRESS = '0xc8F47D1A4018D3e4Df136832d42c479A2C5eB4df';
 const BASESCAN_API_URL = 'https://api.basescan.org/api';
 const CONFIG_FILE = path.join(__dirname, '../frontend/config.js');
 const ABI_RAW_FILE = path.join(__dirname, '../../abi-raw.json');
+
+// Получаем адрес контракта из аргументов командной строки или из config.js
+let CONTRACT_ADDRESS = process.argv[2]; // Первый аргумент командной строки
+
+// Если адрес не передан, читаем из config.js
+if (!CONTRACT_ADDRESS) {
+    try {
+        const configContent = fs.readFileSync(CONFIG_FILE, 'utf8');
+        const match = configContent.match(/contractAddress:\s*'([^']+)'/);
+        if (match) {
+            CONTRACT_ADDRESS = match[1];
+            console.log(`📄 Используем адрес из config.js: ${CONTRACT_ADDRESS}`);
+        } else {
+            throw new Error('Не удалось найти contractAddress в config.js');
+        }
+    } catch (error) {
+        console.error('❌ Ошибка чтения адреса контракта:', error.message);
+        process.exit(1);
+    }
+} else {
+    console.log(`📄 Используем адрес из аргументов: ${CONTRACT_ADDRESS}`);
+}
 
 // Загружаем API ключ из .env файла
 let ETHERSCAN_API_KEY = '';

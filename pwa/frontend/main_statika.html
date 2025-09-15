@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CryptoMessenger - Децентрализованный мессенджер</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: #ffffff;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Боковая панель с контактами */
+        .sidebar {
+            width: 320px;
+            background: #1a1a1a;
+            border-right: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid #333;
+            background: #1a1a1a;
+        }
+
+        .sidebar-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .sidebar-subtitle {
+            font-size: 14px;
+            color: #888;
+        }
+
+        .search-box {
+            margin-top: 16px;
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+        }
+
+        .search-input::placeholder {
+            color: #666;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+
+        /* Список контактов */
+        .contacts-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+
+        .contact-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            border-bottom: 1px solid #222;
+        }
+
+        .contact-item:hover {
+            background: #2a2a2a;
+        }
+
+        .contact-item.active {
+            background: #007bff;
+        }
+
+        .contact-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #007bff, #00d4ff);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 18px;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+
+        .contact-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .contact-name {
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .contact-last-message {
+            font-size: 14px;
+            color: #888;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .contact-meta {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            margin-left: 8px;
+        }
+
+        .contact-time {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .contact-badge {
+            background: #007bff;
+            color: white;
+            font-size: 12px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            min-width: 18px;
+            text-align: center;
+        }
+
+        /* Статусы запросов */
+        .contact-item.incoming-request {
+            border-left: 3px solid #28a745;
+        }
+
+        .contact-item.outgoing-request {
+            border-left: 3px solid #ffc107;
+        }
+
+        .contact-item.incoming-request .contact-name::after {
+            content: " (Входящий запрос)";
+            color: #28a745;
+            font-size: 12px;
+        }
+
+        .contact-item.outgoing-request .contact-name::after {
+            content: " (Исходящий запрос)";
+            color: #ffc107;
+            font-size: 12px;
+        }
+
+        /* Область чата */
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #0a0a0a;
+        }
+
+        .chat-header {
+            padding: 20px;
+            border-bottom: 1px solid #333;
+            background: #1a1a1a;
+            display: flex;
+            align-items: center;
+        }
+
+        .chat-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #007bff, #00d4ff);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            margin-right: 12px;
+        }
+
+        .chat-info {
+            flex: 1;
+        }
+
+        .chat-name {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .chat-status {
+            font-size: 14px;
+            color: #888;
+        }
+
+        .chat-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .chat-action-btn {
+            padding: 8px 12px;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 6px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+
+        .chat-action-btn:hover {
+            background: #3a3a3a;
+        }
+
+        .chat-action-btn.primary {
+            background: #007bff;
+            border-color: #007bff;
+        }
+
+        .chat-action-btn.primary:hover {
+            background: #0056b3;
+        }
+
+        .chat-action-btn.danger {
+            background: #dc3545;
+            border-color: #dc3545;
+        }
+
+        .chat-action-btn.danger:hover {
+            background: #c82333;
+        }
+
+        /* Область сообщений */
+        .messages-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #0a0a0a;
+        }
+
+        .message {
+            margin-bottom: 16px;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .message.outgoing {
+            flex-direction: row-reverse;
+        }
+
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #007bff, #00d4ff);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+            margin: 0 8px;
+            flex-shrink: 0;
+        }
+
+        .message-content {
+            max-width: 70%;
+            background: #2a2a2a;
+            padding: 12px 16px;
+            border-radius: 18px;
+            position: relative;
+        }
+
+        .message.outgoing .message-content {
+            background: #007bff;
+        }
+
+        .message-text {
+            font-size: 14px;
+            line-height: 1.4;
+            margin-bottom: 4px;
+        }
+
+        .message-time {
+            font-size: 12px;
+            color: #888;
+            text-align: right;
+        }
+
+        .message.outgoing .message-time {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .message.system {
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        .message.system .message-content {
+            background: #333;
+            color: #888;
+            font-size: 12px;
+            padding: 8px 16px;
+            border-radius: 12px;
+        }
+
+        /* Поле ввода */
+        .input-area {
+            padding: 20px;
+            border-top: 1px solid #333;
+            background: #1a1a1a;
+        }
+
+        .input-container {
+            display: flex;
+            align-items: flex-end;
+            gap: 12px;
+        }
+
+        .message-input {
+            flex: 1;
+            min-height: 44px;
+            max-height: 120px;
+            padding: 12px 16px;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 22px;
+            color: #fff;
+            font-size: 14px;
+            resize: none;
+            outline: none;
+            font-family: inherit;
+        }
+
+        .message-input::placeholder {
+            color: #666;
+        }
+
+        .send-button {
+            width: 44px;
+            height: 44px;
+            background: #007bff;
+            border: none;
+            border-radius: 50%;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: background-color 0.2s;
+        }
+
+        .send-button:hover {
+            background: #0056b3;
+        }
+
+        .send-button:disabled {
+            background: #444;
+            cursor: not-allowed;
+        }
+
+        /* Адаптивность */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+            }
+            
+            .chat-area {
+                display: none;
+            }
+            
+            .app-container.mobile-chat .sidebar {
+                display: none;
+            }
+            
+            .app-container.mobile-chat .chat-area {
+                display: flex;
+            }
+        }
+
+        /* Скроллбар */
+        .contacts-list::-webkit-scrollbar,
+        .messages-area::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .contacts-list::-webkit-scrollbar-track,
+        .messages-area::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+
+        .contacts-list::-webkit-scrollbar-thumb,
+        .messages-area::-webkit-scrollbar-thumb {
+            background: #444;
+            border-radius: 3px;
+        }
+
+        .contacts-list::-webkit-scrollbar-thumb:hover,
+        .messages-area::-webkit-scrollbar-thumb:hover {
+            background: #666;
+        }
+
+        /* Анимации */
+        .contact-item {
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .message {
+            animation: messageSlide 0.3s ease-out;
+        }
+
+        @keyframes messageSlide {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container" id="appContainer">
+        <!-- Боковая панель с контактами -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">CryptoMessenger</div>
+                <div class="sidebar-subtitle">Децентрализованный мессенджер</div>
+                <div class="search-box">
+                    <input type="text" class="search-input" placeholder="Поиск контактов...">
+                </div>
+            </div>
+            
+            <div class="contacts-list" id="contactsList">
+                <!-- Входящие запросы -->
+                <div class="contact-item incoming-request" data-contact-id="incoming-1">
+                    <div class="contact-avatar">A</div>
+                    <div class="contact-info">
+                        <div class="contact-name">Alice Johnson</div>
+                        <div class="contact-last-message">Привет! Хочу добавить тебя в контакты</div>
+                    </div>
+                    <div class="contact-meta">
+                        <div class="contact-time">10:30</div>
+                        <div class="contact-badge">1</div>
+                    </div>
+                </div>
+
+                <div class="contact-item incoming-request" data-contact-id="incoming-2">
+                    <div class="contact-avatar">B</div>
+                    <div class="contact-info">
+                        <div class="contact-name">Bob Smith</div>
+                        <div class="contact-last-message">Давайте общаться!</div>
+                    </div>
+                    <div class="contact-meta">
+                        <div class="contact-time">09:15</div>
+                        <div class="contact-badge">2</div>
+                    </div>
+                </div>
+
+                <!-- Существующие контакты -->
+                <div class="contact-item active" data-contact-id="contact-1">
+                    <div class="contact-avatar">C</div>
+                    <div class="contact-info">
+                        <div class="contact-name">Charlie Brown</div>
+                        <div class="contact-last-message">Спасибо за информацию!</div>
+                    </div>
+                    <div class="contact-meta">
+                        <div class="contact-time">11:45</div>
+                    </div>
+                </div>
+
+                <div class="contact-item" data-contact-id="contact-2">
+                    <div class="contact-avatar">D</div>
+                    <div class="contact-info">
+                        <div class="contact-name">Diana Prince</div>
+                        <div class="contact-last-message">Как дела с проектом?</div>
+                    </div>
+                    <div class="contact-meta">
+                        <div class="contact-time">Вчера</div>
+                    </div>
+                </div>
+
+                <div class="contact-item" data-contact-id="contact-3">
+                    <div class="contact-avatar">E</div>
+                    <div class="contact-info">
+                        <div class="contact-name">Eve Wilson</div>
+                        <div class="contact-last-message">Встречаемся завтра в 15:00</div>
+                    </div>
+                    <div class="contact-meta">
+                        <div class="contact-time">2 дня назад</div>
+                    </div>
+                </div>
+
+                <!-- Исходящие запросы -->
+                <div class="contact-item outgoing-request" data-contact-id="outgoing-1">
+                    <div class="contact-avatar">F</div>
+                    <div class="contact-info">
+                        <div class="contact-name">Frank Miller</div>
+                        <div class="contact-last-message">Ожидает подтверждения...</div>
+                    </div>
+                    <div class="contact-meta">
+                        <div class="contact-time">3 дня назад</div>
+                    </div>
+                </div>
+
+                <div class="contact-item outgoing-request" data-contact-id="outgoing-2">
+                    <div class="contact-avatar">G</div>
+                    <div class="contact-info">
+                        <div class="contact-name">Grace Lee</div>
+                        <div class="contact-last-message">Ожидает подтверждения...</div>
+                    </div>
+                    <div class="contact-meta">
+                        <div class="contact-time">1 неделя назад</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Область чата -->
+        <div class="chat-area">
+            <div class="chat-header">
+                <div class="chat-avatar">C</div>
+                <div class="chat-info">
+                    <div class="chat-name">Charlie Brown</div>
+                    <div class="chat-status">В сети</div>
+                </div>
+                <div class="chat-actions">
+                    <button class="chat-action-btn">ℹ️</button>
+                    <button class="chat-action-btn">📞</button>
+                    <button class="chat-action-btn">📹</button>
+                </div>
+            </div>
+
+            <div class="messages-area" id="messagesArea">
+                <div class="message system">
+                    <div class="message-content">
+                        Чат создан. Сообщения зашифрованы end-to-end.
+                    </div>
+                </div>
+
+                <div class="message">
+                    <div class="message-avatar">C</div>
+                    <div class="message-content">
+                        <div class="message-text">Привет! Как дела?</div>
+                        <div class="message-time">10:30</div>
+                    </div>
+                </div>
+
+                <div class="message outgoing">
+                    <div class="message-avatar">Y</div>
+                    <div class="message-content">
+                        <div class="message-text">Привет! Всё отлично, спасибо! А у тебя как?</div>
+                        <div class="message-time">10:32</div>
+                    </div>
+                </div>
+
+                <div class="message">
+                    <div class="message-avatar">C</div>
+                    <div class="message-content">
+                        <div class="message-text">Тоже хорошо! Работаю над новым проектом</div>
+                        <div class="message-time">10:35</div>
+                    </div>
+                </div>
+
+                <div class="message outgoing">
+                    <div class="message-avatar">Y</div>
+                    <div class="message-content">
+                        <div class="message-text">Интересно! Расскажи подробнее</div>
+                        <div class="message-time">10:36</div>
+                    </div>
+                </div>
+
+                <div class="message">
+                    <div class="message-avatar">C</div>
+                    <div class="message-content">
+                        <div class="message-text">Это децентрализованный мессенджер на блокчейне. Очень крутая технология!</div>
+                        <div class="message-time">10:38</div>
+                    </div>
+                </div>
+
+                <div class="message outgoing">
+                    <div class="message-avatar">Y</div>
+                    <div class="message-content">
+                        <div class="message-text">Вау! Звучит впечатляюще. Спасибо за информацию!</div>
+                        <div class="message-time">10:40</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <div class="input-container">
+                    <textarea class="message-input" placeholder="Введите сообщение..." rows="1"></textarea>
+                    <button class="send-button" id="sendButton">➤</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Простая логика для демонстрации
+        console.log('CryptoMessenger v1.0.0 - Main Interface Loaded');
+
+        // Обработка кликов по контактам
+        document.querySelectorAll('.contact-item').forEach(item => {
+            item.addEventListener('click', function() {
+                // Убираем активный класс у всех контактов
+                document.querySelectorAll('.contact-item').forEach(c => c.classList.remove('active'));
+                
+                // Добавляем активный класс к выбранному контакту
+                this.classList.add('active');
+                
+                // Обновляем заголовок чата
+                const contactName = this.querySelector('.contact-name').textContent;
+                document.querySelector('.chat-name').textContent = contactName;
+                
+                // На мобильных устройствах переключаем на чат
+                if (window.innerWidth <= 768) {
+                    document.getElementById('appContainer').classList.add('mobile-chat');
+                }
+            });
+        });
+
+        // Обработка отправки сообщений
+        document.getElementById('sendButton').addEventListener('click', function() {
+            const input = document.querySelector('.message-input');
+            const message = input.value.trim();
+            
+            if (message) {
+                // Добавляем сообщение в чат (демо)
+                addMessage(message, true);
+                input.value = '';
+                input.style.height = 'auto';
+            }
+        });
+
+        // Автоматическое изменение высоты поля ввода
+        document.querySelector('.message-input').addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+        });
+
+        // Обработка Enter для отправки
+        document.querySelector('.message-input').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                document.getElementById('sendButton').click();
+            }
+        });
+
+        // Функция добавления сообщения (демо)
+        function addMessage(text, isOutgoing = false) {
+            const messagesArea = document.getElementById('messagesArea');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isOutgoing ? 'outgoing' : ''}`;
+            
+            const now = new Date();
+            const time = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            
+            messageDiv.innerHTML = `
+                <div class="message-avatar">${isOutgoing ? 'Y' : 'C'}</div>
+                <div class="message-content">
+                    <div class="message-text">${text}</div>
+                    <div class="message-time">${time}</div>
+                </div>
+            `;
+            
+            messagesArea.appendChild(messageDiv);
+            messagesArea.scrollTop = messagesArea.scrollHeight;
+        }
+
+        // Обработка поиска
+        document.querySelector('.search-input').addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const contacts = document.querySelectorAll('.contact-item');
+            
+            contacts.forEach(contact => {
+                const name = contact.querySelector('.contact-name').textContent.toLowerCase();
+                const message = contact.querySelector('.contact-last-message').textContent.toLowerCase();
+                
+                if (name.includes(searchTerm) || message.includes(searchTerm)) {
+                    contact.style.display = 'flex';
+                } else {
+                    contact.style.display = 'none';
+                }
+            });
+        });
+
+        // Кнопка "Назад" для мобильных устройств
+        function addBackButton() {
+            if (window.innerWidth <= 768) {
+                const chatHeader = document.querySelector('.chat-header');
+                const backButton = document.createElement('button');
+                backButton.className = 'chat-action-btn';
+                backButton.innerHTML = '←';
+                backButton.style.marginRight = 'auto';
+                backButton.addEventListener('click', function() {
+                    document.getElementById('appContainer').classList.remove('mobile-chat');
+                });
+                chatHeader.insertBefore(backButton, chatHeader.firstChild);
+            }
+        }
+
+        // Инициализация
+        addBackButton();
+        window.addEventListener('resize', addBackButton);
+    </script>
+</body>
+</html>

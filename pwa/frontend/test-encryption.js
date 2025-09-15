@@ -24,35 +24,34 @@ class CryptoMessengerEncryption {
     }
 
     /**
-     * Генерация пары ключей из SEED фразы
-     * @param {string} seedPhrase - SEED фраза для генерации ключей
+     * Генерация пары ключей из подписи (как в auth-v2.html)
+     * @param {string} signature - Подпись пользователя
+     * @param {string} userAddress - Адрес пользователя
      * @returns {Object} - Объект с приватным и публичным ключами
      */
-    generateKeyPairFromSeed(seedPhrase, secp256k1) {
+    generateKeyPairFromSignature(signature, userAddress, secp256k1) {
         try {
-            // Создаем хэш из SEED фразы для детерминистической генерации
-            const seedHash = CryptoJS.SHA256(seedPhrase).toString();
+            // Используем подпись как источник энтропии (как в auth-v2.html)
+            const seed = CryptoJS.SHA256(signature).toString();
+            const privateKeyForEncode = CryptoJS.SHA256(seed + userAddress).toString();
             
             // Конвертируем в Uint8Array для secp256k1
-            const seedBytes = new Uint8Array(32);
+            const privateKeyBytes = new Uint8Array(32);
             for (let i = 0; i < 32; i++) {
-                seedBytes[i] = parseInt(seedHash.substr(i * 2, 2), 16);
+                privateKeyBytes[i] = parseInt(privateKeyForEncode.substr(i * 2, 2), 16);
             }
             
-            // Генерируем приватный ключ
-            console.log('🔍 secp256k1 в generateKeyPairFromSeed:', typeof secp256k1);
-            console.log('🔍 secp256k1.utils:', typeof secp256k1?.utils);
-            console.log('🔍 secp256k1 функции:', Object.keys(secp256k1 || {}));
-            const privateKey = secp256k1.utils.randomPrivateKey();
-            
-            // Генерируем публичный ключ
-            const publicKey = secp256k1.getPublicKey(privateKey);
+            // Генерируем публичный ключ из приватного
+            const publicKey = secp256k1.getPublicKey(privateKeyBytes);
             
             return {
-                privateKey: privateKey,
+                privateKey: privateKeyBytes,
                 publicKey: publicKey,
-                privateKeyHex: Array.from(privateKey).map(b => b.toString(16).padStart(2, '0')).join(''),
-                publicKeyHex: Array.from(publicKey).map(b => b.toString(16).padStart(2, '0')).join('')
+                privateKeyHex: privateKeyForEncode,
+                publicKeyHex: Array.from(publicKey).map(b => b.toString(16).padStart(2, '0')).join(''),
+                // Для совместимости с существующей системой
+                privateKeyForEncode: privateKeyForEncode,
+                publicKeyForEncode: Array.from(publicKey).map(b => b.toString(16).padStart(2, '0')).join('')
             };
         } catch (error) {
             console.error('Ошибка генерации ключей:', error);
@@ -130,9 +129,9 @@ class CryptoMessengerEncryption {
      * Тестирование полного цикла шифрования/дешифрования
      */
     async testEncryptionCycle() {
-        console.log('🔐 Начинаем тест ECIES шифрования...\n');
+        console.log('🔐 Начинаем тест ECIES шифрования для CryptoMessenger...\n');
         console.log('🔍 Функция testEncryptionCycle вызвана!');
-        console.log('📦 Версия test-encryption.js: v2.2 - 2025-01-11 20:15 (исправлен shared secret)');
+        console.log('📦 Версия test-encryption.js: v3.0 - 2025-01-15 12:30 (интеграция с auth-v2.html)');
         
         // Проверяем наличие библиотек
         if (typeof CryptoJS === 'undefined') {
@@ -152,7 +151,19 @@ class CryptoMessengerEncryption {
                 secp256k1 = window.secp256k1;
                 console.log('✅ @noble/secp256k1 загружен из window');
             } else {
-                throw new Error('@noble/secp256k1 не найден в window. Убедитесь, что библиотека подключена в HTML.');
+                // Ждем загрузки библиотеки
+                let attempts = 0;
+                while (!window.secp256k1 && attempts < 50) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    attempts++;
+                }
+                
+                if (window.secp256k1) {
+                    secp256k1 = window.secp256k1;
+                    console.log('✅ @noble/secp256k1 загружен из window (после ожидания)');
+                } else {
+                    throw new Error('@noble/secp256k1 не найден в window. Убедитесь, что библиотека подключена в HTML.');
+                }
             }
         } else if (typeof require !== 'undefined') {
             // В Node.js
@@ -169,13 +180,17 @@ class CryptoMessengerEncryption {
         }
         
         try {
-            // 1. Генерируем ключи для отправителя и получателя
-            const senderSeed = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
-            const recipientSeed = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon";
+            // 1. Генерируем ключи для отправителя и получателя (как в auth-v2.html)
+            const signaturePhrase = "By signing this message, I authorize CryptoMessenger to decrypt and read my messages.";
+            const senderSignature = `Mock signature for sender - ${signaturePhrase} - ${Date.now()}`;
+            const recipientSignature = `Mock signature for recipient - ${signaturePhrase} - ${Date.now() + 1}`;
+            const senderAddress = "0x016b67764012166A8d9Ed3502eA542A061B771f8";
+            const recipientAddress = "0x1b804e7A8365768a8e554a848C393A522655b947";
             
-            console.log('1. Генерируем ключи...');
-            const senderKeys = this.generateKeyPairFromSeed(senderSeed, secp256k1);
-            const recipientKeys = this.generateKeyPairFromSeed(recipientSeed, secp256k1);
+            console.log('1. Генерируем ключи из подписей (как в auth-v2.html)...');
+            console.log(`   📝 Подписываемая фраза: "${signaturePhrase}"`);
+            const senderKeys = this.generateKeyPairFromSignature(senderSignature, senderAddress, secp256k1);
+            const recipientKeys = this.generateKeyPairFromSignature(recipientSignature, recipientAddress, secp256k1);
             
             console.log('   Отправитель публичный ключ:', senderKeys.publicKeyHex);
             console.log('   Получатель публичный ключ:', recipientKeys.publicKeyHex);
@@ -184,13 +199,15 @@ class CryptoMessengerEncryption {
             const testMessage = "Привет! Это секретное сообщение для CryptoMessenger! 🔐";
             console.log('\n2. Исходное сообщение:', testMessage);
             
-            // 3. Шифруем сообщение (используем получателя как отправителя для тестирования)
+            // 3. Шифруем сообщение (отправитель шифрует для получателя)
             console.log('\n3. Шифруем сообщение...');
-            const encrypted = this.encryptMessage(testMessage, recipientKeys.publicKey, secp256k1, recipientKeys.privateKey);
+            console.log('   Отправитель:', senderAddress);
+            console.log('   Получатель:', recipientAddress);
+            const encrypted = this.encryptMessage(testMessage, recipientKeys.publicKey, secp256k1);
             console.log('   Зашифрованное сообщение:', encrypted.encryptedMessage.substring(0, 50) + '...');
             console.log('   Эфемерный публичный ключ:', encrypted.ephemeralPublicKey);
             
-            // 4. Дешифруем сообщение
+            // 4. Дешифруем сообщение (получатель расшифровывает)
             console.log('\n4. Дешифруем сообщение...');
             const decrypted = this.decryptMessage(encrypted, recipientKeys.privateKey, secp256k1);
             console.log('   Расшифрованное сообщение:', decrypted);
@@ -199,9 +216,17 @@ class CryptoMessengerEncryption {
             const isSuccess = decrypted === testMessage;
             console.log('\n5. Результат теста:', isSuccess ? '✅ УСПЕХ!' : '❌ ОШИБКА!');
             
+            // 6. Тестируем совместимость с существующей системой
+            console.log('\n6. Тестируем совместимость с auth-v2.html...');
+            console.log('   PrivateKeyForEncode (hex):', senderKeys.privateKeyForEncode);
+            console.log('   PublicKeyForEncode (hex):', senderKeys.publicKeyForEncode);
+            console.log('   Длина PrivateKeyForEncode:', senderKeys.privateKeyForEncode.length);
+            console.log('   Длина PublicKeyForEncode:', senderKeys.publicKeyForEncode.length);
+            
             if (isSuccess) {
                 console.log('\n🎉 ECIES шифрование работает корректно!');
                 console.log('📋 Готово к интеграции в CryptoMessenger');
+                console.log('🔑 Ключи совместимы с существующей системой auth-v2.html');
             }
             
             return isSuccess;

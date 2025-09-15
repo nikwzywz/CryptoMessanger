@@ -85,12 +85,13 @@
         <h1>🔐 CryptoMessenger - Тест ECIES Шифрования</h1>
         
         <div class="test-section">
-            <h2>Тестирование библиотек шифрования</h2>
-            <p>Этот тест проверяет работу ECIES шифрования с использованием выбранных библиотек:</p>
+            <h2>Тестирование ECIES шифрования для CryptoMessenger</h2>
+            <p>Этот тест проверяет работу ECIES шифрования с использованием системы ключей из auth-v2.html:</p>
             <ul>
                 <li><strong>crypto-js</strong> - для AES шифрования</li>
                 <li><strong>@noble/secp256k1</strong> - для работы с secp256k1 кривыми</li>
-                <li><strong>@noble/ciphers</strong> - для ECIES операций</li>
+                <li><strong>Генерация ключей</strong> - из подписи пользователя (как в auth-v2.html)</li>
+                <li><strong>ECIES шифрование</strong> - с использованием PublicKeyForEncode/PrivateKeyForEncode</li>
             </ul>
             
             <button onclick="runTest()">🚀 Запустить тест</button>
@@ -111,6 +112,9 @@
         // Загружаем @noble/secp256k1 как ES модуль
         import * as secp256k1 from 'https://unpkg.com/@noble/secp256k1@2.0.0/index.js';
         window.secp256k1 = secp256k1;
+        
+        // Устанавливаем флаг загрузки
+        window.librariesLoaded = true;
         
         // Запускаем проверку библиотек после загрузки модуля
         console.log('🔍 Проверяем загрузку библиотек...');
@@ -169,11 +173,22 @@
             showStatus('Загрузка библиотек и запуск теста...', 'loading');
             
             try {
+                // Ждем загрузки библиотек
+                let attempts = 0;
+                while (!window.librariesLoaded && attempts < 50) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    attempts++;
+                }
+                
+                if (!window.librariesLoaded) {
+                    throw new Error('Библиотеки не загрузились в течение 5 секунд');
+                }
+                
                 // Проверяем доступность библиотек
                 if (typeof CryptoJS === 'undefined') {
                     throw new Error('CryptoJS не загружен');
                 }
-                if (typeof secp256k1 === 'undefined') {
+                if (typeof window.secp256k1 === 'undefined') {
                     throw new Error('@noble/secp256k1 не загружен');
                 }
                 
@@ -207,7 +222,7 @@
                     console.error('❌ CryptoJS не загружен');
                 }
                 
-                if (typeof secp256k1 !== 'undefined') {
+                if (typeof window.secp256k1 !== 'undefined') {
                     console.log('✅ @noble/secp256k1 загружен');
                 } else {
                     console.error('❌ @noble/secp256k1 не загружен');

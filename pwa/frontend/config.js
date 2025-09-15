@@ -13,8 +13,11 @@ window.CryptoMessengerConfig = {
         }
     },
     
-    // Адрес развернутого контракта (обновлен)
-    contractAddress: '0x541a49c4f9A97a274ADf0623beDCF6A8F9F17bF8',
+    // Адрес развернутого контракта (с системой пагинации и on-chain хранением сообщений)
+    contractAddress: '0x8a65209ffD57da60fbB1AF460e2F2CBea9115aC3',
+    
+    // Подписываемая фраза для генерации ключей шифрования
+    signaturePhrase: 'By signing this message, I authorize CryptoMessenger to decrypt and read my messages.',
     
     // ABI контракта (полный)
     contractABI: [
@@ -29,13 +32,13 @@ window.CryptoMessengerConfig = {
             {
                 "indexed": true,
                 "internalType": "address",
-                "name": "from",
+                "name": "requesterAddress",
                 "type": "address"
             },
             {
                 "indexed": true,
                 "internalType": "address",
-                "name": "to",
+                "name": "recipientAddress",
                 "type": "address"
             }
         ],
@@ -48,13 +51,13 @@ window.CryptoMessengerConfig = {
             {
                 "indexed": true,
                 "internalType": "address",
-                "name": "from",
+                "name": "requesterAddress",
                 "type": "address"
             },
             {
                 "indexed": true,
                 "internalType": "address",
-                "name": "to",
+                "name": "recipientAddress",
                 "type": "address"
             }
         ],
@@ -67,13 +70,13 @@ window.CryptoMessengerConfig = {
             {
                 "indexed": true,
                 "internalType": "address",
-                "name": "from",
+                "name": "userAddress",
                 "type": "address"
             },
             {
                 "indexed": true,
                 "internalType": "address",
-                "name": "to",
+                "name": "contactAddress",
                 "type": "address"
             }
         ],
@@ -86,13 +89,13 @@ window.CryptoMessengerConfig = {
             {
                 "indexed": true,
                 "internalType": "address",
-                "name": "user",
+                "name": "userAddress",
                 "type": "address"
             },
             {
                 "indexed": false,
                 "internalType": "uint256",
-                "name": "newFee",
+                "name": "newFeeAmount",
                 "type": "uint256"
             }
         ],
@@ -105,29 +108,42 @@ window.CryptoMessengerConfig = {
             {
                 "indexed": true,
                 "internalType": "address",
-                "name": "from",
+                "name": "requesterAddress",
                 "type": "address"
             },
             {
                 "indexed": true,
                 "internalType": "address",
-                "name": "to",
+                "name": "recipientAddress",
                 "type": "address"
             },
             {
                 "indexed": false,
                 "internalType": "bytes",
-                "name": "firstMessage",
+                "name": "introductionMessage",
                 "type": "bytes"
             },
             {
                 "indexed": false,
                 "internalType": "uint256",
-                "name": "payment",
+                "name": "paymentAmount",
                 "type": "uint256"
             }
         ],
         "name": "ContactRequested",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "newDefaultFee",
+                "type": "uint256"
+            }
+        ],
+        "name": "DefaultContactRequestFeeUpdated",
         "type": "event"
     },
     {
@@ -149,25 +165,31 @@ window.CryptoMessengerConfig = {
             {
                 "indexed": true,
                 "internalType": "address",
-                "name": "from",
+                "name": "senderAddress",
                 "type": "address"
             },
             {
                 "indexed": true,
                 "internalType": "address",
-                "name": "to",
+                "name": "recipientAddress",
                 "type": "address"
             },
             {
                 "indexed": false,
                 "internalType": "bytes",
-                "name": "encryptedData",
+                "name": "encryptedForRecipient",
+                "type": "bytes"
+            },
+            {
+                "indexed": false,
+                "internalType": "bytes",
+                "name": "encryptedForSender",
                 "type": "bytes"
             },
             {
                 "indexed": false,
                 "internalType": "uint256",
-                "name": "timestamp",
+                "name": "messageTimestamp",
                 "type": "uint256"
             }
         ],
@@ -199,7 +221,7 @@ window.CryptoMessengerConfig = {
             {
                 "indexed": true,
                 "internalType": "address",
-                "name": "user",
+                "name": "userAddress",
                 "type": "address"
             },
             {
@@ -216,13 +238,61 @@ window.CryptoMessengerConfig = {
         "inputs": [
             {
                 "internalType": "address",
-                "name": "_sender_address",
+                "name": "requesterAddress",
                 "type": "address"
             }
         ],
         "name": "acceptContactRequest",
         "outputs": [],
-        "stateMutability": "nonpayable",
+        "stateMutability": "payable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "",
+                "type": "address"
+            },
+            {
+                "internalType": "address",
+                "name": "",
+                "type": "address"
+            }
+        ],
+        "name": "chats",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "messageCount",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "userAddress",
+                "type": "address"
+            },
+            {
+                "internalType": "address",
+                "name": "contactAddress",
+                "type": "address"
+            }
+        ],
+        "name": "checkContact",
+        "outputs": [
+            {
+                "internalType": "bool",
+                "name": "",
+                "type": "bool"
+            }
+        ],
+        "stateMutability": "view",
         "type": "function"
     },
     {
@@ -242,27 +312,27 @@ window.CryptoMessengerConfig = {
         "outputs": [
             {
                 "internalType": "address",
-                "name": "from",
+                "name": "requesterAddress",
                 "type": "address"
             },
             {
                 "internalType": "bytes",
-                "name": "firstMessage",
+                "name": "introductionMessage",
                 "type": "bytes"
             },
             {
                 "internalType": "bytes",
-                "name": "encryptedData",
+                "name": "encryptedMessageData",
                 "type": "bytes"
             },
             {
                 "internalType": "uint256",
-                "name": "payment",
+                "name": "paymentAmount",
                 "type": "uint256"
             },
             {
                 "internalType": "uint256",
-                "name": "timestamp",
+                "name": "requestTimestamp",
                 "type": "uint256"
             },
             {
@@ -275,24 +345,26 @@ window.CryptoMessengerConfig = {
         "type": "function"
     },
     {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "",
-                "type": "address"
-            },
+        "inputs": [],
+        "name": "contractOwner",
+        "outputs": [
             {
                 "internalType": "address",
                 "name": "",
                 "type": "address"
             }
         ],
-        "name": "contacts",
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "defaultContactRequestFee",
         "outputs": [
             {
-                "internalType": "bool",
+                "internalType": "uint256",
                 "name": "",
-                "type": "bool"
+                "type": "uint256"
             }
         ],
         "stateMutability": "view",
@@ -302,12 +374,109 @@ window.CryptoMessengerConfig = {
         "inputs": [
             {
                 "internalType": "address",
-                "name": "_recipient_address",
+                "name": "userAddress",
                 "type": "address"
             },
             {
                 "internalType": "address",
-                "name": "_sender_address",
+                "name": "contactAddress",
+                "type": "address"
+            }
+        ],
+        "name": "getChatMessages",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            },
+            {
+                "components": [
+                    {
+                        "internalType": "bytes",
+                        "name": "encryptedForReader",
+                        "type": "bytes"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "messageTimestamp",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "bool",
+                        "name": "isOutgoing",
+                        "type": "bool"
+                    }
+                ],
+                "internalType": "struct CryptoMessenger.ChatMessage[]",
+                "name": "",
+                "type": "tuple[]"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "userAddress",
+                "type": "address"
+            },
+            {
+                "internalType": "address",
+                "name": "contactAddress",
+                "type": "address"
+            },
+            {
+                "internalType": "uint256",
+                "name": "offset",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "limit",
+                "type": "uint256"
+            }
+        ],
+        "name": "getChatMessagesPaginated",
+        "outputs": [
+            {
+                "components": [
+                    {
+                        "internalType": "bytes",
+                        "name": "encryptedForReader",
+                        "type": "bytes"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "messageTimestamp",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "bool",
+                        "name": "isOutgoing",
+                        "type": "bool"
+                    }
+                ],
+                "internalType": "struct CryptoMessenger.ChatMessage[]",
+                "name": "",
+                "type": "tuple[]"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "recipientAddress",
+                "type": "address"
+            },
+            {
+                "internalType": "address",
+                "name": "senderAddress",
                 "type": "address"
             }
         ],
@@ -317,27 +486,27 @@ window.CryptoMessengerConfig = {
                 "components": [
                     {
                         "internalType": "address",
-                        "name": "from",
+                        "name": "requesterAddress",
                         "type": "address"
                     },
                     {
                         "internalType": "bytes",
-                        "name": "firstMessage",
+                        "name": "introductionMessage",
                         "type": "bytes"
                     },
                     {
                         "internalType": "bytes",
-                        "name": "encryptedData",
+                        "name": "encryptedMessageData",
                         "type": "bytes"
                     },
                     {
                         "internalType": "uint256",
-                        "name": "payment",
+                        "name": "paymentAmount",
                         "type": "uint256"
                     },
                     {
                         "internalType": "uint256",
-                        "name": "timestamp",
+                        "name": "requestTimestamp",
                         "type": "uint256"
                     },
                     {
@@ -358,7 +527,53 @@ window.CryptoMessengerConfig = {
         "inputs": [
             {
                 "internalType": "address",
-                "name": "_user_address",
+                "name": "userAddress",
+                "type": "address"
+            },
+            {
+                "internalType": "address",
+                "name": "contactAddress",
+                "type": "address"
+            },
+            {
+                "internalType": "uint256",
+                "name": "count",
+                "type": "uint256"
+            }
+        ],
+        "name": "getLastChatMessages",
+        "outputs": [
+            {
+                "components": [
+                    {
+                        "internalType": "bytes",
+                        "name": "encryptedForReader",
+                        "type": "bytes"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "messageTimestamp",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "bool",
+                        "name": "isOutgoing",
+                        "type": "bool"
+                    }
+                ],
+                "internalType": "struct CryptoMessenger.ChatMessage[]",
+                "name": "",
+                "type": "tuple[]"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "userAddress",
                 "type": "address"
             }
         ],
@@ -377,7 +592,7 @@ window.CryptoMessengerConfig = {
         "inputs": [
             {
                 "internalType": "address",
-                "name": "_user_address",
+                "name": "userAddress",
                 "type": "address"
             }
         ],
@@ -396,7 +611,7 @@ window.CryptoMessengerConfig = {
         "inputs": [
             {
                 "internalType": "address",
-                "name": "_user_address",
+                "name": "userAddress",
                 "type": "address"
             }
         ],
@@ -449,7 +664,7 @@ window.CryptoMessengerConfig = {
                 "type": "uint256"
             }
         ],
-        "name": "incomingRequests",
+        "name": "incomingContactRequests",
         "outputs": [
             {
                 "internalType": "address",
@@ -464,12 +679,12 @@ window.CryptoMessengerConfig = {
         "inputs": [
             {
                 "internalType": "address",
-                "name": "_user_address",
+                "name": "",
                 "type": "address"
             },
             {
                 "internalType": "address",
-                "name": "_contact_address",
+                "name": "",
                 "type": "address"
             }
         ],
@@ -488,7 +703,7 @@ window.CryptoMessengerConfig = {
         "inputs": [
             {
                 "internalType": "address",
-                "name": "_user_address",
+                "name": "userAddress",
                 "type": "address"
             }
         ],
@@ -529,20 +744,7 @@ window.CryptoMessengerConfig = {
                 "type": "uint256"
             }
         ],
-        "name": "outgoingRequests",
-        "outputs": [
-            {
-                "internalType": "address",
-                "name": "",
-                "type": "address"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "owner",
+        "name": "outgoingContactRequests",
         "outputs": [
             {
                 "internalType": "address",
@@ -557,7 +759,7 @@ window.CryptoMessengerConfig = {
         "inputs": [
             {
                 "internalType": "bytes",
-                "name": "_user_public_key",
+                "name": "userPublicKey",
                 "type": "bytes"
             }
         ],
@@ -570,7 +772,7 @@ window.CryptoMessengerConfig = {
         "inputs": [
             {
                 "internalType": "address",
-                "name": "_sender_address",
+                "name": "requesterAddress",
                 "type": "address"
             }
         ],
@@ -583,7 +785,7 @@ window.CryptoMessengerConfig = {
         "inputs": [
             {
                 "internalType": "address",
-                "name": "_contact_to_remove",
+                "name": "contactAddress",
                 "type": "address"
             }
         ],
@@ -596,17 +798,17 @@ window.CryptoMessengerConfig = {
         "inputs": [
             {
                 "internalType": "address",
-                "name": "_recipient_address",
+                "name": "recipientAddress",
                 "type": "address"
             },
             {
                 "internalType": "bytes",
-                "name": "_intro_message",
+                "name": "introductionMessage",
                 "type": "bytes"
             },
             {
                 "internalType": "bytes",
-                "name": "_encrypted_message_data",
+                "name": "encryptedMessageData",
                 "type": "bytes"
             }
         ],
@@ -619,12 +821,17 @@ window.CryptoMessengerConfig = {
         "inputs": [
             {
                 "internalType": "address",
-                "name": "_recipient_address",
+                "name": "recipientAddress",
                 "type": "address"
             },
             {
                 "internalType": "bytes",
-                "name": "_encrypted_message_data",
+                "name": "encryptedForRecipient",
+                "type": "bytes"
+            },
+            {
+                "internalType": "bytes",
+                "name": "encryptedForSender",
                 "type": "bytes"
             }
         ],
@@ -637,7 +844,7 @@ window.CryptoMessengerConfig = {
         "inputs": [
             {
                 "internalType": "uint256",
-                "name": "_contact_request_fee",
+                "name": "contactRequestFee",
                 "type": "uint256"
             }
         ],
@@ -650,7 +857,20 @@ window.CryptoMessengerConfig = {
         "inputs": [
             {
                 "internalType": "uint256",
-                "name": "_new_contacts_limit",
+                "name": "newDefaultFee",
+                "type": "uint256"
+            }
+        ],
+        "name": "setDefaultContactRequestFee",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "newContactsLimit",
                 "type": "uint256"
             }
         ],
@@ -663,7 +883,7 @@ window.CryptoMessengerConfig = {
         "inputs": [
             {
                 "internalType": "address",
-                "name": "_new_owner_address",
+                "name": "newOwnerAddress",
                 "type": "address"
             }
         ],
@@ -676,7 +896,7 @@ window.CryptoMessengerConfig = {
         "inputs": [
             {
                 "internalType": "bytes",
-                "name": "_updated_public_key",
+                "name": "updatedPublicKey",
                 "type": "bytes"
             }
         ],
@@ -751,10 +971,17 @@ window.CryptoMessengerConfig = {
         ],
         "stateMutability": "view",
         "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "withdrawETH",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
     }
 ]
 };
 
-console.log('📦 Конфигурация CryptoMessenger загружена v1.0.0 - 2025-09-12 23:03 (полный ABI)');
+console.log('📦 Конфигурация CryptoMessenger загружена v1.0.0 - 2025-09-15 11:02 (полный ABI)');
 console.log('🌐 Сеть:', window.CryptoMessengerConfig.network.chainName);
 console.log('📄 Контракт:', window.CryptoMessengerConfig.contractAddress);
