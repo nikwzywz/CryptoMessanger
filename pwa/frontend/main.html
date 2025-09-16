@@ -219,19 +219,6 @@
             align-items: center;
         }
 
-        .chat-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #1a365d, #44337a);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
-            font-size: 18px;
-            color: white;
-            margin-right: 12px;
-        }
 
         .chat-info {
             flex: 1;
@@ -304,13 +291,6 @@
             flex-direction: row-reverse;
         }
 
-        .message-avatar {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            flex-shrink: 0;
-            margin: 0 8px;
-        }
 
         .message-content {
             max-width: 70%;
@@ -1141,7 +1121,7 @@
     <script src="config_v2.js"></script>
     <script src="lib/crypto-utils.js"></script>
     <script src="lib/decentralized-event-system-browser-v2.js"></script>
-    <script src="lib/chat-ui-manager-v2.js"></script>
+    <script src="lib/chat-ui-manager-v3.js"></script>
     
     <script>
         // CryptoMessenger v2.0.0 - Main Interface with Contract v2 Migration
@@ -1155,6 +1135,7 @@
         let userPublicKey;
         let contacts = [];
         let currentContact = null;
+        let currentChat = null;
         let chatUIManager;
         let eventSystem;
         let contactRequests = [];
@@ -1727,36 +1708,36 @@
         }
 
         // Панель ожидания принятия приглашения (отправитель ждёт)
-        function setAreaWaitAcceptanceFromFriendVisibility(visible, contactAddress = null, contactName = null) {
+        function setAreaWaitAcceptanceFromFriendVisibility(visible) {
             const waitingPanel = document.getElementById('waitingPanel');
             if (waitingPanel) {
                 waitingPanel.style.display = visible ? 'block' : 'none';
                 
                 // Обновляем информацию о получателе если панель показывается
-                if (visible && contactAddress) {
+                if (visible && currentContact) {
                     const waitingTo = document.getElementById('waitingTo');
                     if (waitingTo) {
-                        waitingTo.textContent = `Кому: ${contactAddress}`;
+                        waitingTo.textContent = `Кому: ${currentContact.address}`;
                     }
                 }
             }
         }
 
         // Панель принятия приглашения (получатель решает)
-        function setAreaWaitAcceptanceFromYouVisibility(visible, inviterAddress = null, inviterName = null) {
+        function setAreaWaitAcceptanceFromYouVisibility(visible) {
             const invitationPanel = document.getElementById('invitationPanel');
             if (invitationPanel) {
                 invitationPanel.style.display = visible ? 'block' : 'none';
                 
                 // Обновляем информацию об отправителе если панель показывается
-                if (visible && inviterAddress) {
+                if (visible && currentContact) {
                     const invitationFrom = document.getElementById('invitationFrom');
                     if (invitationFrom) {
-                        invitationFrom.textContent = `От: ${inviterAddress}`;
+                        invitationFrom.textContent = `От: ${currentContact.address}`;
                     }
                     
                     // Сохраняем адрес отправителя для кнопок принятия/отклонения
-                    invitationPanel.setAttribute('data-inviter-address', inviterAddress);
+                    invitationPanel.setAttribute('data-inviter-address', currentContact.address);
                 }
             }
         }
@@ -1766,36 +1747,53 @@
             const createInvitationPanel = document.getElementById('createInvitationPanel');
             if (createInvitationPanel) {
                 createInvitationPanel.style.display = visible ? 'block' : 'none';
+                
+                // Обновляем информацию о получателе если панель показывается
+                if (visible && currentContact) {
+                    const createInvitationTo = document.getElementById('createInvitationTo');
+                    if (createInvitationTo) {
+                        createInvitationTo.textContent = `Кому: ${currentContact.address}`;
+                    }
+                    
+                    // Сохраняем адрес получателя для кнопки отправки приглашения
+                    createInvitationPanel.setAttribute('data-recipient-address', currentContact.address);
+                }
             }
         }
 
         // Главная функция обновления видимости всех областей
-        async function updateAllAreasVisibility(contactAddress = null, contactName = null) {
-            console.log('🎨 Обновляем видимость всех областей для контакта:', contactAddress);
-            
+        async function updateAllAreasVisibility() {
             const contactSelected = (currentContact !== null);
-            let chat = null;
+            const contactAddress = currentContact?.address;
+            const contactName = currentContact?.name;
+            
+            console.log('🎨 Обновляем видимость всех областей для контакта:', contactAddress);
             
             // Если контакт выбран, получаем информацию о чате
             if (contactSelected && contactAddress) {
                 try {
                     const chatId = await contract.methods.getChatId(currentUser, contactAddress).call();
                     if (chatId && chatId !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
-                        chat = await contract.methods.getChat(chatId).call();
+                        currentChat = await contract.methods.getChat(chatId).call();
+                    } else {
+                        currentChat = null;
                     }
                 } catch (error) {
                     console.error('❌ Ошибка получения информации о чате:', error);
+                    currentChat = null;
                 }
+            } else {
+                currentChat = null;
             }
 
             // Логгируем в консоль все переменные, которые мы будем использовать для установления видимости областей
             console.log('🔍 Переменные для установления видимости областей:', {
                 contactSelected,
-                chat,
+                currentChat,
                 currentUser,
-                chatInviter: chat?.inviter?.toLowerCase() || 'нет данных',
-                isActive: chat?.isActive || false,
-                isNeedAcceptance: chat?.isNeedAcceptance || false
+                chatInviter: currentChat?.inviter?.toLowerCase() || 'нет данных',
+                isActive: currentChat?.isActive || false,
+                isNeedAcceptance: currentChat?.isNeedAcceptance || false
             });
 
             // Применяем логику видимости согласно требованиям
@@ -1807,34 +1805,30 @@
             setAreaChatMessagesVisibility(contactSelected);
             
             // Панель отправки сообщений
-            setAreaSendMessageVisibility(contactSelected && chat && chat.isActive);
+            setAreaSendMessageVisibility(contactSelected && currentChat && currentChat.isActive);
             
             // Панель ожидания от друга (мы отправители)
             setAreaWaitAcceptanceFromFriendVisibility(
-                contactSelected && chat && !chat.isActive && chat.isNeedAcceptance && 
-                chat.inviter.toLowerCase() === currentUser.toLowerCase(),
-                contactAddress,
-                contactName
+                contactSelected && currentChat && !currentChat.isActive && currentChat.isNeedAcceptance && 
+                currentChat.inviter.toLowerCase() === currentUser.toLowerCase()
             );
             
             // Панель принятия от нас (мы получатели)
             setAreaWaitAcceptanceFromYouVisibility(
-                contactSelected && chat && !chat.isActive && chat.isNeedAcceptance && 
-                chat.inviter.toLowerCase() !== currentUser.toLowerCase(),
-                chat?.inviter,  // Адрес отправителя приглашения
-                contactName     // Имя контакта (для справки)
+                contactSelected && currentChat && !currentChat.isActive && currentChat.isNeedAcceptance && 
+                currentChat.inviter.toLowerCase() !== currentUser.toLowerCase()
             );
             
             // Панель отправки приглашения
             setAreaCanInviteVisibility(
-                contactSelected && chat && !chat.isActive && !chat.isNeedAcceptance
+                contactSelected && currentChat && !currentChat.isActive && !currentChat.isNeedAcceptance
             );
 
             console.log('✅ Видимость областей обновлена:', {
                 contactSelected,
-                chatActive: chat?.isActive,
-                needAcceptance: chat?.isNeedAcceptance,
-                isInviter: chat?.inviter?.toLowerCase() === currentUser?.toLowerCase()
+                chatActive: currentChat?.isActive,
+                needAcceptance: currentChat?.isNeedAcceptance,
+                isInviter: currentChat?.inviter?.toLowerCase() === currentUser?.toLowerCase()
             });
         }
         
@@ -1860,7 +1854,7 @@
                     if (chat.isActive) {
                         // 1. АКТИВНЫЙ ЧАТ - можно писать сообщения
                         console.log('✅ Активный чат - показываем поле ввода');
-                        await updateAllAreasVisibility(contactAddress, contactName);
+                        await updateAllAreasVisibility();
                         return false; // Обычный чат
                     } else {
                         // 2. НЕАКТИВНЫЙ ЧАТ - проверяем причину
@@ -1896,7 +1890,7 @@
                 }
             } catch (error) {
                 console.error('❌ Ошибка проверки статуса чата:', error);
-                await updateAllAreasVisibility(contactAddress, contactName);
+                await updateAllAreasVisibility();
                 return false;
             }
         }
@@ -1941,7 +1935,21 @@
                 await loadContacts();
                 updateContactsUI();
                 
-                console.log('✅ Приглашение принято из чата');
+                // Устанавливаем текущий контакт (приглашающий теперь наш контакт)
+                const contactName = contacts.find(c => c.address.toLowerCase() === inviterAddress.toLowerCase())?.name || 'Контакт';
+                currentContact = { address: inviterAddress, name: contactName };
+                
+                // Обновляем заголовок чата
+                const chatTitle = document.getElementById('chatTitle');
+                if (chatTitle) chatTitle.textContent = contactName;
+                
+                // Обновляем подсветку активного контакта
+                updateActiveContactHighlight();
+                
+                // Обновляем панели интерфейса
+                await updateAllAreasVisibility();
+                
+                console.log('✅ Приглашение принято из чата, установлен currentContact:', currentContact);
                 
             } catch (error) {
                 console.error('❌ Ошибка принятия приглашения из чата:', error);
@@ -2016,14 +2024,40 @@
                 const contactItem = createContactItem(contactWithUnread, contact.chatType, `contact-${index}`);
                 contactsList.appendChild(contactItem);
             });
+            
+            // Настраиваем обработчики кликов для новых элементов
+            setupContactClickHandlers();
         }
-        
+
+        // Обновление подсветки активного контакта
+        function updateActiveContactHighlight() {
+            // Убираем класс active у всех контактов
+            document.querySelectorAll('.contact-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // Добавляем класс active текущему контакту
+            if (currentContact) {
+                document.querySelectorAll('.contact-item').forEach(item => {
+                    const itemAddress = item.getAttribute('data-address');
+                    if (itemAddress && itemAddress.toLowerCase() === currentContact.address.toLowerCase()) {
+                        item.classList.add('active');
+                    }
+                });
+            }
+        }
+
         // Создание элемента контакта
         function createContactItem(contact, type, id) {
             const contactItem = document.createElement('div');
             contactItem.className = `contact-item ${type}`;
             contactItem.setAttribute('data-contact-id', id);
             contactItem.setAttribute('data-address', contact.address);
+            
+            // Добавляем класс active если это текущий выбранный контакт
+            if (currentContact && currentContact.address.toLowerCase() === contact.address.toLowerCase()) {
+                contactItem.classList.add('active');
+            }
             
             const timeStr = contact.lastMessageTime ? 
                 formatTime(contact.lastMessageTime) : 
@@ -2229,8 +2263,11 @@
                     // Устанавливаем текущий контакт ДО проверки статуса
                     currentContact = { address: contactAddress, name: contactName };
                     
+                    // Обновляем подсветку активного контакта
+                    updateActiveContactHighlight();
+                    
                     // Проверяем статус чата и показываем соответствующую панель
-                    await updateAllAreasVisibility(contactAddress, contactName);
+                    await updateAllAreasVisibility();
                     
                     // Проверяем, является ли это активным чатом для сброса счётчика
                     try {
@@ -2246,8 +2283,14 @@
                             const contact = contacts.find(c => c.address.toLowerCase() === contactAddress.toLowerCase());
                             if (contact) {
                                 contact.unreadCount = 0;
-                                // Обновляем UI контактов, чтобы убрать бейдж
-                                updateContactsUI();
+                                // Убираем бейдж у текущего контакта
+                                const currentContactElement = document.querySelector(`[data-address="${contactAddress}"]`);
+                                if (currentContactElement) {
+                                    const badge = currentContactElement.querySelector('.contact-badge');
+                                    if (badge) {
+                                        badge.remove();
+                                    }
+                                }
                             }
                         }
                     } catch (error) {
@@ -2365,7 +2408,6 @@
             const time = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
             
             messageDiv.innerHTML = `
-                <div class="message-avatar">${isOutgoing ? 'Y' : 'C'}</div>
                 <div class="message-content">
                     <div class="message-text">${text}</div>
                     <div class="message-time">${time}</div>
@@ -2506,6 +2548,7 @@
                         contacts = [];
                         messages = {};
                         currentContact = null;
+                        currentChat = null;
                         
                         // Скрываем все панели так как контакт не выбран
                         await updateAllAreasVisibility();
@@ -2582,7 +2625,7 @@
                     // Обновляем панель для текущего контакта, если он совпадает с получателем приглашения
                     if (currentContact && currentContact.address.toLowerCase() === recipientAddress.toLowerCase()) {
                         console.log('🔄 Обновляем панель для текущего контакта после отправки приглашения');
-                        await updateAllAreasVisibility(currentContact.address, currentContact.name);
+                        await updateAllAreasVisibility();
                     }
 
                     // Очищаем форму

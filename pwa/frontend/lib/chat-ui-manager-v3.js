@@ -4,8 +4,8 @@
 
 class ChatUIManager {
     constructor(contract, userAddress) {
-        console.log('📦 ChatUIManager v2.0.0 - CryptoMessenger v2 contract support loaded');
-        console.log('🔧 File: chat-ui-manager-v2.js');
+console.log('📦 ChatUIManager v3.0.0 - CryptoMessenger v2 contract support (no avatars) loaded');
+console.log('🔧 File: chat-ui-manager-v3.js');
         
         this.contract = contract;
         this.userAddress = userAddress;
@@ -209,11 +209,7 @@ class ChatUIManager {
             messageDiv.classList.add('outgoing');
         }
         
-        // Генерируем аватар для сообщения
-        const messageAvatar = CryptoUtils.getAvatar(contactAddress, '', 'jazzicon', 24);
-        
         messageDiv.innerHTML = `
-            <img src="${messageAvatar}" class="message-avatar" alt="Avatar" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;">
             <div class="message-content">
                 <div class="message-text">${displayText}</div>
                 <div class="message-time">${timeString}</div>
