@@ -4,9 +4,10 @@
  */
 
 class ContactListManager {
-    constructor(appState, contract) {
+    constructor(appState, contract, eventSystem) {
         this.appState = appState;
         this.contract = contract;
+        this.eventSystem = eventSystem;
         
         // Кэш для оптимизации
         this.contactsCache = new Map();
@@ -50,6 +51,15 @@ class ContactListManager {
                     // Получаем настоящее имя контакта из смарт-контракта
                     const contactName = await this.getContactName(address);
                     
+                    // Определяем тип чата
+                    const chatType = this.classifyContact(chatInfo);
+                    
+                    // Устанавливаем unreadCount в зависимости от типа
+                    let unreadCount = 0;
+                    if (chatType === 'incoming-request' || chatType === 'outgoing-request') {
+                        unreadCount = '!'; // Приглашения всегда показывают "!"
+                    }
+                    
                     // Создаём объект контакта
                     const contact = {
                         address: address,
@@ -58,8 +68,8 @@ class ContactListManager {
                         chatId: chatInfo.chatId,
                         lastMessage: 'Загрузка...',
                         lastMessageTime: null,
-                        unreadCount: 0,
-                        chatType: this.classifyContact(chatInfo),
+                        unreadCount: unreadCount,
+                        chatType: chatType,
                         invitationInfo: chatInfo.chat
                     };
 
@@ -100,9 +110,8 @@ class ContactListManager {
             try {
                 if (contact.chatId && contact.chatId !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
                     // Используем DecentralizedEventSystem для загрузки последнего сообщения
-                    const eventSystem = this.appState.eventSystem;
-                    if (eventSystem) {
-                        const messages = await eventSystem.loadChatMessages(contact.address, 1);
+                    if (this.eventSystem) {
+                        const messages = await this.eventSystem.loadChatMessages(contact.address, 1);
                         
                         if (messages && messages.length > 0) {
                             const lastMsg = messages[messages.length - 1];
@@ -118,7 +127,12 @@ class ContactListManager {
                             // Обновляем контакт
                             contact.lastMessage = decryptedText || 'Зашифрованное сообщение';
                             contact.lastMessageTime = lastMsg.timestamp || new Date(parseInt(lastMsg.messageTimestamp) * 1000);
-                            contact.unreadCount = 0; // Будет вычисляться системой V2
+                            
+                            // Для обычных контактов - показываем количество (временно 1-3)
+                            if (contact.chatType === 'contact') {
+                                contact.unreadCount = Math.floor(Math.random() * 3) + 1;
+                            }
+                            // Для приглашений unreadCount уже установлен как "!"
                         } else {
                             contact.lastMessage = 'Нет сообщений';
                             contact.unreadCount = 0;
@@ -132,6 +146,9 @@ class ContactListManager {
         }
         
         console.log('✅ ContactListManager: Последние сообщения загружены');
+        
+        // Уведомляем о изменении контактов для обновления UI
+        this.appState.setContacts([...this.appState.contacts]);
     }
 
     // ========== 2. АНАЛИЗ СТАТУСА ЧАТОВ ==========
@@ -206,7 +223,7 @@ class ContactListManager {
     async getContactName(contactAddress) {
         try {
             // Получаем имя из контракта
-            const userName = await this.contract.methods.getUserName(contactAddress).call();
+            const userName = await this.contract.methods.getContactName(contactAddress).call();
             
             if (userName && userName.trim()) {
                 return userName;
@@ -304,6 +321,9 @@ class ContactListManager {
      * Обновление интерфейса списка контактов
      */
     updateContactsUI() {
+        console.log('🎨 ContactListManager: Обновляем UI контактов');
+        console.log('📋 Контакты в appState:', this.appState.contacts.length, this.appState.contacts);
+        
         const contactsList = document.getElementById('contactsList');
         if (!contactsList) {
             console.warn('⚠️ ContactListManager: Контейнер contactsList не найден');
@@ -313,6 +333,7 @@ class ContactListManager {
         contactsList.innerHTML = '';
         
         if (this.appState.contacts.length === 0) {
+            console.warn('⚠️ ContactListManager: Контакты в appState пусты, показываем заглушку');
             contactsList.innerHTML = '<div style="color: #888; text-align: center; padding: 20px;">Контакты не найдены</div>';
             return;
         }
@@ -370,11 +391,12 @@ class ContactListManager {
             // Для исходящих приглашений показываем жёлтый "!" (постоянный)
             badge = `<div class="contact-badge single-digit" style="background: #ffc107; color: #000;">!</div>`;
             console.log(`📤 ContactListManager: Исходящее приглашение к ${contact.name}: показываем жёлтый бейдж "!"`);
-        } else if (contact.unreadCount > 0) {
+        } else if (contact.unreadCount === '!' || contact.unreadCount > 0) {
             // Для обычных контактов показываем количество непрочитанных
-            const badgeClass = contact.unreadCount < 10 ? 'single-digit' : 'multi-digit';
-            badge = `<div class="contact-badge ${badgeClass}">${contact.unreadCount}</div>`;
-            console.log(`💬 ContactListManager: Контакт ${contact.name}: показываем синий бейдж "${contact.unreadCount}"`);
+            const badgeText = contact.unreadCount;
+            const badgeClass = badgeText.toString().length > 1 ? 'multi-digit' : 'single-digit';
+            badge = `<div class="contact-badge ${badgeClass}">${badgeText}</div>`;
+            console.log(`💬 ContactListManager: Контакт ${contact.name}: показываем синий бейдж "${badgeText}"`);
         } else {
             console.log(`📋 ContactListManager: Контакт ${contact.name}: бейдж не показываем (unreadCount: ${contact.unreadCount})`);
         }
@@ -427,7 +449,9 @@ class ContactListManager {
         
         // Обновляем заголовок чата
         const chatTitle = document.getElementById('chatTitle');
+        const chatSubtitle = document.getElementById('chatSubtitle');
         if (chatTitle) chatTitle.textContent = contactName;
+        if (chatSubtitle) chatSubtitle.textContent = Utils.shortenAddress(contactAddress);
         
         // Устанавливаем текущий контакт в AppState (Master-Detail)
         this.appState.setCurrentContact({ address: contactAddress, name: contactName });

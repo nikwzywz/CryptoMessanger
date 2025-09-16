@@ -85,6 +85,18 @@ class AppState {
     }
 
     /**
+     * Установка публичного ключа пользователя
+     * @param {string} publicKey - Публичный ключ пользователя
+     */
+    setUserPublicKey(publicKey) {
+        const oldValue = this.userPublicKey;
+        this.userPublicKey = publicKey;
+        if (oldValue !== publicKey) {
+            this.notify('userPublicKey', publicKey);
+        }
+    }
+
+    /**
      * Установка текущего контакта
      * @param {Object} contact - Объект контакта {address, name}
      */
@@ -103,7 +115,8 @@ class AppState {
     setCurrentChat(chat) {
         const oldValue = this.currentChat;
         this.currentChat = chat;
-        if (JSON.stringify(oldValue) !== JSON.stringify(chat)) {
+        // Простое сравнение вместо JSON.stringify (проблема с BigInt)
+        if (oldValue !== chat) {
             this.notify('currentChat', chat);
         }
     }

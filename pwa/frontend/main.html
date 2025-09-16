@@ -53,7 +53,7 @@
                 <button class="back-button" id="backButton">←</button>
                 <div>
                     <div class="chat-title" id="chatTitle">Выберите контакт</div>
-                    <div class="chat-subtitle" id="chatSubtitle">Начните общение</div>
+                    <div class="chat-subtitle" id="chatSubtitle">Выберите контакт</div>
                     <div class="chat-stats" id="chatStats" style="display: none;">
                         <span class="chat-stats-item">
                             <strong id="totalMessages">0</strong> сообщений
@@ -462,11 +462,10 @@
                 console.log('✅ Приглашение отправлено в блокчейн:', result.transactionHash);
                 
                 // Показываем уведомление
-                showNotification('Приглашение успешно отправлено!', 'success');
+                appState.showNotification('Приглашение успешно отправлено!', 'success');
                 
                 // Обновляем список контактов
-                await loadContacts();
-                updateContactsUI();
+                await contactListManager.refreshContacts();
                 
                 return result;
                 
@@ -491,11 +490,10 @@
                 console.log('✅ Приглашение принято:', result.transactionHash);
                 
                 // Показываем уведомление
-                showNotification('Приглашение принято!', 'success');
+                appState.showNotification('Приглашение принято!', 'success');
                 
                 // Обновляем список контактов
-                await loadContacts();
-                updateContactsUI();
+                await contactListManager.refreshContacts();
                 
                 return result;
                 
@@ -520,11 +518,13 @@
                 console.log('✅ Приглашение отклонено:', result.transactionHash);
                 
                 // Показываем уведомление
-                showNotification('Приглашение отклонено', 'info');
+                appState.showNotification('Приглашение отклонено', 'info');
                 
                 // Обновляем список контактов
-                await loadContacts();
-                updateContactsUI();
+                await contactListManager.refreshContacts();
+                
+                // Сбрасываем выбранный контакт
+                appState.setCurrentContact(null);
                 
                 return result;
                 
@@ -549,11 +549,10 @@
                 console.log('✅ Приглашение отозвано:', result.transactionHash);
                 
                 // Показываем уведомление
-                showNotification('Приглашение отозвано', 'info');
+                appState.showNotification('Приглашение отозвано', 'info');
                 
                 // Обновляем список контактов
-                await loadContacts();
-                updateContactsUI();
+                await contactListManager.refreshContacts();
                 
                 return result;
                 
@@ -841,7 +840,7 @@
                     } else {
                         currentChat = null;
                     }
-                } catch (error) {
+            } catch (error) {
                     console.error('❌ Ошибка получения информации о чате:', error);
                     currentChat = null;
                 }
@@ -938,7 +937,7 @@
                                 );
                             }
                             return true; // Приглашение активно
-                        } else {
+                } else {
                             // 2b. Чат неактивен и нет приглашения - показываем область создания приглашения
                             console.log('📝 Чат неактивен, нет приглашения - показываем область создания приглашения');
                             showCreateInvitationArea(contactAddress, contactName);
@@ -995,12 +994,11 @@
                 hideInvitationPanel();
                 
                 // Обновляем список контактов
-                await loadContacts();
-                updateContactsUI();
+                await contactListManager.refreshContacts();
                 
                 // Устанавливаем текущий контакт (приглашающий теперь наш контакт)
-                const contactName = contacts.find(c => c.address.toLowerCase() === inviterAddress.toLowerCase())?.name || 'Контакт';
-                currentContact = { address: inviterAddress, name: contactName };
+                const contactName = appState.contacts.find(c => c.address.toLowerCase() === inviterAddress.toLowerCase())?.name || 'Контакт';
+                appState.setCurrentContact({ address: inviterAddress, name: contactName });
                 
                 // Обновляем заголовок чата
                 const chatTitle = document.getElementById('chatTitle');
@@ -1105,7 +1103,7 @@
                 });
             }
         }
-
+        
         // Создание элемента контакта
         function createContactItem(contact, type, id) {
             const contactItem = document.createElement('div');
@@ -1249,13 +1247,17 @@
 
                 console.log('📄 Контракт инициализирован:', window.CryptoMessengerConfig.contractAddress);
 
+                // Получаем публичный ключ пользователя
+                userPublicKey = await contract.methods.getPublicKey(currentUser).call();
+                console.log('🔑 Публичный ключ пользователя:', userPublicKey);
+
                 // Инициализируем модули в правильном порядке
                 appState = new AppState();
                 appState.setCurrentUser(currentUser);
                 appState.setUserPublicKey(userPublicKey);
                 
                 eventSystem = new DecentralizedEventSystem(contract, currentUser);
-                contactListManager = new ContactListManager(appState, contract);
+                contactListManager = new ContactListManager(appState, contract, eventSystem);
                 chatUIManager = new ChatAreaManager(appState, contract, web3);
 
                 // Обновляем UI
@@ -1291,7 +1293,7 @@
                 
                 // Обновляем интерфейс
                 console.log('🎨 Обновляем интерфейс...');
-                updateContactsUI();
+                // UI обновится автоматически через подписки в ContactListManager
                 
                 // Обновляем заголовок с информацией о пользователе
                 updateUserInfoInHeader();
@@ -1586,9 +1588,8 @@
 
             // Кнопка обновления приглашений
             document.getElementById('refreshInvitationsBtn').addEventListener('click', async () => {
-                await loadContacts(); // Перезагружаем контакты со статусами
-                updateContactsUI();
-                showNotification('Контакты и приглашения обновлены', 'success');
+                await contactListManager.refreshContacts(); // Перезагружаем контакты со статусами
+                appState.showNotification('Контакты и приглашения обновлены', 'success');
             });
 
             // Кнопка очистки кэша
@@ -1687,7 +1688,7 @@
                     await sendInvitation(recipientAddress, message, fee);
 
                     // Обновляем панель для текущего контакта, если он совпадает с получателем приглашения
-                    if (currentContact && currentContact.address.toLowerCase() === recipientAddress.toLowerCase()) {
+                    if (currentContact && currentContact.address && currentContact.address.toLowerCase() === recipientAddress.toLowerCase()) {
                         console.log('🔄 Обновляем панель для текущего контакта после отправки приглашения');
                         await updateAllAreasVisibility();
                     }
@@ -1806,7 +1807,7 @@
                 }, 2000);
             }
         }
-        
+
         // Обработка отключения кошелька
         function setupWalletDisconnectHandler() {
             // Слушаем изменения аккаунтов
@@ -1830,9 +1831,9 @@
                     }
                     else
                     {
-                        currentUser = accounts[0];
+                    currentUser = accounts[0];
                         console.log('🔄 Аккаунт изменен' + currentUser);
-                        location.reload(); // Перезагружаем страницу
+                    location.reload(); // Перезагружаем страницу
                     }
                 }
             });

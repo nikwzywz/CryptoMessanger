@@ -55,8 +55,8 @@ console.log('🔧 File: modules/chat-area-manager.js');
             
             // 3. Инициализируем ленивую подгрузку
             const chatContainer = document.getElementById('chat-messages');
-            if (chatContainer) {
-                this.lazyLoader.initScrollListener(contactAddress, chatContainer, (newMessages, startIndex) => {
+            if (chatContainer && chatContainer.parentElement) {
+                this.lazyLoader.initScrollListener(contactAddress, chatContainer.parentElement, (newMessages, startIndex) => {
                     this.insertMessagesAtTop(newMessages, startIndex);
                     if (onHistoryLoaded) {
                         onHistoryLoaded(newMessages, startIndex);
@@ -134,8 +134,12 @@ console.log('🔧 File: modules/chat-area-manager.js');
             container.appendChild(messageElement);
         });
         
-        // Прокручиваем вниз
-        this.scrollToBottom();
+        // Прокручиваем вниз с задержкой для корректного рендеринга
+        setTimeout(() => {
+            this.scrollToBottom();
+            // Дополнительная попытка
+            setTimeout(() => this.scrollToBottom(), 200);
+        }, 150);
     }
 
     /**
@@ -205,8 +209,8 @@ console.log('🔧 File: modules/chat-area-manager.js');
         // Зашифрованные данные (показываем как есть, в реальности нужно расшифровать)
         // В v2 контракте: encryptedForSmaller и encryptedForLarger
         // Определяем, какое поле использовать в зависимости от адреса пользователя
-        const currentUserAddress = window.currentUser || this.userAddress;
-        const contactAddress = this.currentContactAddress || this.currentContact;
+        const currentUserAddress = this.appState.currentUser;
+        const contactAddress = this.appState.currentContact?.address;
         
         console.log('🔍 [V2] createMessageElement - проверяем переменные:');
         console.log('   👤 currentUserAddress:', currentUserAddress);
@@ -259,8 +263,23 @@ console.log('🔧 File: modules/chat-area-manager.js');
      */
     scrollToBottom() {
         const container = document.getElementById('chat-messages');
-        if (container) {
-            container.scrollTop = container.scrollHeight;
+        if (container && container.parentElement) {
+            const scrollableArea = container.parentElement;
+            // Принудительная прокрутка с несколькими попытками
+            const scrollToMax = () => {
+                const maxScroll = scrollableArea.scrollHeight - scrollableArea.clientHeight;
+                scrollableArea.scrollTop = maxScroll > 0 ? maxScroll : 0;
+                console.log(`📜 ChatAreaManager: Прокрутка - scrollTop: ${scrollableArea.scrollTop}, maxScroll: ${maxScroll}, scrollHeight: ${scrollableArea.scrollHeight}, clientHeight: ${scrollableArea.clientHeight}`);
+            };
+            
+            // Немедленная попытка
+            scrollToMax();
+            
+            // Дополнительные попытки с задержками
+            setTimeout(scrollToMax, 50);
+            setTimeout(scrollToMax, 150);
+            setTimeout(scrollToMax, 300);
+            setTimeout(scrollToMax, 500); // Ещё одна попытка
         }
     }
 

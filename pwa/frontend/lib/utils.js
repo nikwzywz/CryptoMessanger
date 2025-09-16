@@ -47,6 +47,20 @@ class Utils {
         return colors[hash % colors.length];
     }
 
+    /**
+     * Сокращение длинного адреса для отображения
+     * @param {string} address - Полный адрес
+     * @param {number} startChars - Количество символов в начале (по умолчанию 6)
+     * @param {number} endChars - Количество символов в конце (по умолчанию 4)
+     * @returns {string} Сокращенный адрес
+     */
+    static shortenAddress(address, startChars = 6, endChars = 4) {
+        if (!address || address.length <= startChars + endChars) {
+            return address;
+        }
+        return `${address.slice(0, startChars)}...${address.slice(-endChars)}`;
+    }
+
 }
 
 // Экспорт для использования в других модулях
