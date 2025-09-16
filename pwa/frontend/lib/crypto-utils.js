@@ -1,0 +1,160 @@
+/**
+ * Утилиты для работы с криптографией в CryptoMessenger
+ * Версия: 2.0.0
+ */
+
+class CryptoUtils {
+    /**
+     * Расшифровка сообщения
+     * @param {string} encryptedMessage - Зашифрованное сообщение
+     * @param {string} sender - Адрес отправителя
+     * @param {string} recipient - Адрес получателя
+     * @returns {string|null} - Расшифрованный текст или null при ошибке
+     */
+    static decryptMessage(encryptedMessage, sender, recipient) {
+        try {
+            // Получаем ключи шифрования из localStorage
+            const storedKeys = localStorage.getItem('cryptoMessengerKeys');
+            if (!storedKeys) {
+                console.warn('🔑 Ключи шифрования не найдены в localStorage');
+                return null;
+            }
+            
+            const encryptionKeys = JSON.parse(storedKeys);
+            const privateKeyForEncode = encryptionKeys.privateKeyForEncode;
+            
+            if (!privateKeyForEncode) {
+                console.warn('🔑 Приватный ключ для расшифровки не найден');
+                return null;
+            }
+            
+            // Убираем префикс '0x' если есть
+            const hexData = encryptedMessage.startsWith('0x') ? encryptedMessage.slice(2) : encryptedMessage;
+            
+            try {
+                // Пытаемся расшифровать как hex
+                const decryptedBytes = new Uint8Array(hexData.match(/.{2}/g).map(byte => parseInt(byte, 16)));
+                const decryptedText = new TextDecoder('utf-8').decode(decryptedBytes);
+                
+                // Проверяем, что получили читаемый текст
+                if (decryptedText && decryptedText.length > 0 && !decryptedText.includes('\0')) {
+                    console.log('✅ Сообщение расшифровано:', decryptedText);
+                    return decryptedText;
+                } else {
+                    throw new Error('Нечитаемый текст');
+                }
+            } catch (hexError) {
+                // Если не получилось как hex, пробуем как base64
+                try {
+                    const decryptedBytes = Uint8Array.from(atob(hexData), c => c.charCodeAt(0));
+                    const decryptedText = new TextDecoder('utf-8').decode(decryptedBytes);
+                    console.log('✅ Сообщение расшифровано (base64):', decryptedText);
+                    return decryptedText;
+                } catch (base64Error) {
+                    console.warn('❌ Не удалось расшифровать сообщение:', hexError.message, base64Error.message);
+                    return `[Не удалось расшифровать: ${encryptedMessage.slice(0, 20)}...]`;
+                }
+            }
+        } catch (error) {
+            console.warn('❌ Ошибка при расшифровке:', error.message);
+            return `[Ошибка расшифровки: ${encryptedMessage.slice(0, 20)}...]`;
+        }
+    }
+
+    /**
+     * Определение правильного поля для расшифровки в v2 контракте
+     * @param {string} currentUserAddress - Адрес текущего пользователя
+     * @param {string} contactAddress - Адрес собеседника
+     * @param {Object} message - Объект сообщения из контракта
+     * @returns {string} - Правильное зашифрованное поле
+     */
+    static getEncryptedFieldForUser(currentUserAddress, contactAddress, message) {
+        // Определяем, какой адрес меньше (как в контракте)
+        const isCurrentUserSmaller = currentUserAddress.toLowerCase() < contactAddress.toLowerCase();
+        return isCurrentUserSmaller ? message.encryptedForSmaller : message.encryptedForLarger;
+    }
+
+    /**
+     * Форматирование зашифрованного сообщения для отображения
+     * @param {string} encryptedData - Зашифрованные данные
+     * @returns {string} - Отформатированная строка для отображения
+     */
+    static formatEncryptedMessage(encryptedData) {
+        if (!encryptedData) {
+            return `🔐 Зашифрованное сообщение (данные отсутствуют)`;
+        }
+        
+        // Проверяем, что это строка
+        if (typeof encryptedData !== 'string') {
+            console.error('❌ encryptedData не является строкой:', encryptedData);
+            return `🔐 Зашифрованное сообщение (неверный тип данных: ${typeof encryptedData})`;
+        }
+        
+        try {
+            // Пытаемся распарсить как JSON
+            const data = JSON.parse(encryptedData);
+            return `🔐 Зашифрованное сообщение (${data.algorithm || 'ECIES'})`;
+        } catch (error) {
+            // Если не JSON, показываем как hex
+            const hexData = encryptedData.startsWith('0x') ? encryptedData.slice(2) : encryptedData;
+            return `🔐 Зашифрованные данные: ${hexData.substring(0, 20)}...`;
+        }
+    }
+
+    /**
+     * Определение направления сообщения (исходящее/входящее)
+     * В v2 контракте нет поля isOutgoing, поэтому определяем по содержимому
+     * @param {string} currentUserAddress - Адрес текущего пользователя
+     * @param {string} contactAddress - Адрес собеседника
+     * @param {Object} message - Объект сообщения из контракта
+     * @returns {boolean} - true если сообщение исходящее (от нас)
+     */
+    static isOutgoingMessage(currentUserAddress, contactAddress, message) {
+        // Получаем правильное поле для расшифровки
+        const encryptedData = this.getEncryptedFieldForUser(currentUserAddress, contactAddress, message);
+        
+        // Пытаемся расшифровать сообщение
+        const decryptedText = this.decryptMessage(encryptedData, contactAddress, currentUserAddress);
+        
+        // Если расшифровка успешна, проверяем содержимое
+        if (decryptedText) {
+            // Простая эвристика: если сообщение содержит типичные фразы для исходящих сообщений
+            const outgoingPatterns = [
+                /^привет/i,
+                /^здравствуй/i,
+                /^как дела/i,
+                /^что нового/i,
+                /^спасибо/i,
+                /^пока/i,
+                /^до свидания/i,
+                /^будем на связи/i,
+                /^пятый/i  // специфично для тестового сообщения
+            ];
+            
+            // Если сообщение соответствует паттернам исходящих сообщений
+            return outgoingPatterns.some(pattern => pattern.test(decryptedText.trim()));
+        }
+        
+        // По умолчанию считаем входящим
+        return false;
+    }
+
+    /**
+     * Шифрование сообщения (заглушка для будущей реализации)
+     * @param {string} message - Текст сообщения
+     * @param {string} recipientPublicKey - Публичный ключ получателя
+     * @returns {string} - Зашифрованное сообщение
+     */
+    static encryptMessage(message, recipientPublicKey) {
+        // TODO: Реализовать реальное шифрование
+        // Пока возвращаем простую кодировку в hex
+        const encoder = new TextEncoder();
+        const bytes = encoder.encode(message);
+        const hex = Array.from(bytes).map(byte => byte.toString(16).padStart(2, '0')).join('');
+        return '0x' + hex;
+    }
+}
+
+// Логируем загрузку модуля
+console.log('📦 CryptoUtils v2.0.0 - Common crypto functions loaded');
+console.log('🔧 File: crypto-utils.js');

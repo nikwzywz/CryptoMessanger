@@ -1,10 +1,13 @@
 /**
  * Децентрализованная система событий для CryptoMessenger (Browser Version)
  * Оптимизированная версия с пагинацией, ленивой подгрузкой и real-time обновлениями
+ * VERSION: 2.0.0 - Updated for CryptoMessenger v2 contract
  */
 
 class DecentralizedEventSystem {
     constructor(contract = null, userAddress = null) {
+        console.log('📦 DecentralizedEventSystem v2.0.0 - CryptoMessenger v2 contract support loaded');
+        console.log('🔧 File: decentralized-event-system-browser-v2.js');
         // Децентрализованные RPC endpoints
         this.rpcEndpoints = [
             'https://base-rpc.publicnode.com',
@@ -77,9 +80,11 @@ class DecentralizedEventSystem {
     /**
      * 🚀 ОПТИМИЗИРОВАННАЯ загрузка сообщений с пагинацией
      * Загружает только нужные сообщения, а не все события
+     * VERSION: 2.0.0 - Updated for CryptoMessenger v2 contract
      */
     async loadChatMessages(contactAddress, loadCount = 200) {
-        console.log(`💬 Загружаем чат с ${contactAddress} (лимит: ${loadCount})`);
+        console.log(`💬 [V2.0.0] Загружаем чат с ${contactAddress} (лимит: ${loadCount})`);
+        console.log(`👤 [V2.0.0] Пользователь: ${this.userAddress}`);
         
         if (!this.contract) {
             throw new Error('Контракт не инициализирован. Используйте setContract() для установки контракта.');
@@ -87,22 +92,37 @@ class DecentralizedEventSystem {
 
         const chatData = this.chatStorage.getChatData(contactAddress);
         
-        // 1. Получаем общее количество сообщений из контракта
-        const [contractCount] = await this.contract.methods
-            .getChatMessages(this.userAddress, contactAddress).call();
+        // 1. Получаем chatId для пары пользователей (v2)
+        console.log(`🔍 [V2.0.0] Вызываем getChatId(${this.userAddress}, ${contactAddress})`);
+        const chatId = await this.contract.methods.getChatId(this.userAddress, contactAddress).call();
+        console.log('🔍 [V2.0.0] Получен chatId:', chatId);
         
+        if (!chatId || chatId === '0x0000000000000000000000000000000000000000000000000000000000000000') {
+            console.log('ℹ️ Чат не найден для этой пары пользователей');
+            return [];
+        }
+        
+        // 2. Получаем общее количество сообщений из контракта (v2)
+        console.log('📞 [V2.0.0] Вызываем getChatMessages с chatId:', chatId);
+        const result = await this.contract.methods
+            .getChatMessages(chatId).call();
+        
+        console.log('📊 [V2.0.0] Результат getChatMessages:', result);
+        
+        // Извлекаем количество сообщений (первый элемент кортежа) и конвертируем BigInt в число
+        const contractCount = Number(result[0]);
         console.log(`📊 В контракте: ${contractCount} сообщений, загружено: ${chatData.loadedCount}`);
         
-        // 2. Если в контракте больше сообщений - загружаем недостающие
+        // 3. Если в контракте больше сообщений - загружаем недостающие
         if (contractCount > chatData.loadedCount) {
             const missingCount = contractCount - chatData.loadedCount;
             const toLoad = Math.min(missingCount, loadCount);
             
             console.log(`📥 Загружаем ${toLoad} новых сообщений...`);
             
-            // Загружаем последние сообщения
+            // Загружаем последние сообщения (v2)
             const newMessages = await this.contract.methods
-                .getLastChatMessages(this.userAddress, contactAddress, toLoad).call();
+                .getLastChatMessages(chatId, toLoad).call();
             
             // Обновляем данные
             chatData.messages = [...newMessages, ...chatData.messages];
@@ -133,6 +153,14 @@ class DecentralizedEventSystem {
             return chatData.messages;
         }
         
+        // Получаем chatId для пары пользователей (v2)
+        const chatId = await this.contract.methods.getChatId(this.userAddress, contactAddress).call();
+        
+        if (!chatId || chatId === '0x0000000000000000000000000000000000000000000000000000000000000000') {
+            console.log('ℹ️ Чат не найден для этой пары пользователей');
+            return [];
+        }
+        
         console.log(`📚 Загружаем историю чата с ${contactAddress}...`);
         console.log(`📊 Текущий диапазон: ${chatData.oldestIndex} - ${chatData.newestIndex}`);
         
@@ -149,7 +177,7 @@ class DecentralizedEventSystem {
             
             try {
                 const pageMessages = await this.contract.methods
-                    .getChatMessagesPaginated(this.userAddress, contactAddress, startIndex, count).call();
+                    .getChatMessagesPaginated(chatId, startIndex, count).call();
                 
                 if (pageMessages.length === 0) {
                     console.log('📚 Достигнут конец истории');
@@ -193,8 +221,16 @@ class DecentralizedEventSystem {
     async checkForNewMessages(contactAddress) {
         const chatData = this.chatStorage.getChatData(contactAddress);
         
+        // Получаем chatId для пары пользователей (v2)
+        const chatId = await this.contract.methods.getChatId(this.userAddress, contactAddress).call();
+        
+        if (!chatId || chatId === '0x0000000000000000000000000000000000000000000000000000000000000000') {
+            console.log('ℹ️ Чат не найден для этой пары пользователей');
+            return [];
+        }
+        
         const [contractCount] = await this.contract.methods
-            .getChatMessages(this.userAddress, contactAddress).call();
+            .getChatMessages(chatId).call();
         
         if (contractCount > chatData.lastCount) {
             const newCount = contractCount - chatData.lastCount;

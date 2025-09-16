@@ -62,22 +62,21 @@ async function getOptimalGasPrice(web3Instance = null) {
             
             console.log(`   📊 Сетевая цена газа: ${networkGasPriceGwei.toFixed(2)} gwei`);
             
-            // Используем сетевую цену, но не меньше 0.01 gwei
-            const minGasPrice = '10000000'; // 0.01 gwei
-            const optimalPrice = networkGasPrice > minGasPrice ? networkGasPrice : minGasPrice;
+            // Используем реальную сетевую цену газа (Base L2 может иметь очень низкие цены)
+            const optimalPrice = networkGasPrice;
             
             const optimalGwei = Number(optimalPrice) / 1e9;
-            console.log(`   ⚡ Используем цену: ${optimalGwei.toFixed(2)} gwei`);
+            console.log(`   ⚡ Используем цену: ${optimalGwei.toFixed(6)} gwei`);
             
             return optimalPrice;
         } catch (error) {
             console.warn(`   ⚠️  Ошибка получения цены газа: ${error.message}`);
-            console.log(`   🔄 Используем фиксированную цену: 0.01 gwei`);
+            console.log(`   🔄 Используем фиксированную цену: 0.1 gwei`);
         }
     }
     
-    // Fallback: фиксированная цена 0.01 gwei
-    return '10000000'; // 0.01 gwei (дешевый газ для Base)
+    // Fallback: фиксированная цена 0.1 gwei (более реалистичная для Base)
+    return '100000000'; // 0.1 gwei
 }
 
 /**

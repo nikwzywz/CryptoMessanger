@@ -15,6 +15,7 @@ CryptoMessenger - это децентрализованный мессендже
 
 - `current_status.md` - Текущий статус разработки
 - `architecture/` - Архитектурные решения
+- `contract-migration-guide.md` - Руководство по миграции с v1 на v2
 - `deployment/` - Информация о деплое
 - `commands/` - Полезные команды разработки
 

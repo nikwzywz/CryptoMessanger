@@ -1,17 +1,19 @@
 #!/usr/bin/env node
 
 /**
- * Скрипт для заполнения контракта CryptoMessenger тестовыми данными
+ * Скрипт для заполнения контракта CryptoMessenger v2 тестовыми данными
  * 
- * Реально вызывает функции контракта:
- * - requestContact - отправка запросов на добавление в контакты
- * - acceptContactRequest - принятие запросов
- * - rejectContactRequest - отклонение запросов
+ * Реально вызывает функции контракта v2:
+ * - invitationSend - отправка приглашений на добавление в контакты
+ * - invitationAccept - принятие приглашений
+ * - invitationReject - отклонение приглашений
  * - sendMessage - отправка сообщений с двойным ECIES шифрованием
  * 
- * Обновлено для поддержки реального ECIES шифрования:
- * - encryptedForRecipient - зашифровано для получателя с использованием ECIES
- * - encryptedForSender - зашифровано для отправителя с использованием ECIES
+ * Обновлено для контракта v2:
+ * - Новая система приглашений (замена Contact Requests)
+ * - Двойное шифрование сообщений для обоих участников
+ * - Единая система чатов с уникальными ID
+ * - Поддержка имен контактов
  * - Использует @noble/secp256k1 и CryptoJS для реального шифрования
  * - Совместимо с системой ключей из auth-v2.html
  * - Использует подписываемую фразу из config.js для генерации ключей
@@ -167,6 +169,36 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// Функция для детального логирования ошибок EVM
+function logDetailedError(error, operation) {
+    console.error(`❌ Детальная ошибка ${operation}:`);
+    console.error(`   Сообщение: ${error.message}`);
+    console.error(`   Код: ${error.code || 'N/A'}`);
+    console.error(`   Данные: ${error.data || 'N/A'}`);
+    console.error(`   Receipt: ${error.receipt ? JSON.stringify(error.receipt, null, 2) : 'N/A'}`);
+    
+    // Пытаемся декодировать ошибку EVM
+    if (error.data) {
+        console.error(`   EVM Error Data: ${error.data}`);
+        // Если это hex строка, пытаемся декодировать
+        if (error.data.startsWith('0x')) {
+            try {
+                const errorData = error.data.slice(2);
+                console.error(`   EVM Error (hex): ${errorData}`);
+                // Первые 4 байта - это селектор функции ошибки
+                if (errorData.length >= 8) {
+                    const selector = errorData.slice(0, 8);
+                    console.error(`   Error Selector: ${selector}`);
+                }
+            } catch (e) {
+                console.error(`   Не удалось декодировать EVM данные: ${e.message}`);
+            }
+        }
+    }
+    
+    console.error(`   Полный объект:`, error);
+}
+
 // Функция для логирования в файл
 function logToFile(message) {
     const logPath = path.join(__dirname, 'populate-contract-test-data.log');
@@ -306,13 +338,30 @@ eval(configCode);
 
 const CONTRACT_ADDRESS = global.window.CryptoMessengerConfig.contractAddress;
 const CONTRACT_ABI = global.window.CryptoMessengerConfig.contractABI;
-const BASE_RPC_URL = global.window.CryptoMessengerConfig.network.rpcUrls[0];
+const BASE_RPC_URLS = global.window.CryptoMessengerConfig.network.rpcUrls;
 const SIGNATURE_PHRASE = global.window.CryptoMessengerConfig.signaturePhrase;
 
 // Инициализация Web3 и контракта
 // Создаем отдельный экземпляр Web3 для каждого пользователя
 function createWeb3Instance() {
-    return new Web3(BASE_RPC_URL);
+    // Используем первую доступную ноду (самую быструю)
+    return new Web3(BASE_RPC_URLS[0]);
+}
+
+// Функция для создания Web3 с fallback на резервные ноды
+function createWeb3InstanceWithFallback() {
+    for (let i = 0; i < BASE_RPC_URLS.length; i++) {
+        try {
+            const web3 = new Web3(BASE_RPC_URLS[i]);
+            console.log(`🌐 Используем RPC ноду ${i + 1}/${BASE_RPC_URLS.length}: ${BASE_RPC_URLS[i]}`);
+            return web3;
+        } catch (error) {
+            console.warn(`⚠️  Нода ${i + 1} недоступна: ${BASE_RPC_URLS[i]} - ${error.message}`);
+            if (i === BASE_RPC_URLS.length - 1) {
+                throw new Error('Все RPC ноды недоступны');
+            }
+        }
+    }
 }
 
 // Создаем контракт (будем пересоздавать для каждого пользователя)
@@ -471,14 +520,16 @@ async function registerUser(userId, privateKey, userData) {
             };
         }
         
-        // 5. Регистрируем PublicKeyForEncode в контракте (конвертируем в hex)
+        // 5. Регистрируем пользователя в контракте v2 (registerUser)
         const publicKeyHex = '0x' + publicKeyForEncode;
-        console.log(`🔑 Регистрируем ключ для ${userId}:`);
+        const contactName = userData.name; // Используем имя пользователя
+        console.log(`🔑 Регистрируем пользователя для ${userId}:`);
+        console.log(`   ContactName: ${contactName}`);
         console.log(`   PublicKeyForEncode: ${publicKeyForEncode}`);
         console.log(`   PublicKeyHex: ${publicKeyHex}`);
         console.log(`   Длина hex: ${publicKeyHex.length}`);
         
-        const tx = userContract.methods.registerPublicKey(publicKeyHex);
+        const tx = userContract.methods.registerUser(contactName, publicKeyHex);
         const estimatedGas = await tx.estimateGas({ from: address });
         
         const gasPrice = await getOptimalGasPrice(userWeb3);
@@ -552,10 +603,10 @@ async function registerUser(userId, privateKey, userData) {
 }
 
 /**
- * Отправляет запрос на добавление в контакты
+ * Отправляет приглашение на добавление в контакты (v2)
  */
-async function requestContact(fromUserId, toUserId, fromAddress, toAddress) {
-    console.log(`📤 ${fromUserId} → ${toUserId}: запрос на добавление в контакты`);
+async function invitationSend(fromUserId, toUserId, fromAddress, toAddress, fromUserKeys, toUserKeys) {
+    console.log(`📤 ${fromUserId} → ${toUserId}: отправка приглашения`);
     
     try {
         // Создаем отдельный экземпляр Web3 для отправителя
@@ -564,9 +615,19 @@ async function requestContact(fromUserId, toUserId, fromAddress, toAddress) {
         
         const fromUser = testUsers[fromUserId];
         
-        // Создаем тестовые сообщения для запроса
-        const introMessage = fromWeb3.utils.utf8ToHex(`Привет! Меня зовут ${fromUser.name}. Хочешь добавить меня в контакты?`);
-        const encryptedMessageData = fromWeb3.utils.utf8ToHex(`Зашифрованное сообщение от ${fromUser.name}`);
+        // Создаем сообщение для приглашения
+        const invitationMessage = `Привет! Меня зовут ${fromUser.name}. Хочешь добавить меня в контакты?`;
+        
+        // Генерируем двойное шифрование для приглашения
+        const encryptedForRecipient = await generateEncryptedMessageForRecipient(invitationMessage, toUserKeys.publicKey);
+        const encryptedForSender = await generateEncryptedMessageForSender(invitationMessage, fromUserKeys.publicKey);
+        
+        // Конвертируем JSON строки в bytes для контракта
+        const encryptedForRecipientBytes = fromWeb3.utils.utf8ToHex(encryptedForRecipient);
+        const encryptedForSenderBytes = fromWeb3.utils.utf8ToHex(encryptedForSender);
+        
+        console.log(`   🔐 Зашифровано для получателя: ${encryptedForRecipient.substring(0, 50)}...`);
+        console.log(`   🔐 Зашифровано для отправителя: ${encryptedForSender.substring(0, 50)}...`);
         
         // Получаем плату получателя
         const recipientSettings = await fromContract.methods.getUserSettings(toAddress).call();
@@ -582,15 +643,16 @@ async function requestContact(fromUserId, toUserId, fromAddress, toAddress) {
         
         console.log(`   Требуемая плата: ${fromWeb3.utils.fromWei(requiredFee, 'ether')} ETH ($${(parseFloat(fromWeb3.utils.fromWei(requiredFee, 'ether')) * 4600).toFixed(2)})`);
         
-        const tx = fromContract.methods.requestContact(toAddress, introMessage, encryptedMessageData);
+        // Используем новую функцию invitationSend
+        const tx = fromContract.methods.invitationSend(toAddress, encryptedForRecipientBytes, encryptedForSenderBytes);
         const estimatedGas = await tx.estimateGas({ from: fromAddress, value: requiredFee });
         
         const gasPrice = await getOptimalGasPrice(fromWeb3);
-        const gas = limitGasByCost(Number(estimatedGas), gasPrice, 0.025); // Увеличиваем бюджет для requestContact до $0.025
+        const gas = limitGasByCost(Number(estimatedGas), gasPrice, 0.05); // Увеличиваем бюджет для invitationSend до $0.05
         
         // Детальное логирование стоимости газа
         const gasCost = calculateGasCost(gas, gasPrice);
-        console.log(`   💰 Стоимость запроса: ${gasCost.eth.toFixed(8)} ETH ($${gasCost.usd.toFixed(4)})`);
+        console.log(`   💰 Стоимость приглашения: ${gasCost.eth.toFixed(8)} ETH ($${gasCost.usd.toFixed(4)})`);
         
         // Обновляем счетчики
         global.totalCostUsd += gasCost.usd;
@@ -609,34 +671,43 @@ async function requestContact(fromUserId, toUserId, fromAddress, toAddress) {
         
         const receipt = await fromWeb3.eth.sendSignedTransaction(signedTx.rawTransaction);
         
-        console.log(`✅ Запрос отправлен: ${fromAddress} → ${toAddress}`);
+        console.log(`✅ Приглашение отправлено: ${fromAddress} → ${toAddress}`);
         console.log(`   TX Hash: ${receipt.transactionHash}`);
         
         // Пауза после транзакции
-        console.log(`⏸️ Пауза 3 секунды после запроса...`);
-        await sleep(3000);
+        console.log(`⏸️ Пауза 30 секунд после приглашения...`);
+        await sleep(30000);
         
         return { success: true, fromUserId, toUserId, fromAddress, toAddress };
         
     } catch (error) {
-        // Игнорируем ошибки (запрос уже существует, пользователь не найден и т.д.)
-        console.warn(`⚠️  Ошибка отправки запроса: ${error.message} (продолжаем)`);
+        // Детальное логирование ошибки
+        logDetailedError(error, 'отправки приглашения');
+        
+        // Обрабатываем rate limit
+        if (error.message.includes('over rate limit')) {
+            console.log(`   ⏸️ Rate limit достигнут, ждем 10 секунд...`);
+            await sleep(10000);
+            console.warn(`⚠️  Ошибка отправки приглашения: ${error.message} (продолжаем)`);
+        } else {
+            console.warn(`⚠️  Ошибка отправки приглашения: ${error.message} (продолжаем)`);
+        }
         return { success: false, fromUserId, toUserId, error: error.message };
     }
 }
 
 /**
- * Принимает запрос на добавление в контакты
+ * Принимает приглашение на добавление в контакты (v2)
  */
-async function acceptContactRequest(acceptorUserId, senderUserId, acceptorAddress, senderAddress) {
-    console.log(`✅ ${acceptorUserId} принимает запрос от ${senderUserId}`);
+async function invitationAccept(acceptorUserId, senderUserId, acceptorAddress, senderAddress) {
+    console.log(`✅ ${acceptorUserId} принимает приглашение от ${senderUserId}`);
     
     try {
         // Создаем отдельный экземпляр Web3 для принимающего
         const acceptorWeb3 = createWeb3Instance();
         const acceptorContract = createContractInstance(acceptorWeb3);
         
-        // Проверяем контакты ДО принятия запроса
+        // Проверяем контакты ДО принятия приглашения
         console.log(`   🔍 Проверка контактов ДО принятия:`);
         const isContactBefore1 = await acceptorContract.methods.checkContact(acceptorAddress, senderAddress).call();
         const isContactBefore2 = await acceptorContract.methods.checkContact(senderAddress, acceptorAddress).call();
@@ -644,23 +715,29 @@ async function acceptContactRequest(acceptorUserId, senderUserId, acceptorAddres
         console.log(`   ${senderUserId} → ${acceptorUserId}: ${isContactBefore2}`);
         
         if (isContactBefore1 || isContactBefore2) {
-            console.log(`   ⚠️  ВНИМАНИЕ: Контакты уже существуют! Пропускаем принятие запроса.`);
+            console.log(`   ⚠️  ВНИМАНИЕ: Контакты уже существуют! Пропускаем принятие приглашения.`);
             return { success: false, acceptorUserId, senderUserId, error: "Contacts already exist" };
         }
         
         const acceptorUser = testUsers[acceptorUserId];
         
-        // Получаем сумму, которую нужно вернуть отправителю
-        const contactRequest = await acceptorContract.methods.getContactRequest(acceptorAddress, senderAddress).call();
-        const returnAmount = contactRequest.paymentAmount;
+        // В v2 получаем chatId и информацию о чате
+        const chatId = await acceptorContract.methods.getChatId(acceptorAddress, senderAddress).call();
+        const chat = await acceptorContract.methods.getChat(chatId).call();
+        const returnAmount = chat.invitationFee;
         
         console.log(`   💰 Возвращаем отправителю: ${acceptorWeb3.utils.fromWei(returnAmount, 'ether')} ETH`);
         
-        const tx = acceptorContract.methods.acceptContactRequest(senderAddress);
+        // Используем новую функцию invitationAccept
+        const tx = acceptorContract.methods.invitationAccept(senderAddress);
         const estimatedGas = await tx.estimateGas({ from: acceptorAddress, value: returnAmount });
         
         const gasPrice = await getOptimalGasPrice(acceptorWeb3);
-        const gas = limitGasByCost(Number(estimatedGas), gasPrice, 0.025); // Бюджет $0.025 для принятия запроса
+        const gas = limitGasByCost(Number(estimatedGas), gasPrice, 0.025); // Бюджет $0.025 для принятия приглашения
+        
+        // Детальное логирование газа
+        console.log(`   📊 Gas estimated: ${estimatedGas}, max by cost: ${Math.floor(0.025 * 4600 / (gasPrice / 1e9))}, using: ${gas}`);
+        console.log(`   💰 Фактическая стоимость: ${acceptorWeb3.utils.fromWei((gas * gasPrice).toString(), 'ether')} ETH ($${((gas * gasPrice) / 1e18 * 4600).toFixed(4)})`);
         
         // Детальное логирование стоимости газа
         const gasCost = calculateGasCost(gas, gasPrice);
@@ -686,7 +763,7 @@ async function acceptContactRequest(acceptorUserId, senderUserId, acceptorAddres
         console.log(`✅ Контакт добавлен: ${acceptorAddress} ↔ ${senderAddress}`);
         console.log(`   TX Hash: ${receipt.transactionHash}`);
         
-        // Проверяем контакты ПОСЛЕ принятия запроса
+        // Проверяем контакты ПОСЛЕ принятия приглашения
         console.log(`   🔍 Проверка контактов ПОСЛЕ принятия:`);
         const isContactAfter1 = await acceptorContract.methods.checkContact(acceptorAddress, senderAddress).call();
         const isContactAfter2 = await acceptorContract.methods.checkContact(senderAddress, acceptorAddress).call();
@@ -707,23 +784,33 @@ async function acceptContactRequest(acceptorUserId, senderUserId, acceptorAddres
         return { success: true, acceptorUserId, senderUserId, acceptorAddress, senderAddress };
         
     } catch (error) {
-        console.warn(`⚠️  Ошибка принятия запроса: ${error.message} (продолжаем)`);
+        // Детальное логирование ошибки
+        logDetailedError(error, 'принятия приглашения');
+        
+        // Обрабатываем rate limit
+        if (error.message.includes('over rate limit')) {
+            console.log(`   ⏸️ Rate limit достигнут, ждем 15 секунд...`);
+            await sleep(15000);
+            console.warn(`⚠️  Ошибка принятия приглашения: ${error.message} (продолжаем)`);
+        } else {
+            console.warn(`⚠️  Ошибка принятия приглашения: ${error.message} (продолжаем)`);
+        }
         return { success: false, acceptorUserId, senderUserId, error: error.message };
     }
 }
 
 /**
- * Отклоняет запрос на добавление в контакты
+ * Отклоняет приглашение на добавление в контакты (v2)
  */
-async function rejectContactRequest(rejectorUserId, senderUserId, rejectorAddress, senderAddress) {
-    console.log(`❌ ${rejectorUserId} отклоняет запрос от ${senderUserId}`);
+async function invitationReject(rejectorUserId, senderUserId, rejectorAddress, senderAddress) {
+    console.log(`❌ ${rejectorUserId} отклоняет приглашение от ${senderUserId}`);
     
     try {
         // Создаем отдельный экземпляр Web3 для отклоняющего
         const rejectorWeb3 = createWeb3Instance();
         const rejectorContract = createContractInstance(rejectorWeb3);
         
-        // Проверяем контакты ДО отклонения запроса
+        // Проверяем контакты ДО отклонения приглашения
         console.log(`   🔍 Проверка контактов ДО отклонения:`);
         const isContactBefore1 = await rejectorContract.methods.checkContact(rejectorAddress, senderAddress).call();
         const isContactBefore2 = await rejectorContract.methods.checkContact(senderAddress, rejectorAddress).call();
@@ -731,16 +818,22 @@ async function rejectContactRequest(rejectorUserId, senderUserId, rejectorAddres
         console.log(`   ${senderUserId} → ${rejectorUserId}: ${isContactBefore2}`);
         
         if (isContactBefore1 || isContactBefore2) {
-            console.log(`   ⚠️  ВНИМАНИЕ: Контакты уже существуют! Пропускаем отклонение запроса.`);
+            console.log(`   ⚠️  ВНИМАНИЕ: Контакты уже существуют! Пропускаем отклонение приглашения.`);
             return { success: false, rejectorUserId, senderUserId, error: "Contacts already exist" };
         }
         
         const rejectorUser = testUsers[rejectorUserId];
-        const tx = rejectorContract.methods.rejectContactRequest(senderAddress);
+        
+        // Используем новую функцию invitationReject
+        const tx = rejectorContract.methods.invitationReject(senderAddress);
         const estimatedGas = await tx.estimateGas({ from: rejectorAddress });
         
         const gasPrice = await getOptimalGasPrice(rejectorWeb3);
         const gas = limitGasByCost(Number(estimatedGas), gasPrice, 0.01); // Ограничиваем стоимостью $0.01
+        
+        // Детальное логирование газа
+        console.log(`   📊 Gas estimated: ${estimatedGas}, max by cost: ${Math.floor(0.01 * 4600 / (gasPrice / 1e9))}, using: ${gas}`);
+        console.log(`   💰 Фактическая стоимость: ${rejectorWeb3.utils.fromWei((gas * gasPrice).toString(), 'ether')} ETH ($${((gas * gasPrice) / 1e18 * 4600).toFixed(4)})`);
         
         // Детальное логирование стоимости газа
         const gasCost = calculateGasCost(gas, gasPrice);
@@ -762,10 +855,10 @@ async function rejectContactRequest(rejectorUserId, senderUserId, rejectorAddres
         
         const receipt = await rejectorWeb3.eth.sendSignedTransaction(signedTx.rawTransaction);
         
-        console.log(`✅ Запрос отклонен: ${rejectorAddress} ❌ ${senderAddress}`);
+        console.log(`✅ Приглашение отклонено: ${rejectorAddress} ❌ ${senderAddress}`);
         console.log(`   TX Hash: ${receipt.transactionHash}`);
         
-        // Проверяем контакты ПОСЛЕ отклонения запроса
+        // Проверяем контакты ПОСЛЕ отклонения приглашения
         console.log(`   🔍 Проверка контактов ПОСЛЕ отклонения:`);
         const isContactAfter1 = await rejectorContract.methods.checkContact(rejectorAddress, senderAddress).call();
         const isContactAfter2 = await rejectorContract.methods.checkContact(senderAddress, rejectorAddress).call();
@@ -785,13 +878,23 @@ async function rejectContactRequest(rejectorUserId, senderUserId, rejectorAddres
         return { success: true, rejectorUserId, senderUserId, rejectorAddress, senderAddress };
         
     } catch (error) {
-        console.warn(`⚠️  Ошибка отклонения запроса: ${error.message} (продолжаем)`);
+        // Детальное логирование ошибки
+        logDetailedError(error, 'отклонения приглашения');
+        
+        // Обрабатываем rate limit
+        if (error.message.includes('over rate limit')) {
+            console.log(`   ⏸️ Rate limit достигнут, ждем 15 секунд...`);
+            await sleep(15000);
+            console.warn(`⚠️  Ошибка отклонения приглашения: ${error.message} (продолжаем)`);
+        } else {
+            console.warn(`⚠️  Ошибка отклонения приглашения: ${error.message} (продолжаем)`);
+        }
         return { success: false, rejectorUserId, senderUserId, error: error.message };
     }
 }
 
 /**
- * Отправляет сообщение с двойным шифрованием
+ * Отправляет сообщение с двойным шифрованием (v2)
  */
 async function sendMessage(fromUserId, toUserId, fromAddress, toAddress, message, fromUserKeys, toUserKeys) {
     console.log(`💬 ${fromUserId} → ${toUserId}: "${message}"`);
@@ -814,12 +917,26 @@ async function sendMessage(fromUserId, toUserId, fromAddress, toAddress, message
         console.log(`   🔐 Зашифровано для получателя: ${encryptedForRecipient.substring(0, 50)}...`);
         console.log(`   🔐 Зашифровано для отправителя: ${encryptedForSender.substring(0, 50)}...`);
         
-        // Реальный вызов контракта с двойным шифрованием
-        const tx = fromContract.methods.sendMessage(toAddress, encryptedForRecipientBytes, encryptedForSenderBytes);
+        // В v2 структура сообщений изменилась - теперь encryptedForSmaller и encryptedForLarger
+        // Определяем, кто из участников имеет меньший адрес
+        const isFromSmaller = fromAddress.toLowerCase() < toAddress.toLowerCase();
+        const encryptedForSmaller = isFromSmaller ? encryptedForRecipientBytes : encryptedForSenderBytes;
+        const encryptedForLarger = isFromSmaller ? encryptedForSenderBytes : encryptedForRecipientBytes;
+        
+        console.log(`   📝 Адрес отправителя ${fromAddress} ${isFromSmaller ? 'меньше' : 'больше'} адреса получателя ${toAddress}`);
+        console.log(`   🔐 Зашифровано для меньшего адреса: ${encryptedForSmaller.substring(0, 50)}...`);
+        console.log(`   🔐 Зашифровано для большего адреса: ${encryptedForLarger.substring(0, 50)}...`);
+        
+        // Реальный вызов контракта с новой структурой сообщений v2
+        const tx = fromContract.methods.sendMessage(toAddress, encryptedForSmaller, encryptedForLarger);
         const estimatedGas = await tx.estimateGas({ from: fromAddress });
         
         const gasPrice = await getOptimalGasPrice(fromWeb3);
         const gas = limitGasByCost(Number(estimatedGas), gasPrice, 0.04); // Увеличиваем бюджет до $0.04 (4 цента)
+        
+        // Детальное логирование газа
+        console.log(`   📊 Gas estimated: ${estimatedGas}, max by cost: ${Math.floor(0.04 * 4600 / (gasPrice / 1e9))}, using: ${gas}`);
+        console.log(`   💰 Фактическая стоимость: ${fromWeb3.utils.fromWei((gas * gasPrice).toString(), 'ether')} ETH ($${((gas * gasPrice) / 1e18 * 4600).toFixed(4)})`);
         
         // Детальное логирование стоимости газа
         const gasCost = calculateGasCost(gas, gasPrice);
@@ -842,8 +959,8 @@ async function sendMessage(fromUserId, toUserId, fromAddress, toAddress, message
         const receipt = await fromWeb3.eth.sendSignedTransaction(signedTx.rawTransaction);
         
         console.log(`✅ Сообщение отправлено: ${fromAddress} → ${toAddress}`);
-        console.log(`   Зашифровано для получателя: ${encryptedForRecipient.substring(0, 50)}...`);
-        console.log(`   Зашифровано для отправителя: ${encryptedForSender.substring(0, 50)}...`);
+        console.log(`   Зашифровано для меньшего адреса: ${encryptedForSmaller.substring(0, 50)}...`);
+        console.log(`   Зашифровано для большего адреса: ${encryptedForLarger.substring(0, 50)}...`);
         console.log(`   TX Hash: ${receipt.transactionHash}`);
         
         // Пауза после транзакции
@@ -861,12 +978,17 @@ async function sendMessage(fromUserId, toUserId, fromAddress, toAddress, message
             toAddress, 
             message, 
             encryptedForRecipient,
-            encryptedForSender 
+            encryptedForSender,
+            encryptedForSmaller,
+            encryptedForLarger
         };
         
     } catch (error) {
         // Обновляем счетчики неудачных сообщений
         global.failedMessages++;
+        
+        // Детальное логирование ошибки
+        logDetailedError(error, 'отправки сообщения');
         
         console.warn(`⚠️  Ошибка отправки сообщения: ${error.message} (продолжаем)`);
         return { success: false, fromUserId, toUserId, error: error.message };
@@ -881,6 +1003,14 @@ async function populateContractWithTestData() {
     console.log('🚀 Заполнение контракта тестовыми данными...\n');
     logToFile('🚀 Начало заполнения контракта тестовыми данными');
     logToFile(`📅 Время начала: ${startTime.toISOString()}`);
+    
+    // Логируем информацию о RPC нодах
+    console.log('🌐 Доступные RPC ноды:');
+    BASE_RPC_URLS.forEach((url, index) => {
+        console.log(`   ${index + 1}. ${url}`);
+    });
+    console.log(`   Используем: ${BASE_RPC_URLS[0]}\n`);
+    logToFile(`🌐 Используем RPC ноду: ${BASE_RPC_URLS[0]}`);
     
     // Счетчик общих затрат (глобальные переменные)
     global.totalCostUsd = 0;
@@ -897,7 +1027,7 @@ async function populateContractWithTestData() {
             continue;
         }
         
-        const userWeb3 = createWeb3Instance();
+        const userWeb3 = createWeb3InstanceWithFallback();
         const address = getAddressFromPrivateKey(userData.privateKey, userWeb3);
         users[userId] = { address, ...userData };
     }
@@ -932,48 +1062,48 @@ async function populateContractWithTestData() {
         }
     }
     
-    // 2. Отправляем запросы на добавление в контакты
-    console.log('\n📤 Шаг 2: Отправка запросов на добавление в контакты');
-    console.log('⏸️ Пауза 10 секунд перед отправкой запросов...');
-    await sleep(10000);
+    // 2. Отправляем приглашения на добавление в контакты (v2)
+    console.log('\n📤 Шаг 2: Отправка приглашений на добавление в контакты');
+    console.log('⏸️ Пауза 60 секунд перед отправкой приглашений...');
+    await sleep(60000);
     
     // user02 → user03 (без ответа)
-    await requestContact('user02', 'user03', users.user02.address, users.user03.address);
+    await invitationSend('user02', 'user03', users.user02.address, users.user03.address, users.user02.encryptionKeys, users.user03.encryptionKeys);
     
     // user02 → user04 (отказ)
-    await requestContact('user02', 'user04', users.user02.address, users.user04.address);
+    await invitationSend('user02', 'user04', users.user02.address, users.user04.address, users.user02.encryptionKeys, users.user04.encryptionKeys);
     
     // user02 → user05 (согласие)
-    await requestContact('user02', 'user05', users.user02.address, users.user05.address);
+    await invitationSend('user02', 'user05', users.user02.address, users.user05.address, users.user02.encryptionKeys, users.user05.encryptionKeys);
     
     // user03 → user04 (согласие)
-    await requestContact('user03', 'user04', users.user03.address, users.user04.address);
+    await invitationSend('user03', 'user04', users.user03.address, users.user04.address, users.user03.encryptionKeys, users.user04.encryptionKeys);
     
     // user03 → user05 (согласие)
-    await requestContact('user03', 'user05', users.user03.address, users.user05.address);
+    await invitationSend('user03', 'user05', users.user03.address, users.user05.address, users.user03.encryptionKeys, users.user05.encryptionKeys);
     
     // user04 → user05 (отказ)
-    await requestContact('user04', 'user05', users.user04.address, users.user05.address);
+    await invitationSend('user04', 'user05', users.user04.address, users.user05.address, users.user04.encryptionKeys, users.user05.encryptionKeys);
     
-    // 3. Обрабатываем запросы
-    console.log('\n✅ Шаг 3: Обработка запросов');
-    console.log('⏸️ Пауза 10 секунд перед обработкой запросов...');
+    // 3. Обрабатываем приглашения (v2)
+    console.log('\n✅ Шаг 3: Обработка приглашений');
+    console.log('⏸️ Пауза 10 секунд перед обработкой приглашений...');
     await sleep(10000);
     
-    // user04 отклоняет запрос от user02
-    await rejectContactRequest('user04', 'user02', users.user04.address, users.user02.address);
+    // user04 отклоняет приглашение от user02
+    await invitationReject('user04', 'user02', users.user04.address, users.user02.address);
     
-    // user05 принимает запрос от user02
-    await acceptContactRequest('user05', 'user02', users.user05.address, users.user02.address);
+    // user05 принимает приглашение от user02
+    await invitationAccept('user05', 'user02', users.user05.address, users.user02.address);
     
-    // user04 принимает запрос от user03
-    await acceptContactRequest('user04', 'user03', users.user04.address, users.user03.address);
+    // user04 принимает приглашение от user03
+    await invitationAccept('user04', 'user03', users.user04.address, users.user03.address);
     
-    // user05 принимает запрос от user03
-    await acceptContactRequest('user05', 'user03', users.user05.address, users.user03.address);
+    // user05 принимает приглашение от user03
+    await invitationAccept('user05', 'user03', users.user05.address, users.user03.address);
     
-    // user05 отклоняет запрос от user04
-    await rejectContactRequest('user05', 'user04', users.user05.address, users.user04.address);
+    // user05 отклоняет приглашение от user04
+    await invitationReject('user05', 'user04', users.user05.address, users.user04.address);
     
     // 4. Отправляем сообщения в активных чатах
     console.log('\n💬 Шаг 4: Отправка сообщений');
@@ -1054,18 +1184,18 @@ async function populateContractWithTestData() {
     logToFile(`📅 Время завершения: ${endTime.toISOString()}`);
     logToFile(`⏱️ Продолжительность: ${Math.round(duration / 1000)} секунд`);
     
-    console.log('\n📊 Созданные тестовые данные:');
+    console.log('\n📊 Созданные тестовые данные (v2):');
     console.log('✅ 4 пользователя зарегистрированы');
-    console.log('📤 6 запросов на добавление в контакты отправлено');
-    console.log('✅ 3 запроса принято');
-    console.log('❌ 3 запроса отклонено');
+    console.log('📤 6 приглашений на добавление в контакты отправлено');
+    console.log('✅ 3 приглашения принято');
+    console.log('❌ 3 приглашения отклонено');
     console.log(`💬 Сообщений: ${global.successfulMessages} успешно, ${global.failedMessages} с ошибками`);
     
-    logToFile('📊 Созданные тестовые данные:');
+    logToFile('📊 Созданные тестовые данные (v2):');
     logToFile('✅ 4 пользователя зарегистрированы');
-    logToFile('📤 6 запросов на добавление в контакты отправлено');
-    logToFile('✅ 3 запроса принято');
-    logToFile('❌ 3 запроса отклонено');
+    logToFile('📤 6 приглашений на добавление в контакты отправлено');
+    logToFile('✅ 3 приглашения принято');
+    logToFile('❌ 3 приглашения отклонено');
     logToFile(`💬 Сообщений: ${global.successfulMessages} успешно, ${global.failedMessages} с ошибками`);
     
     console.log('\n💰 Общие затраты на газ:');
@@ -1078,21 +1208,25 @@ async function populateContractWithTestData() {
     logToFile(`   Общая стоимость: $${global.totalCostUsd.toFixed(4)}`);
     logToFile(`   Средняя стоимость за транзакцию: $${(global.totalCostUsd / global.totalTransactions).toFixed(4)}`);
     
-    console.log('\n🎯 Сценарии для тестирования:');
-    console.log('1. user02 → user03: запрос без ответа (pending)');
-    console.log('2. user02 → user04: запрос отклонен (rejected)');
-    console.log('3. user02 ↔ user05: активный чат с сообщениями');
-    console.log('4. user03 ↔ user04: активный чат с сообщениями');
-    console.log('5. user03 ↔ user05: активный чат с сообщениями');
-    console.log('6. user04 → user05: запрос отклонен (блокировка повторных запросов)');
+    console.log('\n🎯 Сценарии для тестирования (v2):');
+    console.log('1. user02 → user03: приглашение без ответа (pending)');
+    console.log('2. user02 → user04: приглашение отклонено (rejected)');
+    console.log('3. user02 ↔ user05: активный чат с сообщениями (двойное шифрование)');
+    console.log('4. user03 ↔ user04: активный чат с сообщениями (двойное шифрование)');
+    console.log('5. user03 ↔ user05: активный чат с сообщениями (двойное шифрование)');
+    console.log('6. user04 → user05: приглашение отклонено (блокировка повторных приглашений)');
+    console.log('7. Новая структура сообщений: encryptedForSmaller/encryptedForLarger');
+    console.log('8. Единая система чатов с уникальными ID');
     
-    logToFile('\n🎯 Сценарии для тестирования:');
-    logToFile('1. user02 → user03: запрос без ответа (pending)');
-    logToFile('2. user02 → user04: запрос отклонен (rejected)');
-    logToFile('3. user02 ↔ user05: активный чат с сообщениями');
-    logToFile('4. user03 ↔ user04: активный чат с сообщениями');
-    logToFile('5. user03 ↔ user05: активный чат с сообщениями');
-    logToFile('6. user04 → user05: запрос отклонен (блокировка повторных запросов)');
+    logToFile('\n🎯 Сценарии для тестирования (v2):');
+    logToFile('1. user02 → user03: приглашение без ответа (pending)');
+    logToFile('2. user02 → user04: приглашение отклонено (rejected)');
+    logToFile('3. user02 ↔ user05: активный чат с сообщениями (двойное шифрование)');
+    logToFile('4. user03 ↔ user04: активный чат с сообщениями (двойное шифрование)');
+    logToFile('5. user03 ↔ user05: активный чат с сообщениями (двойное шифрование)');
+    logToFile('6. user04 → user05: приглашение отклонено (блокировка повторных приглашений)');
+    logToFile('7. Новая структура сообщений: encryptedForSmaller/encryptedForLarger');
+    logToFile('8. Единая система чатов с уникальными ID');
     
     logToFile('='.repeat(80));
    
@@ -1108,4 +1242,12 @@ if (require.main === module) {
     }
 }
 
-module.exports = { populateContractWithTestData, testUsers, testMessages };
+module.exports = { 
+    populateContractWithTestData, 
+    testUsers, 
+    testMessages,
+    invitationSend,
+    invitationAccept,
+    invitationReject,
+    sendMessage
+};

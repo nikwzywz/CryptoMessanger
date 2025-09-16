@@ -138,7 +138,7 @@ contract CryptoMessengerTest is Test {
         uint256 aliceBalanceBefore = alice.balance;
         
         vm.startPrank(alice);
-        cryptoMessenger.sendChatInvitation{value: invitationFee}(
+        cryptoMessenger.invitationSend{value: invitationFee}(
             bob,
             encryptedForRecipient,
             encryptedForSender
@@ -149,7 +149,7 @@ contract CryptoMessengerTest is Test {
         bytes32 chatId = cryptoMessenger.getChatId(alice, bob);
         assertTrue(chatId != bytes32(0));
         
-        CryptoMessenger.ChatWithOneContact memory chat = cryptoMessenger.getChat(chatId);
+        CryptoMessenger.Chat memory chat = cryptoMessenger.getChat(chatId);
         assertTrue(chat.isNeedAcceptance);
         assertFalse(chat.isActive);
         assertEq(chat.inviter, alice);
@@ -175,7 +175,7 @@ contract CryptoMessengerTest is Test {
         uint256 aliceBalanceBefore = alice.balance;
         
         vm.startPrank(alice);
-        cryptoMessenger.sendChatInvitation{value: invitationFee}(
+        cryptoMessenger.invitationSend{value: invitationFee}(
             bob,
             encryptedForRecipient,
             encryptedForSender
@@ -184,7 +184,7 @@ contract CryptoMessengerTest is Test {
         
         // Bob принимает приглашение
         vm.startPrank(bob);
-        cryptoMessenger.acceptChatInvitation(alice);
+        cryptoMessenger.invitationAccept(alice);
         vm.stopPrank();
         
         // Проверяем, что чат активен
@@ -192,7 +192,7 @@ contract CryptoMessengerTest is Test {
         assertTrue(cryptoMessenger.getChat(chatId).isActive);
         
         // Проверяем, что чат активирован
-        CryptoMessenger.ChatWithOneContact memory chat = cryptoMessenger.getChat(chatId);
+        CryptoMessenger.Chat memory chat = cryptoMessenger.getChat(chatId);
         assertTrue(chat.isActive);
         assertFalse(chat.isNeedAcceptance);
         
@@ -215,7 +215,7 @@ contract CryptoMessengerTest is Test {
         uint256 bobBalanceBefore = bob.balance;
         
         vm.startPrank(alice);
-        cryptoMessenger.sendChatInvitation{value: invitationFee}(
+        cryptoMessenger.invitationSend{value: invitationFee}(
             bob,
             encryptedForRecipient,
             encryptedForSender
@@ -224,18 +224,18 @@ contract CryptoMessengerTest is Test {
         
         // Bob отклоняет приглашение
         vm.startPrank(bob);
-        cryptoMessenger.rejectChatInvitation(alice);
+        cryptoMessenger.invitationReject(alice);
         vm.stopPrank();
         
-        // Проверяем, что контакт НЕ добавлен
-        assertFalse(cryptoMessenger.checkContact(alice, bob));
+        // Проверяем, что контакт остается (контакт не исчезает)
+        assertTrue(cryptoMessenger.checkContact(alice, bob));
         
         // Проверяем, что средства получены Bob
         assertEq(bob.balance, bobBalanceBefore + invitationFee);
         
         // Проверяем, что чат деактивирован
         bytes32 chatId = cryptoMessenger.getChatId(alice, bob);
-        CryptoMessenger.ChatWithOneContact memory chat = cryptoMessenger.getChat(chatId);
+        CryptoMessenger.Chat memory chat = cryptoMessenger.getChat(chatId);
         assertFalse(chat.isActive);
         assertFalse(chat.isNeedAcceptance);
     }
@@ -255,7 +255,7 @@ contract CryptoMessengerTest is Test {
         uint256 aliceBalanceBefore = alice.balance;
         
         vm.startPrank(alice);
-        cryptoMessenger.sendChatInvitation{value: invitationFee}(
+        cryptoMessenger.invitationSend{value: invitationFee}(
             bob,
             encryptedForRecipient,
             encryptedForSender
@@ -267,11 +267,11 @@ contract CryptoMessengerTest is Test {
         
         // Alice отзывает приглашение
         vm.startPrank(alice);
-        cryptoMessenger.cancelChatInvitation(bob);
+        cryptoMessenger.invitationCancel(bob);
         vm.stopPrank();
         
-        // Проверяем, что контакт НЕ добавлен
-        assertFalse(cryptoMessenger.checkContact(alice, bob));
+        // Проверяем, что контакт остается (контакт не исчезает)
+        assertTrue(cryptoMessenger.checkContact(alice, bob));
         
         // Проверяем, что средства возвращены Alice
         assertEq(alice.balance, aliceBalanceBefore);
@@ -291,7 +291,7 @@ contract CryptoMessengerTest is Test {
         uint256 invitationFee = cryptoMessenger.getUserSettings(bob).contactRequestFee;
         
         vm.startPrank(alice);
-        cryptoMessenger.sendChatInvitation{value: invitationFee}(
+        cryptoMessenger.invitationSend{value: invitationFee}(
             bob,
             encryptedForRecipient,
             encryptedForSender
@@ -301,7 +301,7 @@ contract CryptoMessengerTest is Test {
         // Alice пытается отозвать приглашение раньше времени
         vm.startPrank(alice);
         vm.expectRevert("Invitation timeout not reached");
-        cryptoMessenger.cancelChatInvitation(bob);
+        cryptoMessenger.invitationCancel(bob);
         vm.stopPrank();
     }
     
@@ -365,7 +365,7 @@ contract CryptoMessengerTest is Test {
         uint256 invitationFee = cryptoMessenger.getUserSettings(bob).contactRequestFee;
         
         vm.startPrank(alice);
-        cryptoMessenger.sendChatInvitation{value: invitationFee}(
+        cryptoMessenger.invitationSend{value: invitationFee}(
             bob,
             encryptedForRecipient,
             encryptedForSender
@@ -373,7 +373,7 @@ contract CryptoMessengerTest is Test {
         vm.stopPrank();
         
         vm.startPrank(bob);
-        cryptoMessenger.rejectChatInvitation(alice);
+        cryptoMessenger.invitationReject(alice);
         vm.stopPrank();
         
         // Alice пытается отправить сообщение в неактивный чат
@@ -411,14 +411,14 @@ contract CryptoMessengerTest is Test {
         _createActiveChat(alice, dave);
         
         // Тестируем получение всех контактов
-        address[] memory allContacts = cryptoMessenger.getUserContacts(alice);
+        address[] memory allContacts = cryptoMessenger.getContacts(alice);
         assertEq(allContacts.length, 3);
         
         // Тестируем пагинацию с деталями
-        (address[] memory firstTwo, , ) = cryptoMessenger.getUserContactsWithDetailsPaginated(alice, 0, 2);
+        (address[] memory firstTwo, , ) = cryptoMessenger.getContactsWithDetailsPaginated(alice, 0, 2);
         assertEq(firstTwo.length, 2);
         
-        (address[] memory lastOne, , ) = cryptoMessenger.getUserContactsWithDetailsPaginated(alice, 2, 0);
+        (address[] memory lastOne, , ) = cryptoMessenger.getContactsWithDetailsPaginated(alice, 2, 0);
         assertEq(lastOne.length, 1);
     }
     
@@ -440,7 +440,7 @@ contract CryptoMessengerTest is Test {
             address[] memory contacts,
             string[] memory names,
             bytes[] memory publicKeys
-        ) = cryptoMessenger.getUserContactsWithDetailsPaginated(alice, 0, 0);
+        ) = cryptoMessenger.getContactsWithDetailsPaginated(alice, 0, 0);
         
         assertEq(contacts.length, 1);
         assertEq(contacts[0], bob);
@@ -503,7 +503,7 @@ contract CryptoMessengerTest is Test {
         
         // Проверяем, что чат деактивирован
         bytes32 chatId = cryptoMessenger.getChatId(alice, bob);
-        CryptoMessenger.ChatWithOneContact memory chat = cryptoMessenger.getChat(chatId);
+        CryptoMessenger.Chat memory chat = cryptoMessenger.getChat(chatId);
         assertFalse(chat.isActive);
     }
     
@@ -525,13 +525,13 @@ contract CryptoMessengerTest is Test {
         
         // Тестируем некорректные индексы
         vm.expectRevert("Start index out of bounds");
-        cryptoMessenger.getUserContactsWithDetailsPaginated(alice, 2, 0);
+        cryptoMessenger.getContactsWithDetailsPaginated(alice, 2, 0);
         
         vm.expectRevert("End index out of bounds");
-        cryptoMessenger.getUserContactsWithDetailsPaginated(alice, 0, 2);
+        cryptoMessenger.getContactsWithDetailsPaginated(alice, 0, 2);
         
         // startIndex = 1, endIndex = 1 - валидный диапазон (пустой результат)
-        (address[] memory emptyResult, , ) = cryptoMessenger.getUserContactsWithDetailsPaginated(alice, 1, 1);
+        (address[] memory emptyResult, , ) = cryptoMessenger.getContactsWithDetailsPaginated(alice, 1, 1);
         assertEq(emptyResult.length, 0);
     }
     
@@ -541,7 +541,7 @@ contract CryptoMessengerTest is Test {
         
         // Нельзя отправить приглашение самому себе
         vm.expectRevert("Cannot interact with self");
-        cryptoMessenger.sendChatInvitation{value: 0.001 ether}(
+        cryptoMessenger.invitationSend{value: 0.001 ether}(
             alice,
             encryptedForRecipient,
             encryptedForSender
@@ -572,7 +572,7 @@ contract CryptoMessengerTest is Test {
         uint256 invitationFee = cryptoMessenger.getUserSettings(bob).contactRequestFee;
         
         vm.startPrank(alice);
-        cryptoMessenger.sendChatInvitation{value: invitationFee}(
+        cryptoMessenger.invitationSend{value: invitationFee}(
             bob,
             encryptedForRecipient,
             encryptedForSender
@@ -586,7 +586,7 @@ contract CryptoMessengerTest is Test {
         
         // ЭТАП 2: Bob принимает приглашение
         vm.startPrank(bob);
-        cryptoMessenger.acceptChatInvitation(alice);
+        cryptoMessenger.invitationAccept(alice);
         vm.stopPrank();
         
         // Проверяем, что чат активен
@@ -625,11 +625,14 @@ contract CryptoMessengerTest is Test {
         cryptoMessenger.sendMessage(bob, encryptedForRecipient, encryptedForSender);
         vm.stopPrank();
         
-        // ЭТАП 7: Bob создает новое приглашение Alice
-        uint256 newInvitationFee = cryptoMessenger.getUserSettings(alice).contactRequestFee;
+        // ЭТАП 7: Bob увеличивает свою комиссию и создает новое приглашение Alice
+        vm.startPrank(bob);
+        uint256 newInvitationFee = 0.002 ether; // Увеличиваем комиссию Боба
+        cryptoMessenger.setContactRequestFee(newInvitationFee);
+        vm.stopPrank();
         
         vm.startPrank(bob);
-        cryptoMessenger.sendChatInvitation{value: newInvitationFee}(
+        cryptoMessenger.invitationSend{value: newInvitationFee}(
             alice,
             encryptedForRecipient,
             encryptedForSender
@@ -642,9 +645,15 @@ contract CryptoMessengerTest is Test {
         assertEq(newChatId, chatId); // Тот же ID, так как адреса те же
         assertTrue(cryptoMessenger.getChat(newChatId).isNeedAcceptance);
         
+        // Проверяем, что invitationFee обновился на новую сумму (комиссия Боба)
+        assertEq(cryptoMessenger.getChat(newChatId).invitationFee, newInvitationFee);
+        
+        // Проверяем, что комиссия Боба действительно изменилась
+        assertEq(cryptoMessenger.getUserSettings(bob).contactRequestFee, newInvitationFee);
+        
         // ЭТАП 8: Alice принимает новое приглашение
         vm.startPrank(alice);
-        cryptoMessenger.acceptChatInvitation(bob);
+        cryptoMessenger.invitationAccept(bob);
         vm.stopPrank();
         
         // Проверяем, что чат снова активен
@@ -667,11 +676,11 @@ contract CryptoMessengerTest is Test {
         assertTrue(cryptoMessenger.getChat(chatId).isActive);
         
         // Проверяем, что в списке контактов есть контакт (контакты остаются в массивах после разрыва)
-        address[] memory aliceContacts = cryptoMessenger.getUserContacts(alice);
+        address[] memory aliceContacts = cryptoMessenger.getContacts(alice);
         assertEq(aliceContacts.length, 1);
         assertEq(aliceContacts[0], bob);
         
-        address[] memory bobContacts = cryptoMessenger.getUserContacts(bob);
+        address[] memory bobContacts = cryptoMessenger.getContacts(bob);
         assertEq(bobContacts.length, 1);
         assertEq(bobContacts[0], alice);
     }
@@ -679,12 +688,87 @@ contract CryptoMessengerTest is Test {
     // ========================================
     // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
     // ========================================
+    // ТЕСТЫ ПРОВЕРКИ СИСТЕМЫ КОНТАКТОВ
+    // ========================================
+    
+    function testCheckContactAfterInvitationAccept() public {
+        // Регистрируем пользователей
+        vm.startPrank(alice);
+        cryptoMessenger.registerUser(aliceName, alicePublicKey);
+        vm.stopPrank();
+        
+        vm.startPrank(bob);
+        cryptoMessenger.registerUser(bobName, bobPublicKey);
+        vm.stopPrank();
+        
+        // Проверяем, что изначально контакта нет
+        assertFalse(cryptoMessenger.checkContact(alice, bob));
+        
+        // Alice отправляет приглашение Bob
+        uint256 invitationFee = cryptoMessenger.getUserSettings(bob).contactRequestFee;
+        
+        vm.startPrank(alice);
+        cryptoMessenger.invitationSend{value: invitationFee}(
+            bob,
+            encryptedForRecipient,
+            encryptedForSender
+        );
+        vm.stopPrank();
+        
+        // Проверяем, что после отправки приглашения контакт уже есть
+        assertTrue(cryptoMessenger.checkContact(alice, bob));
+        
+        // Bob принимает приглашение
+        vm.startPrank(bob);
+        cryptoMessenger.invitationAccept(alice);
+        vm.stopPrank();
+        
+        // Проверяем, что после принятия приглашения контакт установлен
+        assertTrue(cryptoMessenger.checkContact(alice, bob));
+        assertTrue(cryptoMessenger.checkContact(bob, alice)); // Должно работать в обе стороны
+        
+        // Проверяем, что чат активен
+        bytes32 chatId = cryptoMessenger.getChatId(alice, bob);
+        assertTrue(cryptoMessenger.getChat(chatId).isActive);
+    }
+    
+    function testCheckContactAfterDeactivation() public {
+        // Регистрируем пользователей
+        vm.startPrank(alice);
+        cryptoMessenger.registerUser(aliceName, alicePublicKey);
+        vm.stopPrank();
+        
+        vm.startPrank(bob);
+        cryptoMessenger.registerUser(bobName, bobPublicKey);
+        vm.stopPrank();
+        
+        // Создаем активный чат
+        _createActiveChat(alice, bob);
+        
+        // Проверяем, что контакт установлен
+        assertTrue(cryptoMessenger.checkContact(alice, bob));
+        
+        // Alice деактивирует чат
+        vm.startPrank(alice);
+        cryptoMessenger.deactivateContact(bob);
+        vm.stopPrank();
+        
+        // Проверяем, что контакт ОСТАЕТСЯ (контакт не исчезает)
+        assertTrue(cryptoMessenger.checkContact(alice, bob));
+        assertTrue(cryptoMessenger.checkContact(bob, alice));
+        
+        // Проверяем, что чат стал неактивным (нельзя писать сообщения)
+        bytes32 chatId = cryptoMessenger.getChatId(alice, bob);
+        assertFalse(cryptoMessenger.getChat(chatId).isActive);
+    }
+    
+    // ========================================
     
     function _createActiveChat(address user1, address user2) internal {
         uint256 invitationFee = cryptoMessenger.getUserSettings(user2).contactRequestFee;
         
         vm.startPrank(user1);
-        cryptoMessenger.sendChatInvitation{value: invitationFee}(
+        cryptoMessenger.invitationSend{value: invitationFee}(
             user2,
             encryptedForRecipient,
             encryptedForSender
@@ -692,7 +776,48 @@ contract CryptoMessengerTest is Test {
         vm.stopPrank();
         
         vm.startPrank(user2);
-        cryptoMessenger.acceptChatInvitation(user1);
+        cryptoMessenger.invitationAccept(user1);
+        vm.stopPrank();
+    }
+    
+    /**
+     * @dev Тест: нельзя отправить второе приглашение, если первое еще ожидает принятия
+     */
+    function testCannotSendDuplicateInvitationWhilePending() public {
+        // Регистрируем пользователей
+        vm.startPrank(alice);
+        cryptoMessenger.registerUser(aliceName, alicePublicKey);
+        vm.stopPrank();
+        
+        vm.startPrank(bob);
+        cryptoMessenger.registerUser(bobName, bobPublicKey);
+        vm.stopPrank();
+        
+        // Alice отправляет первое приглашение Bob
+        uint256 invitationFee = cryptoMessenger.getUserSettings(bob).contactRequestFee;
+        
+        vm.startPrank(alice);
+        cryptoMessenger.invitationSend{value: invitationFee}(
+            bob,
+            encryptedForRecipient,
+            encryptedForSender
+        );
+        vm.stopPrank();
+        
+        // Проверяем, что чат создан и ожидает принятия
+        bytes32 chatId = cryptoMessenger.getChatId(alice, bob);
+        CryptoMessenger.Chat memory chat = cryptoMessenger.getChat(chatId);
+        assertTrue(chat.isNeedAcceptance);
+        assertFalse(chat.isActive);
+        
+        // Alice пытается отправить второе приглашение Bob (должно провалиться)
+        vm.startPrank(alice);
+        vm.expectRevert("Invitation already pending");
+        cryptoMessenger.invitationSend{value: invitationFee}(
+            bob,
+            encryptedForRecipient,
+            encryptedForSender
+        );
         vm.stopPrank();
     }
 }

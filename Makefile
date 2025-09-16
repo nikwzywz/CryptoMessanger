@@ -33,7 +33,7 @@ deploy-base:
 	@echo "Deploying to Base Mainnet..."
 	@./deploy-base.sh
 	@echo "Updating ABI in config.js..."
-	@node pwa/scripts/update-abi.js
+	@# node pwa/scripts/update-abi.js
 
 .PHONY: deploy-sepolia
 deploy-sepolia:

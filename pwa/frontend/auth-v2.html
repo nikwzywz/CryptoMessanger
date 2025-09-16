@@ -210,6 +210,43 @@
             margin: 15px 0;
             font-size: 0.9rem;
         }
+
+        .input-group {
+            margin: 20px 0 30px 0;
+            text-align: left;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+            font-size: 1rem;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-family: inherit;
+            background: #f8f9fa;
+            color: #333;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .input-group input:focus {
+            border-color: #667eea;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .input-group input::placeholder {
+            color: #999;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -276,6 +313,10 @@
             <div class="step-title">5. Регистрация в контракте</div>
             <div class="step-description">
                 Регистрация публичного ключа в смарт-контракте
+            </div>
+            <div class="input-group">
+                <label for="contactName">Имя пользователя (необязательно):</label>
+                <input type="text" id="contactName" placeholder="Введите ваше имя или оставьте пустым" maxlength="50">
             </div>
             <button class="btn" id="registerBtn" disabled>
                 Зарегистрироваться
@@ -532,18 +573,23 @@
                     // Регистрируем публичный ключ
                     const publicKeyHex = '0x' + encryptionKeys.publicKeyForEncode;
                     
-                    console.log('🔑 Регистрируем публичный ключ:', publicKeyHex);
+                    console.log('🔑 Регистрируем пользователя в контракте v2...');
+                    console.log('📊 Публичный ключ:', publicKeyHex);
                     console.log('📊 Длина ключа:', publicKeyHex.length);
                     
                     try {
-                        const result = await contract.methods.registerPublicKey(publicKeyHex).send({
+                        // В контракте v2 функция называется registerUser и принимает имя и публичный ключ
+                        const contactName = document.getElementById('contactName').value.trim() || 'Пользователь';
+                        console.log('📝 Имя пользователя:', contactName);
+                        
+                        const result = await contract.methods.registerUser(contactName, publicKeyHex).send({
                             from: userAddress,
                             gas: 300000,
                             gasPrice: '20000000000' // 20 gwei
                         });
                         
                         console.log('✅ Результат регистрации:', result);
-                        showStatus('step5Status', 'success', 'Регистрация в контракте завершена');
+                        showStatus('step5Status', 'success', 'Пользователь успешно зарегистрирован в контракте v2');
                     } catch (sendError) {
                         console.error('❌ Ошибка при отправке транзакции:', sendError);
                         throw sendError;

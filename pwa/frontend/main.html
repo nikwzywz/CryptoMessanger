@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CryptoMessenger - Децентрализованный мессенджер</title>
+    <title>CryptoMessenger v2 - Децентрализованный мессенджер</title>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <style>
         * {
@@ -159,7 +159,7 @@
             text-align: center;
         }
 
-        /* Статусы запросов */
+        /* Статусы приглашений (v2) */
         .contact-item.incoming-request {
             border-left: 3px solid #28a745;
         }
@@ -169,13 +169,13 @@
         }
 
         .contact-item.incoming-request .contact-name::after {
-            content: " (Входящий запрос)";
+            content: " (Входящее приглашение)";
             color: #28a745;
             font-size: 12px;
         }
 
         .contact-item.outgoing-request .contact-name::after {
-            content: " (Исходящий запрос)";
+            content: " (Исходящее приглашение)";
             color: #ffc107;
             font-size: 12px;
         }
@@ -530,6 +530,159 @@
             background: #3a3a3a;
         }
 
+        /* Стили для кнопок приглашений */
+        .btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #1e7e34;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        /* Стили для модальных окон */
+        .modal {
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: #1a1a1a;
+            border-radius: 12px;
+            padding: 0;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            border: 1px solid #333;
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: #fff;
+            font-size: 18px;
+        }
+
+        .close {
+            color: #888;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .close:hover {
+            color: #fff;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #fff;
+            font-weight: 500;
+        }
+
+        .form-input, .form-textarea {
+            width: 100%;
+            padding: 12px;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .form-input:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+
+        .form-textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .modal-actions .btn {
+            min-width: 120px;
+        }
+
         /* Адаптивность для мобильных */
         @media (max-width: 768px) {
             .back-button {
@@ -543,10 +696,20 @@
         <!-- Боковая панель с контактами -->
         <div class="sidebar">
             <div class="sidebar-header">
-                <div class="sidebar-title">CryptoMessenger</div>
+                <div class="sidebar-title">CryptoMessenger v2</div>
                 <div class="sidebar-subtitle">Децентрализованный мессенджер</div>
+                
+                
                 <div class="search-box">
-                    <input type="text" class="search-input" placeholder="Поиск контактов...">
+                    <input type="text" class="search-input" placeholder="Поиск контактов..." id="searchInput">
+                </div>
+                <div class="invitation-actions" style="margin-top: 10px;">
+                    <button class="btn btn-primary" id="sendInvitationBtn" style="width: 100%; margin-bottom: 8px;">
+                        📤 Отправить приглашение
+                    </button>
+                    <button class="btn btn-secondary" id="refreshInvitationsBtn" style="width: 100%;">
+                        🔄 Обновить приглашения
+                    </button>
                 </div>
             </div>
             
@@ -611,16 +774,67 @@
         </div>
     </div>
 
+    <!-- Модальное окно для отправки приглашения -->
+    <div id="invitationModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📤 Отправить приглашение</h3>
+                <span class="close" id="closeModal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="recipientAddress">Адрес получателя:</label>
+                    <input type="text" id="recipientAddress" class="form-input" placeholder="0x...">
+                </div>
+                <div class="form-group">
+                    <label for="invitationMessage">Сообщение приглашения:</label>
+                    <textarea id="invitationMessage" class="form-textarea" placeholder="Привет! Хотел бы добавить тебя в контакты..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="invitationFee">Комиссия (ETH):</label>
+                    <input type="number" id="invitationFee" class="form-input" value="0.00000217" step="0.00000001">
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-primary" id="confirmInvitationBtn">Отправить приглашение</button>
+                    <button class="btn btn-secondary" id="cancelInvitationBtn">Отмена</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для обработки приглашений -->
+    <div id="invitationActionsModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📨 Обработка приглашения</h3>
+                <span class="close" id="closeActionsModal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="invitationInfo">
+                    <p><strong>От:</strong> <span id="inviterAddress"></span></p>
+                    <p><strong>Сообщение:</strong> <span id="invitationMessageText"></span></p>
+                    <p><strong>Комиссия:</strong> <span id="invitationFeeAmount"></span> ETH</p>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-success" id="acceptInvitationBtn">Принять</button>
+                    <button class="btn btn-danger" id="rejectInvitationBtn">Отклонить</button>
+                    <button class="btn btn-secondary" id="cancelActionsBtn">Отмена</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Подключение библиотек -->
     <script src="lib/web3.min.js"></script>
     <script src="lib/crypto-js.min.js"></script>
     <script src="config.js"></script>
-    <script src="lib/decentralized-event-system-browser.js"></script>
-    <script src="lib/chat-ui-manager.js"></script>
+    <script src="lib/crypto-utils.js"></script>
+    <script src="lib/decentralized-event-system-browser-v2.js"></script>
+    <script src="lib/chat-ui-manager-v2.js"></script>
     
     <script>
-        // CryptoMessenger v2.0.0 - Main Interface with Pagination and Real-time Updates
-        console.log('CryptoMessenger v2.0.0 - Main Interface Loaded with Pagination and Real-time Updates');
+        // CryptoMessenger v2.0.0 - Main Interface with Contract v2 Migration
+        console.log('CryptoMessenger v2.0.0 - Main Interface Loaded with Contract v2 Migration');
         
         // Глобальные переменные
         let web3;
@@ -716,13 +930,13 @@
             }
         }
         
-        // Загрузка контактов из блокчейна
+        // Загрузка контактов из блокчейна (v2)
         async function loadContacts() {
             try {
-                console.log('📞 Загружаем контакты из блокчейна...');
+                console.log('📞 Загружаем контакты из блокчейна (v2)...');
                 
-                // Получаем все контакты пользователя
-                const contactAddresses = await contract.methods.getUserContacts(currentUser).call();
+                // Получаем все контакты пользователя (новая функция v2)
+                const contactAddresses = await contract.methods.getContacts(currentUser).call();
                 console.log('📋 Найдено контактов:', contactAddresses.length);
                 
                 contacts = [];
@@ -732,13 +946,23 @@
                         // Получаем публичный ключ контакта
                         const contactPublicKey = await contract.methods.getPublicKey(address).call();
                         
-                        // Получаем последнее сообщение в чате
-                        const lastMessage = await getLastMessage(currentUser, address);
+                        // Получаем имя контакта (новая функция v2)
+                        const contactName = await contract.methods.getContactName(address).call();
+                        
+                        // Получаем chatId для пары пользователей (новая функция v2)
+                        const chatId = await contract.methods.getChatId(currentUser, address).call();
+                        
+                        // Получаем последнее сообщение в чате (только если chatId существует)
+                        let lastMessage = null;
+                        if (chatId && chatId !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
+                            lastMessage = await getLastMessage(chatId);
+                        }
                         
                         contacts.push({
                             address: address,
-                            name: `User ${address.slice(2, 6)}`, // Короткое имя из адреса
+                            name: contactName || `User ${address.slice(2, 6)}`, // Используем имя из контракта или короткое имя
                             publicKey: contactPublicKey,
+                            chatId: chatId,
                             lastMessage: lastMessage ? lastMessage.text : 'Нет сообщений',
                             lastMessageTime: lastMessage ? lastMessage.timestamp : null,
                             isOnline: false // Пока не реализовано
@@ -770,40 +994,175 @@
             }
         }
         
-        // Загрузка запросов на добавление в контакты
-        async function loadContactRequests() {
+        // Загрузка приглашений (v2)
+        async function loadInvitations() {
             try {
-                console.log('📨 Загружаем запросы на добавление в контакты...');
+                console.log('📨 Загружаем приглашения (v2)...');
                 
-                // Пока что возвращаем пустые списки, так как в контракте нет методов для получения списков запросов
-                // TODO: Добавить методы в контракт для получения списков запросов
+                // В v2 система приглашений заменила запросы контактов
+                // TODO: Добавить методы в контракт для получения списков приглашений
+                // Пока что возвращаем пустые списки
                 contactRequests = {
                     incoming: [],
                     outgoing: []
                 };
                 
-                console.log('✅ Запросы загружены (пока пустые):', {
+                console.log('✅ Приглашения загружены (пока пустые):', {
                     incoming: contactRequests.incoming.length,
                     outgoing: contactRequests.outgoing.length
                 });
                 
                 return contactRequests;
             } catch (error) {
-                console.error('❌ Ошибка загрузки запросов:', error);
+                console.error('❌ Ошибка загрузки приглашений:', error);
                 return { incoming: [], outgoing: [] };
+            }
+        }
+
+        // Отправка приглашения (v2)
+        async function sendInvitation(recipientAddress, message, fee) {
+            try {
+                console.log('📤 Отправляем приглашение (v2):', { recipientAddress, message, fee });
+                
+                // Получаем публичный ключ получателя
+                const recipientPublicKey = await contract.methods.getPublicKey(recipientAddress).call();
+                
+                // Шифруем сообщение для получателя
+                const encryptedForRecipient = await encryptMessage(message, recipientPublicKey);
+                
+                // Шифруем сообщение для отправителя (новая функция v2)
+                const encryptedForSender = await encryptMessage(message, userPublicKey);
+                
+                // Конвертируем fee в wei
+                const feeInWei = web3.utils.toWei(fee.toString(), 'ether');
+                
+                // Отправляем приглашение (новая функция v2)
+                const result = await contract.methods.invitationSend(
+                    recipientAddress,
+                    encryptedForRecipient,
+                    encryptedForSender
+                ).send({ 
+                    from: currentUser,
+                    value: feeInWei,
+                    gas: 300000
+                });
+                
+                console.log('✅ Приглашение отправлено в блокчейн:', result.transactionHash);
+                
+                // Показываем уведомление
+                showNotification('Приглашение успешно отправлено!', 'success');
+                
+                // Обновляем список приглашений
+                await loadInvitations();
+                updateContactsUI();
+                
+                return result;
+                
+            } catch (error) {
+                console.error('❌ Ошибка отправки приглашения:', error);
+                showNotification('Ошибка отправки приглашения: ' + error.message, 'error');
+                throw error;
+            }
+        }
+
+        // Принятие приглашения (v2)
+        async function acceptInvitation(inviterAddress) {
+            try {
+                console.log('✅ Принимаем приглашение (v2):', inviterAddress);
+                
+                // Принимаем приглашение (новая функция v2)
+                const result = await contract.methods.invitationAccept(inviterAddress).send({
+                    from: currentUser,
+                    gas: 200000
+                });
+                
+                console.log('✅ Приглашение принято:', result.transactionHash);
+                
+                // Показываем уведомление
+                showNotification('Приглашение принято!', 'success');
+                
+                // Обновляем список контактов и приглашений
+                await loadContacts();
+                await loadInvitations();
+                updateContactsUI();
+                
+                return result;
+                
+            } catch (error) {
+                console.error('❌ Ошибка принятия приглашения:', error);
+                showNotification('Ошибка принятия приглашения: ' + error.message, 'error');
+                throw error;
+            }
+        }
+
+        // Отклонение приглашения (v2)
+        async function rejectInvitation(inviterAddress) {
+            try {
+                console.log('❌ Отклоняем приглашение (v2):', inviterAddress);
+                
+                // Отклоняем приглашение (новая функция v2)
+                const result = await contract.methods.invitationReject(inviterAddress).send({
+                    from: currentUser,
+                    gas: 200000
+                });
+                
+                console.log('✅ Приглашение отклонено:', result.transactionHash);
+                
+                // Показываем уведомление
+                showNotification('Приглашение отклонено', 'info');
+                
+                // Обновляем список приглашений
+                await loadInvitations();
+                updateContactsUI();
+                
+                return result;
+                
+            } catch (error) {
+                console.error('❌ Ошибка отклонения приглашения:', error);
+                showNotification('Ошибка отклонения приглашения: ' + error.message, 'error');
+                throw error;
+            }
+        }
+
+        // Отзыв приглашения (v2)
+        async function cancelInvitation(recipientAddress) {
+            try {
+                console.log('🔄 Отзываем приглашение (v2):', recipientAddress);
+                
+                // Отзываем приглашение (новая функция v2)
+                const result = await contract.methods.invitationCancel(recipientAddress).send({
+                    from: currentUser,
+                    gas: 200000
+                });
+                
+                console.log('✅ Приглашение отозвано:', result.transactionHash);
+                
+                // Показываем уведомление
+                showNotification('Приглашение отозвано', 'info');
+                
+                // Обновляем список приглашений
+                await loadInvitations();
+                updateContactsUI();
+                
+                return result;
+                
+            } catch (error) {
+                console.error('❌ Ошибка отзыва приглашения:', error);
+                showNotification('Ошибка отзыва приглашения: ' + error.message, 'error');
+                throw error;
             }
         }
         
         // Инициализация децентрализованной системы событий
         
-        // Функция расшифровки сообщений
-        function decryptMessage(encryptedMessage, sender, recipient) {
+        // Функция шифрования сообщений
+        function encryptMessage(message, publicKey) {
             try {
                 // Получаем ключи шифрования из localStorage
                 const storedKeys = localStorage.getItem('cryptoMessengerKeys');
                 if (!storedKeys) {
                     console.warn('🔑 Ключи шифрования не найдены в localStorage');
-                    return `[Ключи не найдены: ${encryptedMessage.slice(0, 20)}...]`;
+                    return `[Ключи не найдены: ${message.slice(0, 20)}...]`;
                 }
                 
                 const encryptionKeys = JSON.parse(storedKeys);
@@ -811,89 +1170,69 @@
                 
                 if (!privateKeyForEncode) {
                     console.warn('🔑 PrivateKeyForEncode не найден');
-                    return `[Ключ не найден: ${encryptedMessage.slice(0, 20)}...]`;
+                    return `[Ключ не найден: ${message.slice(0, 20)}...]`;
                 }
                 
-                // В тестовых данных используется простое hex-кодирование
-                // Убираем '0x' префикс и декодируем
-                const hexData = encryptedMessage.startsWith('0x') ? encryptedMessage.slice(2) : encryptedMessage;
+                // Простое шифрование для тестирования (в реальном приложении используйте ECIES)
+                const messageBytes = new TextEncoder().encode(message);
+                const hexData = Array.from(messageBytes).map(b => b.toString(16).padStart(2, '0')).join('');
                 
-                try {
-                    // Пытаемся декодировать как hex (браузерная версия)
-                    const decryptedBytes = new Uint8Array(hexData.length / 2);
-                    for (let i = 0; i < hexData.length; i += 2) {
-                        decryptedBytes[i / 2] = parseInt(hexData.substr(i, 2), 16);
-                    }
-                    
-                    // Конвертируем в строку
-                    const decryptedText = new TextDecoder('utf-8').decode(decryptedBytes);
-                    
-                    // Проверяем, что получили читаемый текст
-                    if (decryptedText && decryptedText.length > 0 && !decryptedText.includes('\0')) {
-                        console.log('✅ Сообщение расшифровано:', decryptedText);
-                        return decryptedText;
-                    } else {
-                        throw new Error('Нечитаемый текст');
-                    }
-                } catch (hexError) {
-                    // Если не получилось как hex, пробуем как base64
-                    try {
-                        const decryptedBytes = Uint8Array.from(atob(hexData), c => c.charCodeAt(0));
-                        const decryptedText = new TextDecoder('utf-8').decode(decryptedBytes);
-                        console.log('✅ Сообщение расшифровано (base64):', decryptedText);
-                        return decryptedText;
-                    } catch (base64Error) {
-                        console.warn('❌ Не удалось расшифровать сообщение:', hexError.message, base64Error.message);
-                        return `[Не удалось расшифровать: ${encryptedMessage.slice(0, 20)}...]`;
-                    }
-                }
+                console.log('✅ Сообщение зашифровано:', hexData.slice(0, 40) + '...');
+                return '0x' + hexData;
                 
             } catch (error) {
-                console.error('❌ Ошибка расшифровки:', error);
-                return `[Ошибка расшифровки: ${encryptedMessage.slice(0, 20)}...]`;
+                console.error('❌ Ошибка шифрования:', error);
+                return `[Ошибка шифрования: ${message.slice(0, 20)}...]`;
             }
         }
+
+        // Функция расшифровки сообщений
+        // Используем общую функцию из CryptoUtils
+        function decryptMessage(encryptedMessage, sender, recipient) {
+            return CryptoUtils.decryptMessage(encryptedMessage, sender, recipient);
+        }
         
-        // Загрузка сообщений для конкретного чата с децентрализованной системой
+        // Загрузка сообщений для конкретного чата (v2)
         async function loadMessages(contactAddress, retryCount = 0) {
             try {
                 console.log('💬 Загружаем сообщения для:', contactAddress, retryCount > 0 ? `(попытка ${retryCount + 1})` : '');
                 
-                // Инициализируем систему событий если еще не инициализирована
-                if (!eventSystem) {
-                    eventSystem = new DecentralizedEventSystem();
-                    console.log('🚀 Децентрализованная система событий инициализирована');
-                }
+                // Получаем chatId для пары пользователей (новая функция v2)
+                const chatId = await contract.methods.getChatId(currentUser, contactAddress).call();
+                console.log('🔍 ChatId:', chatId);
                 
-                // Загружаем сообщения через децентрализованную систему
-                // Для тестовых данных используем конкретный диапазон блоков
-                const loadedMessages = await eventSystem.loadMessagesBetweenUsers(currentUser, contactAddress, {
-                    fromBlock: 35464000,
-                    toBlock: 35464999
-                });
+                // Загружаем сообщения для конкретного chatId (новая функция v2)
+                const result = await contract.methods.getChatMessages(chatId).call();
+                const count = Number(result[0]);
+                const rawMessages = result[1];
+                console.log('📋 Найдено сообщений:', count);
                 
                 // Преобразуем в формат для UI
-                const chatMessages = loadedMessages.map(msg => ({
-                    sender: msg.sender,
-                    recipient: msg.recipient,
-                    encryptedMessage: msg.encryptedData,
-                    timestamp: new Date(parseInt(msg.timestamp) * 1000),
-                    blockNumber: msg.blockNumber,
-                    transactionHash: msg.transactionHash
+                const chatMessages = rawMessages.map(msg => ({
+                    chatId: chatId,
+                    encryptedForSmaller: msg.encryptedForSmaller,
+                    encryptedForLarger: msg.encryptedForLarger,
+                    timestamp: new Date(parseInt(msg.messageTimestamp) * 1000)
                 })).sort((a, b) => a.timestamp - b.timestamp);
                 
-                // Расшифровываем сообщения
+                // Расшифровываем сообщения (определяем какое поле использовать)
                 const decryptedMessages = chatMessages.map(msg => {
-                    const decryptedText = decryptMessage(msg.encryptedMessage, msg.sender, msg.recipient);
+                    // Используем общий метод для определения правильного поля
+                    const encryptedMessage = CryptoUtils.getEncryptedFieldForUser(currentUser, contactAddress, msg);
+                    const decryptedText = decryptMessage(encryptedMessage, currentUser, contactAddress);
+                    
+                    // Определяем направление сообщения
+                    const isOutgoing = CryptoUtils.isOutgoingMessage(currentUser, contactAddress, msg);
+                    
                     return {
                         ...msg,
                         text: decryptedText,
-                        isOutgoing: msg.sender === currentUser
+                        isOutgoing: isOutgoing
                     };
                 });
                 
                 messages[contactAddress] = decryptedMessages;
-                console.log('✅ Сообщения загружены через децентрализованную систему:', decryptedMessages.length);
+                console.log('✅ Сообщения загружены (v2):', decryptedMessages.length);
                 console.log('💾 Сохранено в глобальную переменную messages:', messages[contactAddress].length);
                 
                 return decryptedMessages;
@@ -921,24 +1260,25 @@
             }
         }
         
-        // Получение последнего сообщения в чате
-        async function getLastMessage(user1, user2) {
+        // Получение последнего сообщения в чате (v2)
+        async function getLastMessage(chatId) {
             try {
-                const messageEvents = await contract.getPastEvents('MessageSent', {
-                    filter: {
-                        sender: [user1, user2],
-                        recipient: [user1, user2]
-                    },
-                    fromBlock: 0,
-                    toBlock: 'latest'
-                });
+                // Проверяем, что chatId существует
+                if (!chatId || chatId === '0x0000000000000000000000000000000000000000000000000000000000000000') {
+                    return null;
+                }
                 
-                if (messageEvents.length === 0) return null;
+                // Получаем сообщения для конкретного chatId (новая функция v2)
+                const result = await contract.methods.getChatMessages(chatId).call();
+                const count = Number(result[0]);
+                const messages = result[1];
                 
-                const lastEvent = messageEvents[messageEvents.length - 1];
+                if (count === 0 || messages.length === 0) return null;
+                
+                const lastMessage = messages[messages.length - 1];
                 return {
-                    text: `[Зашифровано: ${lastEvent.returnValues.encryptedMessage.slice(0, 20)}...]`,
-                    timestamp: new Date(parseInt(lastEvent.returnValues.timestamp) * 1000)
+                    text: `[Зашифровано: ${lastMessage.encryptedForSmaller.slice(0, 20)}...]`,
+                    timestamp: new Date(parseInt(lastMessage.messageTimestamp) * 1000)
                 };
             } catch (error) {
                 // Игнорируем ошибки получения сообщений (503, rate limit и т.д.)
@@ -989,11 +1329,29 @@
             const badge = type === 'incoming-request' ? 
                 `<div class="contact-badge">!</div>` : '';
             
+            // Добавляем кнопки действий для приглашений
+            let actionButtons = '';
+            if (type === 'incoming-request') {
+                actionButtons = `
+                    <div class="contact-actions" style="margin-top: 8px; display: flex; gap: 4px;">
+                        <button class="btn btn-success btn-sm" onclick="handleAcceptInvitation('${contact.address}')" style="padding: 4px 8px; font-size: 12px;">✅</button>
+                        <button class="btn btn-danger btn-sm" onclick="handleRejectInvitation('${contact.address}')" style="padding: 4px 8px; font-size: 12px;">❌</button>
+                    </div>
+                `;
+            } else if (type === 'outgoing-request') {
+                actionButtons = `
+                    <div class="contact-actions" style="margin-top: 8px; display: flex; gap: 4px;">
+                        <button class="btn btn-secondary btn-sm" onclick="handleCancelInvitation('${contact.address}')" style="padding: 4px 8px; font-size: 12px;">🔄</button>
+                    </div>
+                `;
+            }
+            
             contactItem.innerHTML = `
                 <div class="contact-avatar">${contact.name.slice(-1).toUpperCase()}</div>
-                <div class="contact-info">
+                <div class="contact-info" style="flex: 1;">
                     <div class="contact-name">${contact.name}</div>
                     <div class="contact-last-message">${contact.lastMessage || contact.introMessage || 'Нет сообщений'}</div>
+                    ${actionButtons}
                 </div>
                 <div class="contact-meta">
                     <div class="contact-time">${timeStr}</div>
@@ -1003,12 +1361,37 @@
             
             return contactItem;
         }
+
+        // Обработчики для кнопок приглашений
+        function handleAcceptInvitation(address) {
+            document.getElementById('inviterAddress').textContent = address;
+            document.getElementById('invitationMessageText').textContent = 'Зашифрованное сообщение';
+            document.getElementById('invitationFeeAmount').textContent = '0.00000217';
+            document.getElementById('invitationActionsModal').style.display = 'flex';
+        }
+
+        function handleRejectInvitation(address) {
+            if (confirm('Вы уверены, что хотите отклонить приглашение?')) {
+                rejectInvitation(address);
+            }
+        }
+
+        function handleCancelInvitation(address) {
+            if (confirm('Вы уверены, что хотите отозвать приглашение?')) {
+                cancelInvitation(address);
+            }
+        }
         
         // Обновление интерфейса сообщений
         function updateMessagesUI(contactAddress) {
             console.log('🎨 Обновляем UI для контакта:', contactAddress);
-            const messagesArea = document.getElementById('messagesArea');
-            messagesArea.innerHTML = '';
+            const messagesArea = document.getElementById('chat-messages');
+            if (messagesArea) {
+                messagesArea.innerHTML = '';
+            } else {
+                console.error('❌ Элемент chat-messages не найден');
+                return;
+            }
             
             // Добавляем системное сообщение
             const systemMessage = document.createElement('div');
@@ -1059,14 +1442,14 @@
             messagesArea.scrollTop = messagesArea.scrollHeight;
         }
         
-        // Обновление информации о пользователе в заголовке
+        // Обновление информации о пользователе в заголовке (v2)
         function updateUserInfoInHeader() {
             const sidebarTitle = document.querySelector('.sidebar-title');
             const sidebarSubtitle = document.querySelector('.sidebar-subtitle');
             
             if (currentUser) {
                 const shortAddress = `${currentUser.slice(0, 6)}...${currentUser.slice(-4)}`;
-                sidebarTitle.textContent = `CryptoMessenger`;
+                sidebarTitle.textContent = `CryptoMessenger v2`;
                 sidebarSubtitle.textContent = `Пользователь: ${shortAddress}`;
             }
         }
@@ -1092,33 +1475,52 @@
 
         // Обновление информации о пользователе
         function updateUserInfo() {
-            const userInfo = document.getElementById('userInfo');
-            const userAddress = document.getElementById('userAddress');
-            
-            userInfo.style.display = 'block';
-            userAddress.textContent = currentUser;
+            const sidebarSubtitle = document.querySelector('.sidebar-subtitle');
+            if (sidebarSubtitle) {
+                sidebarSubtitle.textContent = `Пользователь: ${currentUser.slice(0, 6)}...${currentUser.slice(-4)}`;
+            }
         }
 
-        // Загрузка контактов
-        async function loadContacts() {
+        // Загрузка контактов (v2) - обновленная версия
+        async function loadContactsV2() {
             try {
-                console.log('📋 Загружаем контакты...');
+                console.log('📋 Загружаем контакты (v2)...');
                 
                 const contactsList = document.getElementById('contactsList');
                 contactsList.innerHTML = '<div class="loading-indicator"><div class="loading-spinner"></div>Загрузка контактов...</div>';
 
-                // Получаем контакты из контракта
-                const userContacts = await contract.methods.getUserContacts(currentUser).call();
-                console.log('📋 Контакты из контракта:', userContacts);
+                // Получаем контакты из контракта (новая функция v2)
+                const userContacts = await contract.methods.getContacts(currentUser).call();
+                console.log('📋 Контакты из контракта (v2):', userContacts);
 
-                contacts = userContacts.map(address => ({
-                    address: address,
-                    name: `Контакт ${address.slice(2, 8)}`,
-                    status: 'online'
-                }));
+                contacts = [];
+                for (const address of userContacts) {
+                    try {
+                        // Получаем имя контакта (новая функция v2)
+                        const contactName = await contract.methods.getContactName(address).call();
+                        
+                        // Получаем chatId для пары пользователей (новая функция v2)
+                        const chatId = await contract.methods.getChatId(currentUser, address).call();
+                        
+                        contacts.push({
+                            address: address,
+                            name: contactName || `Контакт ${address.slice(2, 8)}`,
+                            status: 'online',
+                            chatId: chatId
+                        });
+                    } catch (error) {
+                        console.warn('⚠️ Ошибка загрузки контакта:', address, error);
+                        contacts.push({
+                            address: address,
+                            name: `Контакт ${address.slice(2, 8)}`,
+                            status: 'online',
+                            chatId: null
+                        });
+                    }
+                }
 
                 renderContacts();
-                console.log('✅ Контакты загружены:', contacts.length);
+                console.log('✅ Контакты загружены (v2):', contacts.length);
 
             } catch (error) {
                 console.error('❌ Ошибка загрузки контактов:', error);
@@ -1146,6 +1548,8 @@
                     <div class="contact-status">${contact.status}</div>
                 </div>
             `).join('');
+            
+            console.log('✅ Контакты загружены (v2):', contacts.length);
         }
         
         // Основная функция инициализации
@@ -1187,8 +1591,8 @@
                 // Обновляем UI
                 updateUserInfo();
                 
-                // Загружаем контакты
-                await loadContacts();
+                // Загружаем контакты (v2)
+                await loadContactsV2();
                 
                 // Настраиваем обработчики событий
                 setupEventHandlers();
@@ -1202,17 +1606,17 @@
                 console.log('   📍 Адрес:', currentUser);
                 console.log('   🔑 Публичный ключ:', userPublicKey);
                 
-                // Загружаем контакты и запросы
+                // Загружаем контакты и приглашения (v2)
                 console.log('📞 Загружаем контакты...');
                 const loadedContacts = await loadContacts();
-                console.log('📨 Загружаем запросы...');
-                const loadedRequests = await loadContactRequests();
+                console.log('📨 Загружаем приглашения...');
+                const loadedRequests = await loadInvitations();
                 
-                // Выводим итоговую статистику
-                console.log('📊 Статистика загрузки:');
+                // Выводим итоговую статистику (v2)
+                console.log('📊 Статистика загрузки (v2):');
                 console.log('   👥 Контакты:', loadedContacts.length);
-                console.log('   📨 Входящие запросы:', loadedRequests.incoming.length);
-                console.log('   📤 Исходящие запросы:', loadedRequests.outgoing.length);
+                console.log('   📨 Входящие приглашения:', loadedRequests.incoming.length);
+                console.log('   📤 Исходящие приглашения:', loadedRequests.outgoing.length);
                 console.log('   💬 Всего чатов:', Object.keys(messages).length);
                 
                 // Обновляем интерфейс
@@ -1247,7 +1651,8 @@
                     const contactName = this.querySelector('.contact-name').textContent;
                     
                     // Обновляем заголовок чата
-                    document.querySelector('.chat-name').textContent = contactName;
+                    const chatTitle = document.getElementById('chatTitle');
+                    if (chatTitle) chatTitle.textContent = contactName;
                     
                     // Загружаем сообщения для этого контакта
                     if (contactAddress) {
@@ -1296,13 +1701,28 @@
             }
         });
         
-        // Отправка сообщения в блокчейн
+        // Отправка сообщения в блокчейн (v2)
         async function sendMessage(recipientAddress, messageText) {
             try {
-                console.log('📤 Отправляем сообщение:', messageText, '→', recipientAddress);
+                console.log('📤 Отправляем сообщение (v2):', messageText, '→', recipientAddress);
                 
-                // Пока просто добавляем в интерфейс (зашифрование будет добавлено позже)
-                const encryptedMessage = `[Зашифровано: ${messageText.slice(0, 20)}...]`;
+                // Получаем публичный ключ получателя
+                const recipientPublicKey = await contract.methods.getPublicKey(recipientAddress).call();
+                
+                // Шифруем сообщение для получателя
+                const encryptedForRecipient = await encryptMessage(messageText, recipientPublicKey);
+                
+                // Шифруем сообщение для отправителя (новая функция v2)
+                const encryptedForSender = await encryptMessage(messageText, userPublicKey);
+                
+                // Отправляем сообщение с двойным шифрованием (новая функция v2)
+                const result = await contract.methods.sendMessage(
+                    recipientAddress,
+                    encryptedForRecipient,
+                    encryptedForSender
+                ).send({ from: currentUser });
+                
+                console.log('✅ Сообщение отправлено в блокчейн:', result.transactionHash);
                 
                 // Добавляем сообщение в локальный кэш
                 if (!messages[recipientAddress]) {
@@ -1312,9 +1732,10 @@
                 const newMessage = {
                     sender: currentUser,
                     recipient: recipientAddress,
-                    text: encryptedMessage,
+                    text: messageText,
                     timestamp: new Date(),
-                    isOutgoing: true
+                    isOutgoing: true,
+                    transactionHash: result.transactionHash
                 };
                 
                 messages[recipientAddress].push(newMessage);
@@ -1325,15 +1746,12 @@
                 // Обновляем последнее сообщение в списке контактов
                 const contact = contacts.find(c => c.address === recipientAddress);
                 if (contact) {
-                    contact.lastMessage = encryptedMessage;
+                    contact.lastMessage = messageText;
                     contact.lastMessageTime = new Date();
                     updateContactsUI();
                 }
                 
                 console.log('✅ Сообщение добавлено в интерфейс');
-                
-                // TODO: Реальная отправка в блокчейн будет добавлена позже
-                // await contract.methods.sendMessage(recipientAddress, encryptedMessage).send({ from: currentUser });
                 
             } catch (error) {
                 console.error('❌ Ошибка отправки сообщения:', error);
@@ -1357,7 +1775,7 @@
 
         // Функция добавления сообщения (демо)
         function addMessage(text, isOutgoing = false) {
-            const messagesArea = document.getElementById('messagesArea');
+            const messagesArea = document.getElementById('chat-messages');
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${isOutgoing ? 'outgoing' : ''}`;
             
@@ -1454,6 +1872,109 @@
                     await refreshChat();
                 }
             });
+
+            // Кнопка отправки приглашения
+            document.getElementById('sendInvitationBtn').addEventListener('click', () => {
+                document.getElementById('invitationModal').style.display = 'flex';
+            });
+
+            // Кнопка обновления приглашений
+            document.getElementById('refreshInvitationsBtn').addEventListener('click', async () => {
+                await loadInvitations();
+                updateContactsUI();
+                showNotification('Приглашения обновлены', 'success');
+            });
+
+            // Закрытие модального окна отправки приглашения
+            document.getElementById('closeModal').addEventListener('click', () => {
+                document.getElementById('invitationModal').style.display = 'none';
+            });
+
+            document.getElementById('cancelInvitationBtn').addEventListener('click', () => {
+                document.getElementById('invitationModal').style.display = 'none';
+            });
+
+            // Подтверждение отправки приглашения
+            document.getElementById('confirmInvitationBtn').addEventListener('click', async () => {
+                const recipientAddress = document.getElementById('recipientAddress').value.trim();
+                const message = document.getElementById('invitationMessage').value.trim();
+                const fee = parseFloat(document.getElementById('invitationFee').value);
+
+                if (!recipientAddress || !message) {
+                    showNotification('Заполните все поля', 'error');
+                    return;
+                }
+
+                if (!web3.utils.isAddress(recipientAddress)) {
+                    showNotification('Неверный адрес получателя', 'error');
+                    return;
+                }
+
+                try {
+                    document.getElementById('confirmInvitationBtn').disabled = true;
+                    document.getElementById('confirmInvitationBtn').textContent = 'Отправка...';
+
+                    await sendInvitation(recipientAddress, message, fee);
+
+                    // Очищаем форму
+                    document.getElementById('recipientAddress').value = '';
+                    document.getElementById('invitationMessage').value = '';
+                    document.getElementById('invitationFee').value = '0.00000217';
+
+                    // Закрываем модальное окно
+                    document.getElementById('invitationModal').style.display = 'none';
+
+                } catch (error) {
+                    console.error('Ошибка отправки приглашения:', error);
+                } finally {
+                    document.getElementById('confirmInvitationBtn').disabled = false;
+                    document.getElementById('confirmInvitationBtn').textContent = 'Отправить приглашение';
+                }
+            });
+
+            // Закрытие модального окна обработки приглашений
+            document.getElementById('closeActionsModal').addEventListener('click', () => {
+                document.getElementById('invitationActionsModal').style.display = 'none';
+            });
+
+            document.getElementById('cancelActionsBtn').addEventListener('click', () => {
+                document.getElementById('invitationActionsModal').style.display = 'none';
+            });
+
+            // Принятие приглашения
+            document.getElementById('acceptInvitationBtn').addEventListener('click', async () => {
+                const inviterAddress = document.getElementById('inviterAddress').textContent;
+                try {
+                    await acceptInvitation(inviterAddress);
+                    document.getElementById('invitationActionsModal').style.display = 'none';
+                } catch (error) {
+                    console.error('Ошибка принятия приглашения:', error);
+                }
+            });
+
+            // Отклонение приглашения
+            document.getElementById('rejectInvitationBtn').addEventListener('click', async () => {
+                const inviterAddress = document.getElementById('inviterAddress').textContent;
+                try {
+                    await rejectInvitation(inviterAddress);
+                    document.getElementById('invitationActionsModal').style.display = 'none';
+                } catch (error) {
+                    console.error('Ошибка отклонения приглашения:', error);
+                }
+            });
+
+            // Закрытие модальных окон при клике вне их
+            window.addEventListener('click', (e) => {
+                const invitationModal = document.getElementById('invitationModal');
+                const actionsModal = document.getElementById('invitationActionsModal');
+                
+                if (e.target === invitationModal) {
+                    invitationModal.style.display = 'none';
+                }
+                if (e.target === actionsModal) {
+                    actionsModal.style.display = 'none';
+                }
+            });
         }
 
         // Обработка отключения кошелька
@@ -1491,23 +2012,39 @@
                 document.querySelectorAll('.contact-item').forEach(item => {
                     item.classList.remove('active');
                 });
-                document.querySelector(`[data-address="${contactAddress}"]`).classList.add('active');
+                const contactElement = document.querySelector(`[data-address="${contactAddress}"]`);
+                if (contactElement) {
+                    contactElement.classList.add('active');
+                }
 
                 // Закрываем боковую панель на мобильных
-                document.getElementById('sidebar').classList.remove('open');
+                const sidebar = document.getElementById('sidebar');
+                if (sidebar) {
+                    sidebar.classList.remove('open');
+                }
 
                 // Обновляем заголовок чата
                 const contact = contacts.find(c => c.address === contactAddress);
-                document.getElementById('chatTitle').textContent = contact.name;
-                document.getElementById('chatSubtitle').textContent = contact.address;
+                if (contact) {
+                    const chatTitle = document.getElementById('chatTitle');
+                    const chatSubtitle = document.getElementById('chatSubtitle');
+                    
+                    if (chatTitle) chatTitle.textContent = contact.name;
+                    if (chatSubtitle) chatSubtitle.textContent = contact.address;
+                }
                 
                 // Показываем кнопки действий
-                document.getElementById('loadHistoryBtn').style.display = 'inline-block';
-                document.getElementById('refreshBtn').style.display = 'inline-block';
+                const loadHistoryBtn = document.getElementById('loadHistoryBtn');
+                const refreshBtn = document.getElementById('refreshBtn');
+                
+                if (loadHistoryBtn) loadHistoryBtn.style.display = 'inline-block';
+                if (refreshBtn) refreshBtn.style.display = 'inline-block';
 
                 // Открываем чат
                 currentContact = contactAddress;
-                await chatUIManager.openChat(contactAddress, onNewMessage, onHistoryLoaded);
+                if (chatUIManager) {
+                    await chatUIManager.openChat(contactAddress, onNewMessage, onHistoryLoaded);
+                }
 
                 // Обновляем статистику
                 updateChatStats();
@@ -1585,16 +2122,26 @@
 
         // Обновление статистики чата
         function updateChatStats() {
-            if (!currentContact) return;
+            if (!currentContact || !chatUIManager) return;
 
-            const stats = chatUIManager.getChatStats(currentContact);
-            const chatStats = document.getElementById('chatStats');
-            
-            document.getElementById('totalMessages').textContent = stats.totalMessages;
-            document.getElementById('loadedMessages').textContent = stats.loadedMessages;
-            document.getElementById('isFullyLoaded').textContent = stats.isFullyLoaded ? 'Да' : 'Нет';
-            
-            chatStats.style.display = 'block';
+            try {
+                const stats = chatUIManager.getChatStats(currentContact);
+                const chatStats = document.getElementById('chatStats');
+                
+                if (chatStats) {
+                    const totalMessagesEl = document.getElementById('totalMessages');
+                    const loadedMessagesEl = document.getElementById('loadedMessages');
+                    const isFullyLoadedEl = document.getElementById('isFullyLoaded');
+                    
+                    if (totalMessagesEl) totalMessagesEl.textContent = stats.totalMessages;
+                    if (loadedMessagesEl) loadedMessagesEl.textContent = stats.loadedMessages;
+                    if (isFullyLoadedEl) isFullyLoadedEl.textContent = stats.isFullyLoaded ? 'Да' : 'Нет';
+                    
+                    chatStats.style.display = 'block';
+                }
+            } catch (error) {
+                console.warn('⚠️ Ошибка обновления статистики чата:', error);
+            }
         }
 
         // Отправка сообщения

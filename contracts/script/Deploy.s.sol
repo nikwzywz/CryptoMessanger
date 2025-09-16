@@ -31,5 +31,6 @@ contract Deploy is Script {
         
         console.log("Contract address:", contractAddress);
         console.log("Deployment completed successfully!");
+        console.log("DEPLOYED_ADDRESS=", contractAddress);
     }
 }

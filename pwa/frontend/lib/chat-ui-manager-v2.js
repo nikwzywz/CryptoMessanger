@@ -4,6 +4,9 @@
 
 class ChatUIManager {
     constructor(contract, userAddress) {
+        console.log('📦 ChatUIManager v2.0.0 - CryptoMessenger v2 contract support loaded');
+        console.log('🔧 File: chat-ui-manager-v2.js');
+        
         this.contract = contract;
         this.userAddress = userAddress;
         this.messageLoader = new DecentralizedEventSystem(contract, userAddress);
@@ -93,6 +96,13 @@ class ChatUIManager {
         container.innerHTML = '';
         
         messages.forEach((message, index) => {
+            console.log(`🔍 [V2] Обрабатываем сообщение ${index}:`, message);
+            console.log(`🔍 [V2] Структура сообщения:`, {
+                encryptedForSmaller: message.encryptedForSmaller,
+                encryptedForLarger: message.encryptedForLarger,
+                messageTimestamp: message.messageTimestamp
+            });
+            
             const messageElement = this.createMessageElement(message, index);
             container.appendChild(messageElement);
         });
@@ -159,8 +169,45 @@ class ChatUIManager {
         });
         
         // Зашифрованные данные (показываем как есть, в реальности нужно расшифровать)
-        const encryptedData = message.encryptedForReader;
-        const displayText = this.formatEncryptedMessage(encryptedData);
+        // В v2 контракте: encryptedForSmaller и encryptedForLarger
+        // Определяем, какое поле использовать в зависимости от адреса пользователя
+        const currentUserAddress = window.currentUser || this.userAddress;
+        const contactAddress = this.currentContactAddress || this.currentContact;
+        
+        console.log('🔍 [V2] createMessageElement - проверяем переменные:');
+        console.log('   👤 currentUserAddress:', currentUserAddress);
+        console.log('   👥 contactAddress:', contactAddress);
+        console.log('   📄 message:', message);
+        
+        if (!currentUserAddress) {
+            console.error('❌ [V2] window.currentUser не определен');
+            return messageDiv;
+        }
+        
+        if (!contactAddress) {
+            console.error('❌ [V2] this.currentContactAddress не определен');
+            return messageDiv;
+        }
+        
+        // Определяем правильное поле для расшифровки
+        const encryptedData = CryptoUtils.getEncryptedFieldForUser(currentUserAddress, contactAddress, message);
+        
+        console.log(`🔍 [V2] Определяем поле для расшифровки:`);
+        console.log(`   👤 Текущий пользователь: ${currentUserAddress}`);
+        console.log(`   👥 Собеседник: ${contactAddress}`);
+        console.log(`   📄 Данные для расшифровки:`, encryptedData);
+        
+        // Пытаемся расшифровать сообщение
+        const decryptedText = CryptoUtils.decryptMessage(encryptedData, contactAddress, currentUserAddress);
+        const displayText = decryptedText || CryptoUtils.formatEncryptedMessage(encryptedData);
+        
+        // Определяем направление сообщения
+        const isOutgoing = CryptoUtils.isOutgoingMessage(currentUserAddress, contactAddress, message);
+        
+        // Устанавливаем правильный CSS класс для направления
+        if (isOutgoing) {
+            messageDiv.classList.add('outgoing');
+        }
         
         messageDiv.innerHTML = `
             <div class="message-content">
@@ -172,20 +219,6 @@ class ChatUIManager {
         return messageDiv;
     }
 
-    /**
-     * Форматирование зашифрованного сообщения для отображения
-     */
-    formatEncryptedMessage(encryptedData) {
-        try {
-            // Пытаемся распарсить как JSON
-            const data = JSON.parse(encryptedData);
-            return `🔐 Зашифрованное сообщение (${data.algorithm || 'ECIES'})`;
-        } catch (error) {
-            // Если не JSON, показываем как hex
-            const hexData = encryptedData.startsWith('0x') ? encryptedData.slice(2) : encryptedData;
-            return `🔐 Зашифрованные данные: ${hexData.substring(0, 20)}...`;
-        }
-    }
 
     /**
      * Прокрутка вниз чата
