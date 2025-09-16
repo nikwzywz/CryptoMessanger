@@ -198,7 +198,7 @@ console.log('🔧 File: chat-ui-manager-v3.js');
         console.log(`   📄 Данные для расшифровки:`, encryptedData);
         
         // Пытаемся расшифровать сообщение
-        const decryptedText = CryptoUtils.decryptMessage(encryptedData, contactAddress, currentUserAddress);
+        const decryptedText = CryptoUtils.decryptMessage(encryptedData);
         const displayText = decryptedText || CryptoUtils.formatEncryptedMessage(encryptedData);
         
         // Определяем направление сообщения
@@ -293,13 +293,17 @@ console.log('🔧 File: chat-ui-manager-v3.js');
     }
 
     /**
-     * Отправка сообщения (заглушка для будущей реализации)
+     * Отправка сообщения через смарт-контракт
+     * @param {string} contactAddress - Адрес получателя
+     * @param {string} messageText - Текст сообщения
+     * @returns {Promise<Object>} Результат транзакции
      */
     async sendMessage(contactAddress, messageText) {
         console.log(`📤 Отправляем сообщение: "${messageText}"`);
-        // Здесь будет реализация отправки сообщения
-        // Пока что просто логируем
-        console.log('⚠️ Отправка сообщений пока не реализована');
+        
+        // Отправка сообщения реализована в main.html через sendMessage()
+        // Этот метод может быть использован для будущих улучшений
+        throw new Error('Отправка сообщений реализована в основном приложении');
     }
 }
 

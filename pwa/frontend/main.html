@@ -1189,9 +1189,9 @@
                     web3 = new Web3(window.ethereum);
                     await window.ethereum.request({ method: 'eth_requestAccounts' });
                 } else {
-                    // Fallback для тестирования - используем первый доступный RPC
+                    // Используем публичный RPC для read-only операций
                     web3 = new Web3(RPC_ENDPOINTS[currentRpcIndex]);
-                    console.warn(`MetaMask не найден, используется RPC: ${RPC_ENDPOINTS[currentRpcIndex]}`);
+                    console.warn(`MetaMask не найден, используется публичный RPC: ${RPC_ENDPOINTS[currentRpcIndex]}`);
                 }
                 
                 // Создаем экземпляр контракта
@@ -1519,7 +1519,7 @@
         // Функция расшифровки сообщений
         // Используем общую функцию из CryptoUtils
         function decryptMessage(encryptedMessage, sender, recipient) {
-            return CryptoUtils.decryptMessage(encryptedMessage, sender, recipient);
+            return CryptoUtils.decryptMessage(encryptedMessage);
         }
         
         // Загрузка последних сообщений для всех контактов
@@ -1537,15 +1537,16 @@
                                 
                                 // Расшифровываем сообщение
                                 const encryptedMessage = CryptoUtils.getEncryptedFieldForUser(currentUser, contact.address, lastMsg);
-                                const decryptedText = decryptMessage(encryptedMessage, currentUser, contact.address);
+                                const decryptedText = decryptMessage(encryptedMessage);
                                 
                                 // Обновляем контакт
                                 contact.lastMessage = decryptedText || 'Зашифрованное сообщение';
                                 contact.lastMessageTime = lastMsg.timestamp || new Date(parseInt(lastMsg.messageTimestamp) * 1000);
                                 
                                 // Устанавливаем количество непрочитанных сообщений
-                                // TODO: В реальном приложении это будет вычисляться на основе времени последнего прочтения
-                                contact.unreadCount = 0; // Пока что ставим 0, будет обновлено в updateContactsUI()
+                                // Количество непрочитанных сообщений будет вычисляться системой V2
+                                // В реальном приложении это будет вычисляться на основе времени последнего прочтения
+                                contact.unreadCount = 0;
                             } else {
                                 contact.lastMessage = 'Нет сообщений';
                                 contact.unreadCount = 0;
@@ -2008,11 +2009,7 @@
             
             // Отображаем все контакты с их реальными статусами из блокчейна
             contacts.forEach((contact, index) => {
-                // Для демонстрации добавляем тестовые непрочитанные сообщения некоторым контактам
                 let unreadCount = contact.unreadCount || 0;
-                if (contact.name === 'Алиса' && contact.chatType === 'contact') {
-                    unreadCount = 3; // У Алисы 3 непрочитанных (только если обычный чат)
-                }
                 
                 console.log(`🔍 Контакт ${contact.name}:`, {
                     chatType: contact.chatType,
