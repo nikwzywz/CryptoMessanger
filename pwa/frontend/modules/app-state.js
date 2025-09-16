@@ -1,0 +1,244 @@
+/**
+ * AppState - Централизованное управление состоянием приложения
+ * CryptoMessenger v3.0.0
+ */
+
+class AppState {
+    constructor() {
+        // Основные данные
+        this.currentUser = null;
+        this.currentContact = null;
+        this.currentChat = null;
+        this.contacts = [];
+        this.messages = {};
+        
+        // Web3 и контракт
+        this.web3 = null;
+        this.contract = null;
+        
+        // Ключи шифрования
+        this.userPrivateKey = null;
+        this.userPublicKey = null;
+        
+        // Системы
+        this.eventSystem = null;
+        this.chatUIManager = null;
+        
+        // Подписчики на изменения состояния
+        this.subscribers = new Map();
+        
+        console.log('📦 AppState v3.0.0 - Centralized state management loaded');
+    }
+
+    /**
+     * Подписка на изменения состояния
+     * @param {string} key - Ключ состояния для отслеживания
+     * @param {Function} callback - Функция обратного вызова
+     */
+    subscribe(key, callback) {
+        if (!this.subscribers.has(key)) {
+            this.subscribers.set(key, new Set());
+        }
+        this.subscribers.get(key).add(callback);
+    }
+
+    /**
+     * Отписка от изменений состояния
+     * @param {string} key - Ключ состояния
+     * @param {Function} callback - Функция обратного вызова
+     */
+    unsubscribe(key, callback) {
+        if (this.subscribers.has(key)) {
+            this.subscribers.get(key).delete(callback);
+        }
+    }
+
+    /**
+     * Уведомление подписчиков об изменении
+     * @param {string} key - Ключ изменившегося состояния
+     * @param {*} value - Новое значение
+     */
+    notify(key, value) {
+        if (this.subscribers.has(key)) {
+            this.subscribers.get(key).forEach(callback => {
+                try {
+                    callback(value, key);
+                } catch (error) {
+                    console.error(`❌ Ошибка в подписчике ${key}:`, error);
+                }
+            });
+        }
+    }
+
+    // ========== ГЕТТЕРЫ И СЕТТЕРЫ ==========
+
+    /**
+     * Установка текущего пользователя
+     * @param {string} userAddress - Адрес пользователя
+     */
+    setCurrentUser(userAddress) {
+        const oldValue = this.currentUser;
+        this.currentUser = userAddress;
+        if (oldValue !== userAddress) {
+            this.notify('currentUser', userAddress);
+        }
+    }
+
+    /**
+     * Установка текущего контакта
+     * @param {Object} contact - Объект контакта {address, name}
+     */
+    setCurrentContact(contact) {
+        const oldValue = this.currentContact;
+        this.currentContact = contact;
+        if (JSON.stringify(oldValue) !== JSON.stringify(contact)) {
+            this.notify('currentContact', contact);
+        }
+    }
+
+    /**
+     * Установка текущего чата
+     * @param {Object} chat - Объект чата из смарт-контракта
+     */
+    setCurrentChat(chat) {
+        const oldValue = this.currentChat;
+        this.currentChat = chat;
+        if (JSON.stringify(oldValue) !== JSON.stringify(chat)) {
+            this.notify('currentChat', chat);
+        }
+    }
+
+    /**
+     * Обновление списка контактов
+     * @param {Array} contacts - Массив контактов
+     */
+    setContacts(contacts) {
+        this.contacts = contacts;
+        this.notify('contacts', contacts);
+    }
+
+    /**
+     * Добавление контакта в список
+     * @param {Object} contact - Объект контакта
+     */
+    addContact(contact) {
+        const existingIndex = this.contacts.findIndex(c => 
+            c.address.toLowerCase() === contact.address.toLowerCase()
+        );
+        
+        if (existingIndex >= 0) {
+            this.contacts[existingIndex] = contact;
+        } else {
+            this.contacts.push(contact);
+        }
+        
+        this.notify('contacts', this.contacts);
+    }
+
+    /**
+     * Установка Web3 и контракта
+     * @param {Object} web3 - Экземпляр Web3
+     * @param {Object} contract - Экземпляр контракта
+     */
+    setWeb3AndContract(web3, contract) {
+        this.web3 = web3;
+        this.contract = contract;
+        this.notify('web3', { web3, contract });
+    }
+
+    /**
+     * Установка ключей шифрования
+     * @param {string} privateKey - Приватный ключ
+     * @param {string} publicKey - Публичный ключ
+     */
+    setEncryptionKeys(privateKey, publicKey) {
+        this.userPrivateKey = privateKey;
+        this.userPublicKey = publicKey;
+        this.notify('encryptionKeys', { privateKey, publicKey });
+    }
+
+    /**
+     * Установка систем (eventSystem, chatUIManager)
+     * @param {Object} eventSystem - Система событий
+     * @param {Object} chatUIManager - Менеджер UI чата
+     */
+    setSystems(eventSystem, chatUIManager) {
+        this.eventSystem = eventSystem;
+        this.chatUIManager = chatUIManager;
+        this.notify('systems', { eventSystem, chatUIManager });
+    }
+
+    // ========== УТИЛИТНЫЕ МЕТОДЫ ==========
+
+    /**
+     * Проверка, выбран ли контакт
+     * @returns {boolean}
+     */
+    isContactSelected() {
+        return this.currentContact !== null;
+    }
+
+    /**
+     * Проверка, активен ли текущий чат
+     * @returns {boolean}
+     */
+    isChatActive() {
+        return this.currentChat && this.currentChat.isActive;
+    }
+
+    /**
+     * Проверка, ожидает ли чат принятия приглашения
+     * @returns {boolean}
+     */
+    isChatNeedAcceptance() {
+        return this.currentChat && this.currentChat.isNeedAcceptance;
+    }
+
+    /**
+     * Проверка, является ли текущий пользователь отправителем приглашения
+     * @returns {boolean}
+     */
+    isCurrentUserInviter() {
+        return this.currentChat && 
+               this.currentChat.inviter && 
+               this.currentChat.inviter.toLowerCase() === this.currentUser?.toLowerCase();
+    }
+
+    /**
+     * Полная очистка состояния
+     */
+    clearAll() {
+        this.currentUser = null;
+        this.currentContact = null;
+        this.currentChat = null;
+        this.contacts = [];
+        this.messages = {};
+        this.userPrivateKey = null;
+        this.userPublicKey = null;
+        
+        this.notify('cleared', true);
+    }
+
+    /**
+     * Получение полного состояния для отладки
+     * @returns {Object}
+     */
+    getDebugState() {
+        return {
+            currentUser: this.currentUser,
+            currentContact: this.currentContact,
+            currentChat: this.currentChat,
+            contactsCount: this.contacts.length,
+            messagesCount: Object.keys(this.messages).length,
+            hasEncryptionKeys: !!(this.userPrivateKey && this.userPublicKey),
+            hasWeb3: !!this.web3,
+            hasContract: !!this.contract,
+            hasSystems: !!(this.eventSystem && this.chatUIManager)
+        };
+    }
+}
+
+// Экспорт для использования в других модулях
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = AppState;
+}
