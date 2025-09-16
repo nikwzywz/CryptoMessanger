@@ -1,0 +1,277 @@
+/* CryptoMessenger v3.0.0 - Components Styles */
+
+/* Область сообщений */
+.messages-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    background: #0a0a0a;
+}
+
+.message {
+    margin-bottom: 16px;
+    display: flex;
+    align-items: flex-start;
+}
+
+.message.outgoing {
+    flex-direction: row-reverse;
+}
+
+.message-content {
+    max-width: 70%;
+    background: #2a2a2a;
+    padding: 12px 16px;
+    border-radius: 18px;
+    position: relative;
+}
+
+.message.outgoing .message-content {
+    background: #007bff;
+}
+
+.message-text {
+    font-size: 14px;
+    line-height: 1.4;
+    margin-bottom: 4px;
+}
+
+.message-time {
+    font-size: 12px;
+    color: #888;
+    text-align: right;
+}
+
+.message.outgoing .message-time {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.message.system {
+    justify-content: center;
+    margin: 20px 0;
+}
+
+.message.system .message-content {
+    background: #333;
+    color: #888;
+    font-size: 12px;
+    padding: 8px 16px;
+    border-radius: 12px;
+}
+
+/* Поле ввода */
+.input-area {
+    padding: 20px;
+    border-top: 1px solid #333;
+    background: #1a1a1a;
+}
+
+.input-container {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+.message-input {
+    flex: 1;
+    min-height: 44px;
+    max-height: 120px;
+    padding: 12px 16px;
+    background: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 22px;
+    color: #fff;
+    font-size: 14px;
+    resize: none;
+    outline: none;
+    font-family: inherit;
+}
+
+.message-input::placeholder {
+    color: #666;
+}
+
+.send-button {
+    width: 44px;
+    height: 44px;
+    background: #007bff;
+    border: none;
+    border-radius: 50%;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    transition: background-color 0.2s;
+}
+
+.send-button:hover {
+    background: #0056b3;
+}
+
+.send-button:disabled {
+    background: #444;
+    cursor: not-allowed;
+}
+
+/* Панель обработки приглашений */
+.invitation-panel {
+    padding: 20px;
+    border-top: 1px solid #333;
+    background: #1a1a1a;
+    display: none; /* Скрыта по умолчанию */
+}
+
+.invitation-info {
+    margin-bottom: 16px;
+    text-align: center;
+}
+
+.invitation-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 8px;
+}
+
+.invitation-message {
+    font-size: 14px;
+    color: #888;
+    margin-bottom: 4px;
+}
+
+.invitation-address {
+    font-size: 12px;
+    color: #666;
+    font-family: monospace;
+}
+
+.invitation-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.invitation-btn {
+    flex: 1;
+    max-width: 180px;
+    padding: 14px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.invitation-btn.accept {
+    background: #28a745;
+    color: white;
+}
+
+.invitation-btn.accept:hover {
+    background: #218838;
+}
+
+.invitation-btn.reject {
+    background: #dc3545;
+    color: white;
+}
+
+.invitation-btn.reject:hover {
+    background: #c82333;
+}
+
+.invitation-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Панель ожидания */
+.waiting-panel {
+    padding: 20px;
+    border-top: 1px solid #333;
+    background: #1a1a1a;
+    display: none; /* Скрыта по умолчанию */
+}
+
+.waiting-info {
+    text-align: center;
+}
+
+.waiting-icon {
+    font-size: 32px;
+    margin-bottom: 12px;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.waiting-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #ffc107;
+    margin-bottom: 8px;
+}
+
+.waiting-message {
+    font-size: 14px;
+    color: #888;
+    margin-bottom: 8px;
+}
+
+.waiting-address {
+    font-size: 12px;
+    color: #666;
+    font-family: monospace;
+}
+
+/* Панель создания приглашения */
+.create-invitation-panel {
+    padding: 20px;
+    border-top: 1px solid #333;
+    background: #1a1a1a;
+    display: none; /* Скрыта по умолчанию */
+}
+
+.create-invitation-info {
+    text-align: center;
+    margin-bottom: 16px;
+}
+
+.create-invitation-icon {
+    font-size: 32px;
+    margin-bottom: 12px;
+}
+
+.create-invitation-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #007bff;
+    margin-bottom: 8px;
+}
+
+.create-invitation-message {
+    font-size: 14px;
+    color: #888;
+    margin-bottom: 8px;
+}
+
+.create-invitation-address {
+    font-size: 12px;
+    color: #666;
+    font-family: monospace;
+}
+
+.create-invitation-actions {
+    display: flex;
+    justify-content: center;
+}
