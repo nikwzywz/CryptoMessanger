@@ -195,7 +195,7 @@
     <script src="config_v2.js"></script>
     <script src="lib/crypto-utils.js"></script>
     <script src="lib/decentralized-event-system-browser-v2.js"></script>
-    <script src="lib/chat-ui-manager-v3.js"></script>
+    <script src="lib/chat-ui-manager-v4.js"></script>
     
     <script>
         // CryptoMessenger v2.0.0 - Main Interface with Contract v2 Migration
@@ -731,26 +731,7 @@
             console.log('✅ Панель создания приглашения показана');
         }
         
-        // Скрытие всех панелей (когда не выбран контакт)
-        function hideAllPanels() {
-            document.getElementById('inputArea').style.display = 'none';
-            document.getElementById('invitationPanel').style.display = 'none';
-            document.getElementById('waitingPanel').style.display = 'none';
-            document.getElementById('createInvitationPanel').style.display = 'none';
-        }
 
-        // Скрытие всех специальных панелей и показ обычного поля ввода
-        function showNormalInputArea() {
-            // Показываем поле ввода только если выбран контакт
-            if (currentContact) {
-                document.getElementById('inputArea').style.display = 'block';
-            } else {
-                document.getElementById('inputArea').style.display = 'none';
-            }
-            document.getElementById('invitationPanel').style.display = 'none';
-            document.getElementById('waitingPanel').style.display = 'none';
-            document.getElementById('createInvitationPanel').style.display = 'none';
-        }
 
         // ========== НОВЫЕ ФУНКЦИИ УПРАВЛЕНИЯ ВИДИМОСТЬЮ ОБЛАСТЕЙ ==========
         
