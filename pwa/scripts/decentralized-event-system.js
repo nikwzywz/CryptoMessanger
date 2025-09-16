@@ -286,48 +286,12 @@ class DecentralizedEventSystem {
     }
 }
 
-// Тестовая функция
-async function testDecentralizedSystem() {
-    console.log('🧪 Тестируем децентрализованную систему событий...');
-    
-    const system = new DecentralizedEventSystem();
-    
-    try {
-        const user02 = '0x016b67764012166A8d9Ed3502eA542A061B771f8';
-        const user05 = '0x1b804e7A8365768a8e554a848C393A522655b947';
-        
-        console.log('📊 Статистика системы:', system.getStats());
-        
-        const messages = await system.loadMessagesBetweenUsers(user02, user05, {
-            fromBlock: 35464000,
-            toBlock: 35464999
-        });
-        
-        console.log(`\n✅ Результат: найдено ${messages.length} сообщений`);
-        
-        if (messages.length > 0) {
-            console.log('\n📋 Первые 3 сообщения:');
-            messages.slice(0, 3).forEach((msg, index) => {
-                console.log(`   ${index + 1}. ${msg.sender} → ${msg.recipient}`);
-                console.log(`      Блок: ${msg.blockNumber}, TX: ${msg.transactionHash}`);
-            });
-        }
-        
-        console.log('\n📊 Финальная статистика:', system.getStats());
-        
-    } catch (error) {
-        console.error('❌ Ошибка тестирования:', error.message);
-    }
-}
 
 // Экспорт для использования в frontend
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = { DecentralizedEventSystem };
     
-    // Запускаем тест если файл выполняется напрямую
-    if (require.main === module) {
-        testDecentralizedSystem();
-    }
+    // Тестовая функция удалена
 } else {
     window.DecentralizedEventSystem = DecentralizedEventSystem;
 }

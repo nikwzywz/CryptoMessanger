@@ -190,6 +190,37 @@
             display: none;
         }
 
+        /* Блок безопасности */
+        .security-info {
+            background: linear-gradient(135deg, #1a365d, #2d5a87);
+            border: 1px solid #4a90e2;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 30px 0;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(74, 144, 226, 0.2);
+        }
+
+        .security-icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+        }
+
+        .security-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #4a90e2;
+            margin-bottom: 12px;
+        }
+
+        .security-description {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #e0e0e0;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
         .key-display {
             background: #f8f9fa;
             padding: 15px;
@@ -280,6 +311,15 @@
             <div class="status hidden" id="networkStatus"></div>
         </div>
 
+        <!-- Блок безопасности -->
+        <div class="security-info">
+            <div class="security-icon">🔒</div>
+            <div class="security-title">Безопасность</div>
+            <div class="security-description">
+                Ваши ключи шифрования сообщений генерируются локально, на основе подписи следующего сообщения. В контракт будет записан только публичный ключ, использоваться для зашифровки сообщений отправляемых вам. Приватный ключ хранится только локально в памяти вашего веб-приложения. Поэтому вы и только вы сможете расшифровать ваши сообщения.
+            </div>
+        </div>
+
         <!-- Шаг 3: Подписание сообщения -->
         <div class="step" id="step3">
             <div class="step-title">3. Подтверждение владения</div>
@@ -287,7 +327,7 @@
                 Подпишите сообщение для подтверждения владения кошельком
             </div>
             <div class="signature-message" id="signatureMessage">
-                I confirm that I am the owner of this wallet for CryptoMessenger
+                <!-- Сообщение будет загружено из конфига -->
             </div>
             <button class="btn" id="signMessageBtn" disabled>
                 Подписать сообщение
@@ -344,7 +384,7 @@
 
     <script src="lib/web3.min.js"></script>
     <script src="lib/crypto-js.min.js"></script>
-    <script src="config.js"></script>
+    <script src="config_v2.js"></script>
     <script>
         // Версия приложения
         const APP_VERSION = '1.0.0';
@@ -383,6 +423,9 @@
         });
 
         function setupEventListeners() {
+            // Загружаем сообщение для подписи из конфига
+            elements.signatureMessage.textContent = window.CryptoMessengerConfig.signaturePhrase;
+            
             document.getElementById('checkNetworkBtn').addEventListener('click', checkNetwork);
             elements.connectBtn.addEventListener('click', connectWallet);
             elements.signBtn.addEventListener('click', signMessage);
@@ -491,7 +534,7 @@
                 elements.signBtn.disabled = true;
                 elements.signBtn.innerHTML = '<div class="loading"></div>Подписание...';
 
-                const message = "I confirm that I am the owner of this wallet for CryptoMessenger";
+                const message = window.CryptoMessengerConfig.signaturePhrase;
                 signature = await window.ethereum.request({
                     method: 'personal_sign',
                     params: [message, userAddress]
@@ -533,7 +576,7 @@
                 localStorage.setItem('cryptoMessengerKeys', JSON.stringify(encryptionKeys));
                 localStorage.setItem('cryptoMessengerAddress', userAddress);
 
-                showStatus('step4Status', 'success', 'Ключи сгенерированы и сохранены');
+                showStatus('step4Status', 'success', 'Ключи шифрования сообщений сгенерированы на основе сделанной вами подписи');
                 elements.generateBtn.innerHTML = 'Сгенерировать ключи';
                 elements.keyDisplay.innerHTML = `
                     <strong>PublicKeyForEncode:</strong><br>

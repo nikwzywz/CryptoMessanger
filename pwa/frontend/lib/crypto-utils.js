@@ -105,40 +105,17 @@ class CryptoUtils {
 
     /**
      * Определение направления сообщения (исходящее/входящее)
-     * В v2 контракте нет поля isOutgoing, поэтому определяем по содержимому
+     * В v2 контракте используем поле sender для точного определения
      * @param {string} currentUserAddress - Адрес текущего пользователя
      * @param {string} contactAddress - Адрес собеседника
      * @param {Object} message - Объект сообщения из контракта
      * @returns {boolean} - true если сообщение исходящее (от нас)
      */
     static isOutgoingMessage(currentUserAddress, contactAddress, message) {
-        // Получаем правильное поле для расшифровки
-        const encryptedData = this.getEncryptedFieldForUser(currentUserAddress, contactAddress, message);
-        
-        // Пытаемся расшифровать сообщение
-        const decryptedText = this.decryptMessage(encryptedData, contactAddress, currentUserAddress);
-        
-        // Если расшифровка успешна, проверяем содержимое
-        if (decryptedText) {
-            // Простая эвристика: если сообщение содержит типичные фразы для исходящих сообщений
-            const outgoingPatterns = [
-                /^привет/i,
-                /^здравствуй/i,
-                /^как дела/i,
-                /^что нового/i,
-                /^спасибо/i,
-                /^пока/i,
-                /^до свидания/i,
-                /^будем на связи/i,
-                /^пятый/i  // специфично для тестового сообщения
-            ];
-            
-            // Если сообщение соответствует паттернам исходящих сообщений
-            return outgoingPatterns.some(pattern => pattern.test(decryptedText.trim()));
-        }
-        
-        // По умолчанию считаем входящим
-        return false;
+        // Используем поле sender из структуры ChatMessage для точного определения
+        const isOutgoing = message.sender.toLowerCase() === currentUserAddress.toLowerCase();
+        console.log(`🔍 Направление сообщения: sender=${message.sender}, currentUser=${currentUserAddress}, isOutgoing=${isOutgoing}`);
+        return isOutgoing;
     }
 
     /**

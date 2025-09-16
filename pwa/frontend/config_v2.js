@@ -16,7 +16,7 @@ window.CryptoMessengerConfig = {
     },
     
     // Адрес развернутого контракта (с системой пагинации и on-chain хранением сообщений)
-    contractAddress: '0xce426aadbdad1808f8dc2580c8529d605f387221',
+    contractAddress: '0x959b158bbf16fa39b1b7be9b663d7de87fd3513a',
     
     // Подписываемая фраза для генерации ключей шифрования
     signaturePhrase: 'By signing this message, I authorize CryptoMessenger to decrypt and read my messages.',
@@ -474,6 +474,11 @@ window.CryptoMessengerConfig = {
                                 "internalType": "uint256",
                                 "name": "messageTimestamp",
                                 "type": "uint256"
+                            },
+                            {
+                                "internalType": "address",
+                                "name": "sender",
+                                "type": "address"
                             }
                         ],
                         "internalType": "struct CryptoMessenger.ChatMessage[]",
@@ -569,6 +574,11 @@ window.CryptoMessengerConfig = {
                         "internalType": "uint256",
                         "name": "messageTimestamp",
                         "type": "uint256"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "sender",
+                        "type": "address"
                     }
                 ],
                 "internalType": "struct CryptoMessenger.ChatMessage[]",
@@ -615,6 +625,11 @@ window.CryptoMessengerConfig = {
                         "internalType": "uint256",
                         "name": "messageTimestamp",
                         "type": "uint256"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "sender",
+                        "type": "address"
                     }
                 ],
                 "internalType": "struct CryptoMessenger.ChatMessage[]",
@@ -752,6 +767,11 @@ window.CryptoMessengerConfig = {
                         "internalType": "uint256",
                         "name": "messageTimestamp",
                         "type": "uint256"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "sender",
+                        "type": "address"
                     }
                 ],
                 "internalType": "struct CryptoMessenger.ChatMessage[]",
@@ -1088,6 +1108,6 @@ window.CryptoMessengerConfig = {
 ]
 };
 
-console.log('📦 Конфигурация CryptoMessenger загружена v1.0.0 - 2025-09-16 00:38 (полный ABI)');
+console.log('📦 Конфигурация CryptoMessenger загружена v1.0.0 - 2025-09-16 12:25 (полный ABI)');
 console.log('🌐 Сеть:', window.CryptoMessengerConfig.network.chainName);
 console.log('📄 Контракт:', window.CryptoMessengerConfig.contractAddress);

@@ -13,6 +13,7 @@ contract CryptoMessenger {
         bytes encryptedForSmaller;   // Зашифрованное сообщение для участника с меньшим адресом кошелька
         bytes encryptedForLarger;    // Зашифрованное сообщение для участника с большим адресом кошелька
         uint256 messageTimestamp;    // Дата и время сообщения
+        address sender;              // Адрес отправителя сообщения
     }
 
     // Структуры для работы с чатами
@@ -673,7 +674,8 @@ contract CryptoMessenger {
         ChatMessage memory message = ChatMessage({
             encryptedForSmaller: encryptedForSmaller,
             encryptedForLarger: encryptedForLarger,
-            messageTimestamp: block.timestamp
+            messageTimestamp: block.timestamp,
+            sender: senderAddress
         });
         
         // Добавляем сообщение в чат
