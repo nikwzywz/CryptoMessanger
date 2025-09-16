@@ -13,6 +13,10 @@ class ContactListManager {
         this.publicKeysCache = new Map();
         this.chatInfoCache = new Map();
         
+        // Подписываемся на изменения состояния
+        this.appState.subscribe('contacts', this.onContactsChanged.bind(this));
+        this.appState.subscribe('currentContact', this.onCurrentContactChanged.bind(this));
+        
         console.log('📦 ContactListManager v4.0.0 - Contact list management loaded');
         console.log('🔧 File: modules/contact-list-manager.js');
     }
@@ -297,6 +301,123 @@ class ContactListManager {
     // ========== 6. UI СПИСКА КОНТАКТОВ ==========
 
     /**
+     * Обновление интерфейса списка контактов
+     */
+    updateContactsUI() {
+        const contactsList = document.getElementById('contactsList');
+        if (!contactsList) {
+            console.warn('⚠️ ContactListManager: Контейнер contactsList не найден');
+            return;
+        }
+        
+        contactsList.innerHTML = '';
+        
+        if (this.appState.contacts.length === 0) {
+            contactsList.innerHTML = '<div style="color: #888; text-align: center; padding: 20px;">Контакты не найдены</div>';
+            return;
+        }
+        
+        // Отображаем все контакты
+        this.appState.contacts.forEach((contact, index) => {
+            const unreadCount = contact.unreadCount || 0;
+            
+            console.log(`🔍 ContactListManager: Контакт ${contact.name}:`, {
+                chatType: contact.chatType,
+                unreadCount: unreadCount,
+                address: contact.address
+            });
+            
+            const contactWithUnread = { ...contact, unreadCount: unreadCount };
+            const contactItem = this.createContactItem(contactWithUnread, contact.chatType, `contact-${index}`);
+            contactsList.appendChild(contactItem);
+        });
+        
+        // Настраиваем обработчики кликов для новых элементов
+        this.setupContactClickHandlers();
+    }
+
+    /**
+     * Создание элемента контакта для списка
+     * @param {Object} contact - Объект контакта
+     * @param {string} type - Тип контакта ('contact', 'incoming-request', 'outgoing-request')
+     * @param {string} id - ID элемента
+     * @returns {HTMLElement} Созданный элемент контакта
+     */
+    createContactItem(contact, type, id) {
+        const contactItem = document.createElement('div');
+        contactItem.className = `contact-item ${type}`;
+        contactItem.setAttribute('data-contact-id', id);
+        contactItem.setAttribute('data-address', contact.address);
+        
+        // Добавляем класс active если это текущий выбранный контакт
+        if (this.appState.currentContact && 
+            this.appState.currentContact.address.toLowerCase() === contact.address.toLowerCase()) {
+            contactItem.classList.add('active');
+        }
+        
+        const timeStr = contact.lastMessageTime ? 
+            Utils.formatTime(contact.lastMessageTime) : 
+            (contact.timestamp ? Utils.formatTime(contact.timestamp) : '');
+        
+        // Формируем бейдж для непрочитанных сообщений или приглашений
+        let badge = '';
+        
+        if (type === 'incoming-request') {
+            // Для входящих приглашений ВСЕГДА показываем красный "!" (приглашение нельзя "прочитать")
+            badge = `<div class="contact-badge single-digit" style="background: #dc3545;">!</div>`;
+            console.log(`📨 ContactListManager: Входящее приглашение от ${contact.name}: показываем красный бейдж "!"`);
+        } else if (type === 'outgoing-request') {
+            // Для исходящих приглашений показываем жёлтый "!" (постоянный)
+            badge = `<div class="contact-badge single-digit" style="background: #ffc107; color: #000;">!</div>`;
+            console.log(`📤 ContactListManager: Исходящее приглашение к ${contact.name}: показываем жёлтый бейдж "!"`);
+        } else if (contact.unreadCount > 0) {
+            // Для обычных контактов показываем количество непрочитанных
+            const badgeClass = contact.unreadCount < 10 ? 'single-digit' : 'multi-digit';
+            badge = `<div class="contact-badge ${badgeClass}">${contact.unreadCount}</div>`;
+            console.log(`💬 ContactListManager: Контакт ${contact.name}: показываем синий бейдж "${contact.unreadCount}"`);
+        } else {
+            console.log(`📋 ContactListManager: Контакт ${contact.name}: бейдж не показываем (unreadCount: ${contact.unreadCount})`);
+        }
+
+        // Генерируем цветной аватар
+        const avatarColor = Utils.getAvatarColor(contact.address);
+
+        contactItem.innerHTML = `
+            <div class="contact-avatar" style="background: ${avatarColor};">${contact.name.charAt(0).toUpperCase()}</div>
+            <div class="contact-info">
+                <div class="contact-name">${contact.name}</div>
+                <div class="contact-last-message">${contact.lastMessage || 'Нет сообщений'}</div>
+            </div>
+            <div class="contact-meta">
+                <div class="contact-time">${timeStr}</div>
+                ${badge}
+            </div>
+        `;
+
+        return contactItem;
+    }
+
+    /**
+     * Обновление подсветки активного контакта
+     */
+    updateActiveContactHighlight() {
+        // Убираем класс active у всех контактов
+        document.querySelectorAll('.contact-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        
+        // Добавляем класс active текущему контакту
+        if (this.appState.currentContact) {
+            document.querySelectorAll('.contact-item').forEach(item => {
+                const itemAddress = item.getAttribute('data-address');
+                if (itemAddress && itemAddress.toLowerCase() === this.appState.currentContact.address.toLowerCase()) {
+                    item.classList.add('active');
+                }
+            });
+        }
+    }
+
+    /**
      * Обработка клика по контакту (Master в Master-Detail)
      * @param {string} contactAddress - Адрес выбранного контакта
      * @param {string} contactName - Имя контакта
@@ -356,6 +477,26 @@ class ContactListManager {
             },
             currentContact: this.appState.currentContact?.name || 'не выбран'
         };
+    }
+
+    // ========== ОБРАБОТЧИКИ СОБЫТИЙ СОСТОЯНИЯ ==========
+
+    /**
+     * Обработчик изменения списка контактов
+     * @param {Array} contacts - Новый список контактов
+     */
+    onContactsChanged(contacts) {
+        console.log('📋 ContactListManager: Список контактов изменён:', contacts.length);
+        this.updateContactsUI();
+    }
+
+    /**
+     * Обработчик изменения текущего контакта
+     * @param {Object} contact - Новый контакт
+     */
+    onCurrentContactChanged(contact) {
+        console.log('👆 ContactListManager: Текущий контакт изменён:', contact?.name);
+        this.updateActiveContactHighlight();
     }
 }
 

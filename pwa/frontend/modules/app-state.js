@@ -236,6 +236,74 @@ class AppState {
             hasSystems: !!(this.eventSystem && this.chatUIManager)
         };
     }
+
+    // ========== ГЛОБАЛЬНЫЕ УВЕДОМЛЕНИЯ ==========
+
+    /**
+     * Показ уведомления пользователю
+     * @param {string} message - Текст уведомления
+     * @param {'info'|'success'|'error'|'warning'} type - Тип уведомления
+     */
+    showNotification(message, type = 'info') {
+        // Создаем элемент уведомления
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${this.getNotificationColor(type)};
+            color: white;
+            padding: 16px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 10000;
+            max-width: 400px;
+            font-size: 14px;
+            font-weight: 500;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+        `;
+        
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        
+        // Анимация появления
+        setTimeout(() => {
+            notification.style.opacity = '1';
+            notification.style.transform = 'translateX(0)';
+        }, 10);
+        
+        // Автоматическое скрытие через 3 секунды
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            notification.style.transform = 'translateX(100%)';
+            
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 300);
+        }, 3000);
+
+        console.log(`🔔 AppState: Уведомление [${type}]: ${message}`);
+    }
+
+    /**
+     * Получение цвета для типа уведомления
+     * @param {string} type - Тип уведомления
+     * @returns {string} CSS цвет
+     */
+    getNotificationColor(type) {
+        const colors = {
+            info: '#007bff',
+            success: '#28a745',
+            error: '#dc3545',
+            warning: '#ffc107'
+        };
+        return colors[type] || colors.info;
+    }
 }
 
 // Экспорт для использования в других модулях
