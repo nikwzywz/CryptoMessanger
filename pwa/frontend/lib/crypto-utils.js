@@ -3,6 +3,8 @@
  * Версия: 2.0.0
  */
 
+// Jazzicon будет загружен через script тег в HTML
+
 class CryptoUtils {
     /**
      * Расшифровка сообщения
@@ -140,6 +142,166 @@ class CryptoUtils {
     }
 
     /**
+     * Генерация аватара в стиле Jazzicon (собственная реализация)
+     * @param {string} address - Адрес кошелька
+     * @param {string} name - Имя пользователя
+     * @param {number} size - Размер аватара
+     * @returns {string} - Data URL для img src
+     */
+    static generateJazziconDataURL(address, name = '', size = 32) {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        canvas.width = size;
+        canvas.height = size;
+        
+        // Кастомная палитра в стиле приложения (мало контрастирующие цвета)
+        const customPalette = [
+            '#6B7C93', // Приглушенный синий
+            '#8FA68E', // Приглушенный зеленый
+            '#A68B8B', // Приглушенный коричневый
+            '#9B8FA6', // Приглушенный фиолетовый
+            '#8FA6A6', // Приглушенный бирюзовый
+            '#A6A68F', // Приглушенный желтоватый
+            '#7A8A9B', // Приглушенный серо-синий
+            '#8FA08F'  // Приглушенный серо-зеленый
+        ];
+        
+        // Генерируем seed на основе адреса
+        const seed = parseInt(address.slice(2, 10), 16);
+        
+        // Выбираем цвета из палитры
+        const bgColor = customPalette[seed % customPalette.length];
+        const shapeColor = customPalette[(seed + 1) % customPalette.length];
+        const accentColor = customPalette[(seed + 2) % customPalette.length];
+        
+        // Заливаем фон
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(0, 0, size, size);
+        
+        // Рисуем геометрические формы
+        const gridSize = 8;
+        const cellSize = size / gridSize;
+        
+        for (let x = 0; x < gridSize; x++) {
+            for (let y = 0; y < gridSize; y++) {
+                const index = (x + y * gridSize) % 32;
+                const bit = (seed >> index) & 1;
+                
+                if (bit && x < gridSize / 2) {
+                    // Симметричный паттерн
+                    ctx.fillStyle = (x + y) % 2 === 0 ? shapeColor : accentColor;
+                    
+                    // Рисуем круг
+                    ctx.beginPath();
+                    ctx.arc(x * cellSize + cellSize/2, y * cellSize + cellSize/2, cellSize/3, 0, 2 * Math.PI);
+                    ctx.fill();
+                    
+                    // Симметричная часть
+                    ctx.beginPath();
+                    ctx.arc((gridSize - 1 - x) * cellSize + cellSize/2, y * cellSize + cellSize/2, cellSize/3, 0, 2 * Math.PI);
+                    ctx.fill();
+                }
+            }
+        }
+        
+        // Добавляем первую букву имени в центр аватара
+        if (name && name.length > 0) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.font = `bold ${Math.floor(size * 0.35)}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            const firstLetter = name.charAt(0).toUpperCase();
+            ctx.fillText(firstLetter, size/2, size/2);
+        }
+        
+        return canvas.toDataURL();
+    }
+
+    /**
+     * Генерация простого аватара с первой буквой имени
+     * @param {string} address - Адрес кошелька
+     * @param {string} name - Имя пользователя
+     * @param {number} size - Размер аватара
+     * @returns {string} - Data URL для img src
+     */
+    static generateInitialsAvatar(address, name, size = 32) {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        canvas.width = size;
+        canvas.height = size;
+        
+        // Генерируем цвета на основе хэша адреса
+        const hash = this.simpleHash(address);
+        const hue = (hash % 360 + 360) % 360;
+        const saturation = 40 + (hash % 30); // 40-70% (менее насыщенные)
+        const lightness = 65 + (hash % 20);  // 65-85% (более светлые)
+        
+        // Градиентный фон
+        const gradient = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+        gradient.addColorStop(0, `hsl(${hue}, ${saturation}%, ${lightness + 10}%)`);
+        gradient.addColorStop(1, `hsl(${hue}, ${saturation}%, ${lightness}%)`);
+        
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(size/2, size/2, size/2, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        // Добавляем первую букву имени (не последнюю!)
+        if (name && name.length > 0) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.font = `bold ${Math.floor(size * 0.4)}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            const firstLetter = name.charAt(0).toUpperCase();
+            ctx.fillText(firstLetter, size/2, size/2);
+        }
+        
+        return canvas.toDataURL();
+    }
+
+    /**
+     * Простая хэш-функция для генерации чисел из строки
+     * @param {string} str - Входная строка
+     * @returns {number} - Хэш
+     */
+    static simpleHash(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Конвертируем в 32-битное число
+        }
+        return Math.abs(hash);
+    }
+
+    /**
+     * Получение аватара для адреса (основная функция)
+     * @param {string} address - Адрес кошелька
+     * @param {string} name - Имя пользователя
+     * @param {string} style - Стиль аватара ('jazzicon', 'initials', 'default')
+     * @param {number} size - Размер аватара
+     * @returns {string} - Data URL для img src
+     */
+    static getAvatar(address, name = '', style = 'jazzicon', size = 32) {
+        if (!address) {
+            return this.getDefaultAvatar(size);
+        }
+        
+        switch (style) {
+            case 'jazzicon':
+                return this.generateJazziconDataURL(address, name, size);
+            case 'initials':
+                return this.generateInitialsAvatar(address, name, size);
+            default:
+                return this.generateJazziconDataURL(address, name, size);
+        }
+    }
+
+    /**
      * Шифрование сообщения (заглушка для будущей реализации)
      * @param {string} message - Текст сообщения
      * @param {string} recipientPublicKey - Публичный ключ получателя
@@ -156,5 +318,5 @@ class CryptoUtils {
 }
 
 // Логируем загрузку модуля
-console.log('📦 CryptoUtils v2.0.0 - Common crypto functions loaded');
+console.log('📦 CryptoUtils v2.1.0 - Common crypto functions with custom avatars loaded');
 console.log('🔧 File: crypto-utils.js');

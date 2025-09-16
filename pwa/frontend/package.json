@@ -9,6 +9,7 @@
     "install-deps": "npm install"
   },
   "dependencies": {
+    "@metamask/jazzicon": "^2.0.0",
     "@noble/ciphers": "^0.5.0",
     "@noble/secp256k1": "^2.0.0",
     "crypto-js": "^4.2.0",

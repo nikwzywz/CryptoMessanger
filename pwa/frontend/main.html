@@ -18,6 +18,8 @@
             color: #ffffff;
             height: 100vh;
             overflow: hidden;
+            width: 100%;
+            max-width: 100vw;
         }
 
         .app-container {
@@ -101,17 +103,18 @@
         }
 
         .contact-avatar {
-            width: 48px;
-            height: 48px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #007bff, #00d4ff);
+            margin-right: 12px;
+            flex-shrink: 0;
+            border: 2px solid rgba(255, 255, 255, 0.1);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: 600;
             font-size: 18px;
-            margin-right: 12px;
-            flex-shrink: 0;
+            font-weight: 600;
+            color: white;
         }
 
         .contact-info {
@@ -152,11 +155,31 @@
         .contact-badge {
             background: #007bff;
             color: white;
-            font-size: 12px;
-            padding: 2px 6px;
-            border-radius: 10px;
-            min-width: 18px;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 7px;
+            border-radius: 12px;
+            min-width: 20px;
+            min-height: 20px;
             text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            white-space: nowrap;
+        }
+        
+        /* Специальные стили для разного количества цифр */
+        .contact-badge.single-digit {
+            border-radius: 50%; /* Круглый для одной цифры */
+            width: 20px;
+            height: 20px;
+            padding: 0;
+        }
+        
+        .contact-badge.multi-digit {
+            border-radius: 12px; /* Овальный для нескольких цифр */
+            padding: 3px 8px;
         }
 
         /* Статусы приглашений (v2) */
@@ -200,11 +223,13 @@
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #007bff, #00d4ff);
+            background: linear-gradient(135deg, #1a365d, #44337a);
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 600;
+            font-size: 18px;
+            color: white;
             margin-right: 12px;
         }
 
@@ -280,17 +305,11 @@
         }
 
         .message-avatar {
-            width: 32px;
-            height: 32px;
+            width: 24px;
+            height: 24px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #007bff, #00d4ff);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
-            font-size: 14px;
-            margin: 0 8px;
             flex-shrink: 0;
+            margin: 0 8px;
         }
 
         .message-content {
@@ -392,12 +411,21 @@
 
         /* Адаптивность */
         @media (max-width: 768px) {
+            .app-container {
+                width: 100vw;
+                max-width: 100vw;
+                overflow-x: hidden;
+            }
+            
             .sidebar {
                 width: 100%;
+                max-width: 100vw;
             }
             
             .chat-area {
                 display: none;
+                width: 100%;
+                max-width: 100vw;
             }
             
             .app-container.mobile-chat .sidebar {
@@ -406,6 +434,9 @@
             
             .app-container.mobile-chat .chat-area {
                 display: flex;
+                width: 100vw;
+                max-width: 100vw;
+                overflow-x: hidden;
             }
         }
 
@@ -688,6 +719,47 @@
             .back-button {
                 display: block;
             }
+            
+            /* Исправляем отображение сообщений на мобильных */
+            .message-content {
+                max-width: 85%; /* Увеличиваем до 85% на мобильных */
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+            }
+            
+            .message {
+                margin-bottom: 12px; /* Уменьшаем отступы */
+                padding: 0 8px; /* Добавляем отступы по бокам */
+            }
+            
+            .message-text {
+                font-size: 14px;
+                line-height: 1.4;
+                word-break: break-word; /* Принудительный перенос длинных слов */
+            }
+            
+            .messages-area {
+                padding: 16px 8px; /* Уменьшаем боковые отступы */
+            }
+            
+            /* Обеспечиваем, что чат занимает всю ширину */
+            .app-container.mobile-chat .chat-area {
+                width: 100%;
+                max-width: 100vw;
+                overflow-x: hidden;
+            }
+            
+            .chat-header {
+                padding: 16px 12px; /* Уменьшаем отступы в заголовке */
+            }
+            
+            .input-area {
+                padding: 16px 12px; /* Уменьшаем отступы в области ввода */
+            }
+            
+            .input-container {
+                gap: 8px; /* Уменьшаем отступ между полем ввода и кнопкой */
+            }
         }
     </style>
 </head>
@@ -952,19 +1024,17 @@
                         // Получаем chatId для пары пользователей (новая функция v2)
                         const chatId = await contract.methods.getChatId(currentUser, address).call();
                         
-                        // Получаем последнее сообщение в чате (только если chatId существует)
+                        // Последнее сообщение будет загружено через систему V2
                         let lastMessage = null;
-                        if (chatId && chatId !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
-                            lastMessage = await getLastMessage(chatId);
-                        }
                         
                         contacts.push({
                             address: address,
                             name: contactName || `User ${address.slice(2, 6)}`, // Используем имя из контракта или короткое имя
                             publicKey: contactPublicKey,
                             chatId: chatId,
-                            lastMessage: lastMessage ? lastMessage.text : 'Нет сообщений',
-                            lastMessageTime: lastMessage ? lastMessage.timestamp : null,
+                            lastMessage: 'Загрузка...', // Будет обновлено после загрузки
+                            lastMessageTime: null,
+                            unreadCount: 0, // Счётчик непрочитанных сообщений
                             isOnline: false // Пока не реализовано
                         });
                     } catch (error) {
@@ -986,6 +1056,9 @@
                 } else {
                     console.log('📋 Контакты не найдены');
                 }
+                
+                // Загружаем последние сообщения для каждого контакта
+                await loadLastMessagesForContacts();
                 
                 return contacts;
             } catch (error) {
@@ -1192,103 +1265,47 @@
             return CryptoUtils.decryptMessage(encryptedMessage, sender, recipient);
         }
         
-        // Загрузка сообщений для конкретного чата (v2)
-        async function loadMessages(contactAddress, retryCount = 0) {
-            try {
-                console.log('💬 Загружаем сообщения для:', contactAddress, retryCount > 0 ? `(попытка ${retryCount + 1})` : '');
-                
-                // Получаем chatId для пары пользователей (новая функция v2)
-                const chatId = await contract.methods.getChatId(currentUser, contactAddress).call();
-                console.log('🔍 ChatId:', chatId);
-                
-                // Загружаем сообщения для конкретного chatId (новая функция v2)
-                const result = await contract.methods.getChatMessages(chatId).call();
-                const count = Number(result[0]);
-                const rawMessages = result[1];
-                console.log('📋 Найдено сообщений:', count);
-                
-                // Преобразуем в формат для UI
-                const chatMessages = rawMessages.map(msg => ({
-                    chatId: chatId,
-                    encryptedForSmaller: msg.encryptedForSmaller,
-                    encryptedForLarger: msg.encryptedForLarger,
-                    timestamp: new Date(parseInt(msg.messageTimestamp) * 1000)
-                })).sort((a, b) => a.timestamp - b.timestamp);
-                
-                // Расшифровываем сообщения (определяем какое поле использовать)
-                const decryptedMessages = chatMessages.map(msg => {
-                    // Используем общий метод для определения правильного поля
-                    const encryptedMessage = CryptoUtils.getEncryptedFieldForUser(currentUser, contactAddress, msg);
-                    const decryptedText = decryptMessage(encryptedMessage, currentUser, contactAddress);
-                    
-                    // Определяем направление сообщения
-                    const isOutgoing = CryptoUtils.isOutgoingMessage(currentUser, contactAddress, msg);
-                    
-                    return {
-                        ...msg,
-                        text: decryptedText,
-                        isOutgoing: isOutgoing
-                    };
-                });
-                
-                messages[contactAddress] = decryptedMessages;
-                console.log('✅ Сообщения загружены (v2):', decryptedMessages.length);
-                console.log('💾 Сохранено в глобальную переменную messages:', messages[contactAddress].length);
-                
-                return decryptedMessages;
-            } catch (error) {
-                // Обрабатываем ошибки сети (503, rate limit и т.д.)
-                if (error.message && (error.message.includes('503') || error.message.includes('Request failed'))) {
-                    console.log(`ℹ️ Сервер временно недоступен при загрузке сообщений (503) - попытка ${retryCount + 1}`);
-                    
-                    // Retry логика - максимум 2 попытки
-                    if (retryCount < 2) {
-                        console.log('🔄 Повторяем попытку через 2 секунды...');
-                        await new Promise(resolve => setTimeout(resolve, 2000));
-                        return await loadMessages(contactAddress, retryCount + 1);
+        // Загрузка последних сообщений для всех контактов
+        async function loadLastMessagesForContacts() {
+            console.log('💬 Загружаем последние сообщения для контактов...');
+            
+            for (const contact of contacts) {
+                try {
+                    if (contact.chatId && contact.chatId !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
+                        // Получаем последнее сообщение через V2 систему
+                        if (eventSystem) {
+                            const messages = await eventSystem.loadChatMessages(contact.address, 1);
+                            if (messages && messages.length > 0) {
+                                const lastMsg = messages[messages.length - 1];
+                                
+                                // Расшифровываем сообщение
+                                const encryptedMessage = CryptoUtils.getEncryptedFieldForUser(currentUser, contact.address, lastMsg);
+                                const decryptedText = decryptMessage(encryptedMessage, currentUser, contact.address);
+                                
+                                // Обновляем контакт
+                                contact.lastMessage = decryptedText || 'Зашифрованное сообщение';
+                                contact.lastMessageTime = lastMsg.timestamp || new Date(parseInt(lastMsg.messageTimestamp) * 1000);
+                                
+                                // Пока что устанавливаем случайное количество непрочитанных для демонстрации
+                                // В реальном приложении это будет вычисляться на основе времени последнего прочтения
+                                contact.unreadCount = Math.floor(Math.random() * 5); // 0-4 непрочитанных
+                            } else {
+                                contact.lastMessage = 'Нет сообщений';
+                                contact.unreadCount = 0;
+                            }
+                        }
                     } else {
-                        console.log('📝 Максимум попыток исчерпан, показываем пустой чат');
-                        console.log('ℹ️ Примечание: В тестовых данных у user02 должно быть 5 сообщений с user05');
-                        messages[contactAddress] = [];
-                        return [];
+                        contact.lastMessage = 'Нет сообщений';
+                        contact.unreadCount = 0;
                     }
-                } else {
-                    console.error('❌ Ошибка загрузки сообщений:', error);
-                    messages[contactAddress] = [];
-                    return [];
+                } catch (error) {
+                    console.warn('⚠️ Ошибка загрузки последнего сообщения для:', contact.address, error);
+                    contact.lastMessage = 'Ошибка загрузки';
+                    contact.unreadCount = 0;
                 }
             }
-        }
-        
-        // Получение последнего сообщения в чате (v2)
-        async function getLastMessage(chatId) {
-            try {
-                // Проверяем, что chatId существует
-                if (!chatId || chatId === '0x0000000000000000000000000000000000000000000000000000000000000000') {
-                    return null;
-                }
-                
-                // Получаем сообщения для конкретного chatId (новая функция v2)
-                const result = await contract.methods.getChatMessages(chatId).call();
-                const count = Number(result[0]);
-                const messages = result[1];
-                
-                if (count === 0 || messages.length === 0) return null;
-                
-                const lastMessage = messages[messages.length - 1];
-                return {
-                    text: `[Зашифровано: ${lastMessage.encryptedForSmaller.slice(0, 20)}...]`,
-                    timestamp: new Date(parseInt(lastMessage.messageTimestamp) * 1000)
-                };
-            } catch (error) {
-                // Игнорируем ошибки получения сообщений (503, rate limit и т.д.)
-                if (error.message && error.message.includes('503')) {
-                    console.log('ℹ️ Сервер временно недоступен при получении сообщений (503)');
-                } else {
-                    console.warn('⚠️ Ошибка получения последнего сообщения:', error.message || error);
-                }
-                return null;
-            }
+            
+            console.log('✅ Последние сообщения загружены');
         }
         
         // Обновление интерфейса контактов
@@ -1326,8 +1343,15 @@
                 formatTime(contact.lastMessageTime) : 
                 (contact.timestamp ? formatTime(contact.timestamp) : '');
             
-            const badge = type === 'incoming-request' ? 
-                `<div class="contact-badge">!</div>` : '';
+            // Формируем бейдж для непрочитанных сообщений или приглашений
+            let badge = '';
+            if (type === 'incoming-request') {
+                badge = `<div class="contact-badge single-digit">!</div>`;
+            } else if (contact.unreadCount && contact.unreadCount > 0) {
+                const displayCount = contact.unreadCount > 99 ? '99+' : contact.unreadCount.toString();
+                const badgeClass = displayCount.length === 1 ? 'single-digit' : 'multi-digit';
+                badge = `<div class="contact-badge ${badgeClass}">${displayCount}</div>`;
+            }
             
             // Добавляем кнопки действий для приглашений
             let actionButtons = '';
@@ -1346,8 +1370,19 @@
                 `;
             }
             
+            // Генерируем контрастный тёмный цвет для аватара
+            const colors = [
+                '#1a365d', // густой синий
+                '#1c4532', // густой зелёный  
+                '#44337a', // густой фиолетовый
+                '#744210', // густой тёмно коричневый
+                '#742a2a'  // тёмно-бардовый
+            ];
+            const colorIndex = contact.address.charCodeAt(2) % colors.length;
+            const avatarColor = colors[colorIndex];
+            
             contactItem.innerHTML = `
-                <div class="contact-avatar">${contact.name.slice(-1).toUpperCase()}</div>
+                <div class="contact-avatar" style="background: ${avatarColor};">${contact.name.charAt(0).toUpperCase()}</div>
                 <div class="contact-info" style="flex: 1;">
                     <div class="contact-name">${contact.name}</div>
                     <div class="contact-last-message">${contact.lastMessage || contact.introMessage || 'Нет сообщений'}</div>
@@ -1382,65 +1417,6 @@
             }
         }
         
-        // Обновление интерфейса сообщений
-        function updateMessagesUI(contactAddress) {
-            console.log('🎨 Обновляем UI для контакта:', contactAddress);
-            const messagesArea = document.getElementById('chat-messages');
-            if (messagesArea) {
-                messagesArea.innerHTML = '';
-            } else {
-                console.error('❌ Элемент chat-messages не найден');
-                return;
-            }
-            
-            // Добавляем системное сообщение
-            const systemMessage = document.createElement('div');
-            systemMessage.className = 'message system';
-            systemMessage.innerHTML = `
-                <div class="message-content">
-                    Чат создан. Сообщения зашифрованы end-to-end.
-                </div>
-            `;
-            messagesArea.appendChild(systemMessage);
-            
-            // Добавляем сообщения
-            const chatMessages = messages[contactAddress] || [];
-            console.log('📋 Сообщения для отображения:', chatMessages.length, chatMessages);
-            console.log('🔍 Глобальная переменная messages:', messages);
-            console.log('🔍 Ключи в messages:', Object.keys(messages));
-            
-            if (chatMessages.length === 0) {
-                // Показываем сообщение о пустом чате
-                const emptyMessage = document.createElement('div');
-                emptyMessage.className = 'message system';
-                emptyMessage.innerHTML = `
-                    <div class="message-content">
-                        💬 Чат пустой. Начните общение, отправив первое сообщение!
-                    </div>
-                `;
-                messagesArea.appendChild(emptyMessage);
-            } else {
-                chatMessages.forEach(message => {
-                    const messageDiv = document.createElement('div');
-                    messageDiv.className = `message ${message.isOutgoing ? 'outgoing' : ''}`;
-                    
-                    const timeStr = formatTime(message.timestamp);
-                    
-                    messageDiv.innerHTML = `
-                        <div class="message-avatar">${message.isOutgoing ? 'Y' : 'C'}</div>
-                        <div class="message-content">
-                            <div class="message-text">${message.text}</div>
-                            <div class="message-time">${timeStr}</div>
-                        </div>
-                    `;
-                    
-                    messagesArea.appendChild(messageDiv);
-                });
-            }
-            
-            // Прокручиваем вниз
-            messagesArea.scrollTop = messagesArea.scrollHeight;
-        }
         
         // Обновление информации о пользователе в заголовке (v2)
         function updateUserInfoInHeader() {
@@ -1538,16 +1514,29 @@
                 return;
             }
 
-            contactsList.innerHTML = contacts.map(contact => `
+            contactsList.innerHTML = contacts.map(contact => {
+                // Генерируем контрастный тёмный цвет для аватара
+                const colors = [
+                    '#1a365d', // густой синий
+                    '#1c4532', // густой зелёный  
+                    '#44337a', // густой фиолетовый
+                    '#744210', // густой тёмно коричневый
+                    '#742a2a'  // тёмно-бардовый
+                ];
+                const colorIndex = contact.address.charCodeAt(2) % colors.length;
+                const avatarColor = colors[colorIndex];
+                
+                return `
                 <div class="contact-item" data-address="${contact.address}">
-                    <div class="contact-avatar">${contact.name.charAt(0).toUpperCase()}</div>
+                    <div class="contact-avatar" style="background: ${avatarColor};">${contact.name.charAt(0).toUpperCase()}</div>
                     <div class="contact-info">
                         <div class="contact-name">${contact.name}</div>
                         <div class="contact-address">${contact.address}</div>
                     </div>
                     <div class="contact-status">${contact.status}</div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
             
             console.log('✅ Контакты загружены (v2):', contacts.length);
         }
@@ -1596,6 +1585,9 @@
                 
                 // Настраиваем обработчики событий
                 setupEventHandlers();
+                
+                // Настраиваем обработчик системной кнопки "назад"
+                setupBackButtonHandler();
                 
                 // Обработка отключения кошелька
                 setupWalletDisconnectHandler();
@@ -1654,16 +1646,36 @@
                     const chatTitle = document.getElementById('chatTitle');
                     if (chatTitle) chatTitle.textContent = contactName;
                     
-                    // Загружаем сообщения для этого контакта
-                    if (contactAddress) {
-                        const loadedMessages = await loadMessages(contactAddress);
-                        console.log('📨 Загружено сообщений для UI:', loadedMessages.length);
-                        updateMessagesUI(contactAddress);
+                    // Сбрасываем счётчик непрочитанных сообщений
+                    const contact = contacts.find(c => c.address === contactAddress);
+                    if (contact) {
+                        contact.unreadCount = 0;
+                        // Обновляем UI контактов, чтобы убрать бейдж
+                        updateContactsUI();
+                    }
+                    
+                    // Открываем чат через систему V2
+                    console.log('🆕 Открываем чат с:', contactAddress);
+                    currentContact = contactAddress;
+                    if (chatUIManager) {
+                        try {
+                            await chatUIManager.openChat(contactAddress, onNewMessage, onHistoryLoaded);
+                            updateChatStats();
+                            console.log('✅ Чат открыт через систему V2');
+                        } catch (error) {
+                            console.error('❌ Ошибка открытия чата через V2:', error);
+                        }
+                    } else {
+                        console.warn('⚠️ chatUIManager не инициализирован');
                     }
                     
                     // На мобильных устройствах переключаем на чат
                     if (window.innerWidth <= 768) {
                         document.getElementById('appContainer').classList.add('mobile-chat');
+                        
+                        // Добавляем состояние чата в историю для поддержки кнопки "назад"
+                        const contactName = this.querySelector('.contact-name').textContent;
+                        history.pushState({page: 'chat', contact: contactAddress, name: contactName}, `Чат с ${contactName}`, `#chat/${contactAddress}`);
                     }
                 });
             });
@@ -1689,8 +1701,9 @@
                 }
                 
                 try {
-                    // Отправляем сообщение в блокчейн
-                    await sendMessage(contactAddress, message);
+                    // Отправка через V2 систему (пока не реализована)
+                    console.log('📤 Отправляем сообщение через V2 систему:', message);
+                    showNotification('Отправка сообщений пока не реализована в V2 системе', 'warning');
                     
                     // Очищаем поле ввода
                     input.value = '';
@@ -1700,64 +1713,6 @@
                 }
             }
         });
-        
-        // Отправка сообщения в блокчейн (v2)
-        async function sendMessage(recipientAddress, messageText) {
-            try {
-                console.log('📤 Отправляем сообщение (v2):', messageText, '→', recipientAddress);
-                
-                // Получаем публичный ключ получателя
-                const recipientPublicKey = await contract.methods.getPublicKey(recipientAddress).call();
-                
-                // Шифруем сообщение для получателя
-                const encryptedForRecipient = await encryptMessage(messageText, recipientPublicKey);
-                
-                // Шифруем сообщение для отправителя (новая функция v2)
-                const encryptedForSender = await encryptMessage(messageText, userPublicKey);
-                
-                // Отправляем сообщение с двойным шифрованием (новая функция v2)
-                const result = await contract.methods.sendMessage(
-                    recipientAddress,
-                    encryptedForRecipient,
-                    encryptedForSender
-                ).send({ from: currentUser });
-                
-                console.log('✅ Сообщение отправлено в блокчейн:', result.transactionHash);
-                
-                // Добавляем сообщение в локальный кэш
-                if (!messages[recipientAddress]) {
-                    messages[recipientAddress] = [];
-                }
-                
-                const newMessage = {
-                    sender: currentUser,
-                    recipient: recipientAddress,
-                    text: messageText,
-                    timestamp: new Date(),
-                    isOutgoing: true,
-                    transactionHash: result.transactionHash
-                };
-                
-                messages[recipientAddress].push(newMessage);
-                
-                // Обновляем интерфейс
-                updateMessagesUI(recipientAddress);
-                
-                // Обновляем последнее сообщение в списке контактов
-                const contact = contacts.find(c => c.address === recipientAddress);
-                if (contact) {
-                    contact.lastMessage = messageText;
-                    contact.lastMessageTime = new Date();
-                    updateContactsUI();
-                }
-                
-                console.log('✅ Сообщение добавлено в интерфейс');
-                
-            } catch (error) {
-                console.error('❌ Ошибка отправки сообщения:', error);
-                throw error;
-            }
-        }
 
         // Автоматическое изменение высоты поля ввода
         document.querySelector('.message-input').addEventListener('input', function() {
@@ -1811,19 +1766,46 @@
             });
         });
 
-        // Кнопка "Назад" для мобильных устройств
-        function addBackButton() {
-            if (window.innerWidth <= 768) {
-                const chatHeader = document.querySelector('.chat-header');
-                const backButton = document.createElement('button');
-                backButton.className = 'chat-action-btn';
-                backButton.innerHTML = '←';
-                backButton.style.marginRight = 'auto';
-                backButton.addEventListener('click', function() {
-                    document.getElementById('appContainer').classList.remove('mobile-chat');
-                });
-                chatHeader.insertBefore(backButton, chatHeader.firstChild);
+
+        // Обработка системной кнопки "назад" на мобильных устройствах
+        function setupBackButtonHandler() {
+            // Добавляем обработчик для системной кнопки "назад" (Android)
+            window.addEventListener('popstate', function(event) {
+                const appContainer = document.getElementById('appContainer');
+                
+                // Если мы в мобильном чате, возвращаемся к списку контактов
+                if (appContainer.classList.contains('mobile-chat')) {
+                    event.preventDefault();
+                    appContainer.classList.remove('mobile-chat');
+                    
+                    // Добавляем состояние в историю, чтобы предотвратить закрытие приложения
+                    history.pushState({page: 'contacts'}, 'Контакты', '#contacts');
+                    
+                    console.log('📱 Системная кнопка "назад": возврат к списку контактов');
+                    return false;
+                }
+                
+                // Если мы на главной странице (список контактов), блокируем переход назад
+                if (!appContainer.classList.contains('mobile-chat')) {
+                    event.preventDefault();
+                    
+                    // Возвращаем состояние обратно, чтобы остаться на главной странице
+                    history.pushState({page: 'contacts'}, 'Контакты', '#contacts');
+                    
+                    console.log('📱 Системная кнопка "назад": заблокирован выход из приложения');
+                    return false;
+                }
+            });
+            
+            // Добавляем начальное состояние в историю
+            if (history.state === null) {
+                history.replaceState({page: 'contacts'}, 'Контакты', '#contacts');
             }
+            
+            // Добавляем дополнительное состояние, чтобы создать "буфер" в истории
+            setTimeout(() => {
+                history.pushState({page: 'contacts'}, 'Контакты', '#contacts');
+            }, 100);
         }
 
         // Настройка обработчиков событий
@@ -1856,7 +1838,7 @@
 
             // Кнопка "Назад" для мобильных устройств
             document.getElementById('backButton').addEventListener('click', () => {
-                document.getElementById('sidebar').classList.add('open');
+                document.getElementById('appContainer').classList.remove('mobile-chat');
             });
 
             // Кнопка загрузки истории
@@ -2185,8 +2167,6 @@
         }
 
         // Инициализация
-        addBackButton();
-        window.addEventListener('resize', addBackButton);
         
         // Запускаем инициализацию приложения с небольшой задержкой
         console.log('🚀 Запускаем инициализацию приложения...');
