@@ -266,11 +266,7 @@ class CryptoUtils {
             
         } catch (error) {
             console.error('❌ Ошибка ECIES шифрования:', error);
-            // Fallback к простому кодированию
-            const encoder = new TextEncoder();
-            const messageBuffer = encoder.encode(message);
-            const hex = Array.from(messageBuffer).map(byte => byte.toString(16).padStart(2, '0')).join('');
-            return '0x' + hex;
+            throw new Error(`Не удалось зашифровать сообщение: ${error.message}`);
         }
     }
 
@@ -317,13 +313,9 @@ class CryptoUtils {
                     return decrypted.toString(CryptoJS.enc.Utf8);
                 }
             } catch (parseError) {
-                // Если не JSON, то это простое hex-кодирование (старый формат)
-                console.log('🔄 Используем fallback дешифрование для старого формата');
+                console.error('❌ Ошибка парсинга ECIES данных:', parseError);
+                return '[Ошибка: неверный формат ECIES]';
             }
-            
-            // Fallback для старых сообщений (простое hex декодирование)
-            const fallbackDecoder = new TextDecoder();
-            return fallbackDecoder.decode(bytes);
             
         } catch (error) {
             console.error('❌ Ошибка дешифрования:', error);

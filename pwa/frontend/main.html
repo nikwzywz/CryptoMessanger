@@ -24,13 +24,7 @@
                     <input type="text" class="search-input" placeholder="Поиск контактов..." id="searchInput">
                 </div>
                 <div class="invitation-actions" style="margin-top: 10px;">
-                    <button class="btn btn-primary" id="sendInvitationBtn" style="width: 100%; margin-bottom: 8px;">
-                        📤 Отправить приглашение
-                    </button>
-                    <button class="btn btn-secondary" id="refreshInvitationsBtn" style="width: 100%; margin-bottom: 8px;">
-                        🔄 Обновить приглашения
-                    </button>
-                    <button class="btn btn-danger" id="clearCacheBtn" style="width: 100%; font-size: 11px; padding: 6px;">
+                    <button class="btn btn-danger" id="clearCacheBtn" style="width: 100%; font-size: 11px; padding: 6px; display: none;">
                         🗑️ Очистить кэш
                     </button>
                 </div>
@@ -45,6 +39,13 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Кнопка отправки приглашения под списком контактов -->
+            <div style="padding: 15px 20px; border-top: 1px solid #333;">
+                <button class="btn btn-primary" id="sendInvitationBtn" style="width: 100%;">
+                    📤 Отправить приглашение
+                </button>
+            </div>
         </div>
 
         <!-- Область чата -->
@@ -53,7 +54,7 @@
                 <button class="back-button" id="backButton">←</button>
                 <div>
                     <div class="chat-title" id="chatTitle">Выберите контакт</div>
-                    <div class="chat-subtitle" id="chatSubtitle">Выберите контакт</div>
+                    <div class="chat-subtitle" id="chatSubtitle"> </div>
                     <div class="chat-stats" id="chatStats" style="display: none;">
                         <span class="chat-stats-item">
                             <strong id="totalMessages">0</strong> сообщений
@@ -66,9 +67,8 @@
                         </span>
                     </div>
                 </div>
-                <div class="chat-actions">
-                    <button class="action-button" id="loadHistoryBtn" style="display: none;">📚 История</button>
-                    <button class="action-button" id="refreshBtn" style="display: none;">🔄 Обновить</button>
+                <div class="chat-actions" style="margin-left: auto;">
+                    <button class="action-button" id="refreshBtn" style="display: none; margin-right: 10px;">🔄 Обновить</button>
                 </div>
             </div>
 
@@ -565,33 +565,16 @@
         
         // Инициализация децентрализованной системы событий
         
-        // Функция шифрования сообщений
+        // Функция шифрования сообщений (используем настоящее ECIES)
         function encryptMessage(message, publicKey) {
             try {
-                // Получаем ключи шифрования из localStorage
-                const storedKeys = localStorage.getItem('cryptoMessengerKeys');
-                if (!storedKeys) {
-                    console.warn('🔑 Ключи шифрования не найдены в localStorage');
-                    return `[Ключи не найдены: ${message.slice(0, 20)}...]`;
-                }
-                
-                const encryptionKeys = JSON.parse(storedKeys);
-                const privateKeyForEncode = encryptionKeys.privateKeyForEncode;
-                
-                if (!privateKeyForEncode) {
-                    console.warn('🔑 PrivateKeyForEncode не найден');
-                    return `[Ключ не найден: ${message.slice(0, 20)}...]`;
-                }
-                
-                // Простое шифрование для тестирования (в реальном приложении используйте ECIES)
-                const messageBytes = new TextEncoder().encode(message);
-                const hexData = Array.from(messageBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-                
-                console.log('✅ Сообщение зашифровано:', hexData.slice(0, 40) + '...');
-                return '0x' + hexData;
+                // Используем настоящее ECIES шифрование из CryptoUtils
+                const encrypted = CryptoUtils.encryptMessage(message, publicKey);
+                console.log('✅ Сообщение зашифровано ECIES:', encrypted.slice(0, 40) + '...');
+                return encrypted;
                 
             } catch (error) {
-                console.error('❌ Ошибка шифрования:', error);
+                console.error('❌ Ошибка ECIES шифрования:', error);
                 return `[Ошибка шифрования: ${message.slice(0, 20)}...]`;
             }
         }
@@ -1228,6 +1211,7 @@
 
                 // Инициализируем Web3
                 web3 = new Web3(window.ethereum);
+                console.log('🔗 Web3 подключен к MetaMask для событий');
                 
                 // Запрашиваем доступ к аккаунту
                 const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
@@ -1432,6 +1416,7 @@
                     });
                 
                 console.log('✅ Сообщение отправлено в блокчейн:', result.transactionHash);
+                console.log('⏳ Ожидаем событие MessageSent для обновления чата...');
                     showNotification('Сообщение отправлено!', 'success');
                     
                     // Очищаем поле ввода
@@ -1567,13 +1552,6 @@
                 document.getElementById('appContainer').classList.remove('mobile-chat');
             });
 
-            // Кнопка загрузки истории
-            document.getElementById('loadHistoryBtn').addEventListener('click', async () => {
-                if (currentContact) {
-                    await loadChatHistory();
-                }
-            });
-
             // Кнопка обновления
             document.getElementById('refreshBtn').addEventListener('click', async () => {
                 if (currentContact) {
@@ -1581,15 +1559,9 @@
                 }
             });
 
-            // Кнопка отправки приглашения
+            // Кнопка отправки приглашения (из списка контактов)
             document.getElementById('sendInvitationBtn').addEventListener('click', () => {
-                document.getElementById('invitationModal').style.display = 'flex';
-            });
-
-            // Кнопка обновления приглашений
-            document.getElementById('refreshInvitationsBtn').addEventListener('click', async () => {
-                await contactListManager.refreshContacts(); // Перезагружаем контакты со статусами
-                appState.showNotification('Контакты и приглашения обновлены', 'success');
+                openInvitationModal('', false); // Пустой адрес, поле редактируемое
             });
 
             // Кнопка очистки кэша
@@ -1656,14 +1628,24 @@
                 }
             });
 
-            // Закрытие модального окна отправки приглашения
-            document.getElementById('closeModal').addEventListener('click', () => {
-                document.getElementById('invitationModal').style.display = 'none';
-            });
+            // Функция закрытия модального окна с сбросом состояния
+            function closeInvitationModal() {
+                const modal = document.getElementById('invitationModal');
+                const addressField = document.getElementById('recipientAddress');
+                
+                // Сбрасываем состояние поля адреса
+                addressField.readOnly = false;
+                addressField.style.backgroundColor = '#2a2a2a';
+                addressField.style.color = '#fff';
+                addressField.title = '';
+                
+                // Закрываем модальное окно
+                modal.style.display = 'none';
+            }
 
-            document.getElementById('cancelInvitationBtn').addEventListener('click', () => {
-                document.getElementById('invitationModal').style.display = 'none';
-            });
+            // Закрытие модального окна отправки приглашения
+            document.getElementById('closeModal').addEventListener('click', closeInvitationModal);
+            document.getElementById('cancelInvitationBtn').addEventListener('click', closeInvitationModal);
 
             // Подтверждение отправки приглашения
             document.getElementById('confirmInvitationBtn').addEventListener('click', async () => {
@@ -1699,7 +1681,7 @@
                     document.getElementById('invitationFee').value = '0.00000217';
 
                     // Закрываем модальное окно
-                    document.getElementById('invitationModal').style.display = 'none';
+                    closeInvitationModal();
 
                 } catch (error) {
                     console.error('Ошибка отправки приглашения:', error);
@@ -1744,15 +1726,14 @@
             document.getElementById('acceptInvitationChatBtn').addEventListener('click', handleAcceptInvitationFromChat);
             document.getElementById('rejectInvitationChatBtn').addEventListener('click', handleRejectInvitationFromChat);
             
-            // Кнопка создания приглашения
+            // Кнопка создания приглашения (из области чата)
             document.getElementById('createInvitationBtn').addEventListener('click', () => {
                 const createPanel = document.getElementById('createInvitationPanel');
                 const recipientAddress = createPanel.getAttribute('data-recipient-address');
                 
                 if (recipientAddress) {
-                    // Заполняем модальное окно отправки приглашения
-                    document.getElementById('recipientAddress').value = recipientAddress;
-                    document.getElementById('invitationModal').style.display = 'flex';
+                    // Открываем модальное окно с заблокированным полем адреса
+                    openInvitationModal(recipientAddress, true); // Адрес заполнен, поле readonly
                 }
             });
 
@@ -1762,7 +1743,7 @@
                 const actionsModal = document.getElementById('invitationActionsModal');
                 
                 if (e.target === invitationModal) {
-                    invitationModal.style.display = 'none';
+                    closeInvitationModal();
                 }
                 if (e.target === actionsModal) {
                     actionsModal.style.display = 'none';
@@ -1876,10 +1857,8 @@
                 }
                 
                 // Показываем кнопки действий
-                const loadHistoryBtn = document.getElementById('loadHistoryBtn');
                 const refreshBtn = document.getElementById('refreshBtn');
                 
-                if (loadHistoryBtn) loadHistoryBtn.style.display = 'inline-block';
                 if (refreshBtn) refreshBtn.style.display = 'inline-block';
 
                 // Открываем чат
@@ -2003,6 +1982,31 @@
                 notification.classList.remove('show');
                 setTimeout(() => document.body.removeChild(notification), 300);
             }, 3000);
+        }
+
+        // Функция открытия модального окна приглашения
+        function openInvitationModal(recipientAddress = '', isReadOnly = false) {
+            const modal = document.getElementById('invitationModal');
+            const addressField = document.getElementById('recipientAddress');
+            
+            // Заполняем адрес получателя
+            addressField.value = recipientAddress;
+            
+            // Устанавливаем режим readonly если нужно
+            if (isReadOnly) {
+                addressField.readOnly = true;
+                addressField.style.backgroundColor = '#3a3a3a';
+                addressField.style.color = '#aaa';
+                addressField.title = 'Адрес получателя зафиксирован для этого контакта';
+            } else {
+                addressField.readOnly = false;
+                addressField.style.backgroundColor = '#2a2a2a';
+                addressField.style.color = '#fff';
+                addressField.title = '';
+            }
+            
+            // Показываем модальное окно
+            modal.style.display = 'flex';
         }
 
         // Инициализация

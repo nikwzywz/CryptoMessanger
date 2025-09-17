@@ -341,13 +341,6 @@ class ContactListManager {
         // Отображаем все контакты
         this.appState.contacts.forEach((contact, index) => {
             const unreadCount = contact.unreadCount || 0;
-            
-            console.log(`🔍 ContactListManager: Контакт ${contact.name}:`, {
-                chatType: contact.chatType,
-                unreadCount: unreadCount,
-                address: contact.address
-            });
-            
             const contactWithUnread = { ...contact, unreadCount: unreadCount };
             const contactItem = this.createContactItem(contactWithUnread, contact.chatType, `contact-${index}`);
             contactsList.appendChild(contactItem);
@@ -386,19 +379,14 @@ class ContactListManager {
         if (type === 'incoming-request') {
             // Для входящих приглашений ВСЕГДА показываем красный "!" (приглашение нельзя "прочитать")
             badge = `<div class="contact-badge single-digit" style="background: #dc3545;">!</div>`;
-            console.log(`📨 ContactListManager: Входящее приглашение от ${contact.name}: показываем красный бейдж "!"`);
         } else if (type === 'outgoing-request') {
             // Для исходящих приглашений показываем жёлтый "!" (постоянный)
             badge = `<div class="contact-badge single-digit" style="background: #ffc107; color: #000;">!</div>`;
-            console.log(`📤 ContactListManager: Исходящее приглашение к ${contact.name}: показываем жёлтый бейдж "!"`);
         } else if (contact.unreadCount === '!' || contact.unreadCount > 0) {
             // Для обычных контактов показываем количество непрочитанных
             const badgeText = contact.unreadCount;
             const badgeClass = badgeText.toString().length > 1 ? 'multi-digit' : 'single-digit';
             badge = `<div class="contact-badge ${badgeClass}">${badgeText}</div>`;
-            console.log(`💬 ContactListManager: Контакт ${contact.name}: показываем синий бейдж "${badgeText}"`);
-        } else {
-            console.log(`📋 ContactListManager: Контакт ${contact.name}: бейдж не показываем (unreadCount: ${contact.unreadCount})`);
         }
 
         // Генерируем цветной аватар

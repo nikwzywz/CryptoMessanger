@@ -186,7 +186,8 @@ body {
     border-left: 3px solid #ffc107;
 }
 
-.contact-item.incoming-request .contact-name::after {
+/* Убираем текстовые надписи - достаточно цветных бейджей "!" */
+/* .contact-item.incoming-request .contact-name::after {
     content: " (Входящее приглашение)";
     color: #28a745;
     font-size: 12px;
@@ -196,7 +197,7 @@ body {
     content: " (Исходящее приглашение)";
     color: #ffc107;
     font-size: 12px;
-}
+} */
 
 /* Область чата */
 .chat-area {

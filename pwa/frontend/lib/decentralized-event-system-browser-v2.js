@@ -93,9 +93,7 @@ class DecentralizedEventSystem {
         const chatData = this.chatStorage.getChatData(contactAddress);
         
         // 1. Получаем chatId для пары пользователей (v2)
-        console.log(`🔍 [V2.0.0] Вызываем getChatId(${this.userAddress}, ${contactAddress})`);
         const chatId = await this.contract.methods.getChatId(this.userAddress, contactAddress).call();
-        console.log('🔍 [V2.0.0] Получен chatId:', chatId);
         
         if (!chatId || chatId === '0x0000000000000000000000000000000000000000000000000000000000000000') {
             console.log('ℹ️ Чат не найден для этой пары пользователей');
@@ -103,7 +101,6 @@ class DecentralizedEventSystem {
         }
         
         // 2. Получаем общее количество сообщений из контракта (v2)
-        console.log('📞 [V2.0.0] Вызываем getChatMessages с chatId:', chatId);
         const result = await this.contract.methods
             .getChatMessages(chatId).call();
         
@@ -229,16 +226,21 @@ class DecentralizedEventSystem {
             return [];
         }
         
-        const [contractCount] = await this.contract.methods
+        const chatMessages = await this.contract.methods
             .getChatMessages(chatId).call();
+        const contractCount = parseInt(chatMessages[0]);
         
         if (contractCount > chatData.lastCount) {
             const newCount = contractCount - chatData.lastCount;
             console.log(`🆕 Найдено ${newCount} новых сообщений`);
             
-            // Загружаем только новые сообщения
-            const newMessages = await this.contract.methods
-                .getLastChatMessages(this.userAddress, contactAddress, newCount).call();
+            // Загружаем только новые сообщения через chatId
+            const allMessages = await this.contract.methods
+                .getChatMessages(chatId).call();
+            
+            // Извлекаем только новые сообщения (последние newCount)
+            const messages = allMessages[1]; // Массив сообщений
+            const newMessages = messages.slice(-newCount);
             
             // Добавляем в конец массива (новые сообщения)
             chatData.messages = [...chatData.messages, ...newMessages];
@@ -268,21 +270,38 @@ class DecentralizedEventSystem {
         }
 
         console.log(`🔔 Подписываемся на новые сообщения от ${contactAddress}`);
+        console.log('🔔 Создаём подписку на события MessageSent...');
 
-        // Подписываемся на события MessageSent
+        // Подписываемся на все события MessageSent и фильтруем на клиенте
         const subscription = this.contract.events.MessageSent({
-            filter: {
-                recipientAddress: this.userAddress
-            },
             fromBlock: 'latest'
         });
+        
+        console.log('🔔 Подписка создана, настраиваем обработчики...');
 
         subscription.on('data', async (event) => {
-            const senderAddress = event.returnValues.senderAddress;
+            console.log('🔔 СОБЫТИЕ ПОЛУЧЕНО! Raw event:', {
+                event: event.event,
+                transactionHash: event.transactionHash,
+                blockNumber: event.blockNumber,
+                returnValues: event.returnValues
+            });
             
-            // Проверяем, что сообщение от нужного контакта
-            if (senderAddress.toLowerCase() === contactAddress.toLowerCase()) {
-                console.log('📨 Новое сообщение получено!');
+            const senderAddress = event.returnValues.senderAddress;
+            const recipientAddress = event.returnValues.recipientAddress;
+            
+            // Проверяем, что это сообщение в чате с нужным контактом
+            const isInvolvedInChat = 
+                (senderAddress.toLowerCase() === this.userAddress.toLowerCase() && recipientAddress.toLowerCase() === contactAddress.toLowerCase()) ||
+                (senderAddress.toLowerCase() === contactAddress.toLowerCase() && recipientAddress.toLowerCase() === this.userAddress.toLowerCase());
+            
+            if (isInvolvedInChat) {
+                console.log('📨 Новое сообщение в чате!', {
+                    sender: senderAddress,
+                    recipient: recipientAddress,
+                    contactAddress: contactAddress,
+                    txHash: event.transactionHash
+                });
                 
                 // Загружаем новые сообщения
                 const newMessages = await this.checkForNewMessages(contactAddress);

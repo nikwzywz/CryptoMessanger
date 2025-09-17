@@ -120,16 +120,7 @@ console.log('🔧 File: modules/chat-area-manager.js');
             return timeA - timeB; // По возрастанию времени
         });
         
-        console.log(`🔄 Сортируем ${messages.length} сообщений по времени`);
-        
         sortedMessages.forEach((message, index) => {
-            console.log(`🔍 [V2] Обрабатываем сообщение ${index}:`, message);
-            console.log(`🔍 [V2] Структура сообщения:`, {
-                encryptedForSmaller: message.encryptedForSmaller,
-                encryptedForLarger: message.encryptedForLarger,
-                messageTimestamp: message.messageTimestamp
-            });
-            
             const messageElement = this.createMessageElement(message, index);
             container.appendChild(messageElement);
         });
@@ -212,11 +203,6 @@ console.log('🔧 File: modules/chat-area-manager.js');
         const currentUserAddress = this.appState.currentUser;
         const contactAddress = this.appState.currentContact?.address;
         
-        console.log('🔍 [V2] createMessageElement - проверяем переменные:');
-        console.log('   👤 currentUserAddress:', currentUserAddress);
-        console.log('   👥 contactAddress:', contactAddress);
-        console.log('   📄 message:', message);
-        
         if (!currentUserAddress) {
             console.error('❌ [V2] window.currentUser не определен');
             return messageDiv;
@@ -229,11 +215,6 @@ console.log('🔧 File: modules/chat-area-manager.js');
         
         // Определяем правильное поле для расшифровки
         const encryptedData = CryptoUtils.getEncryptedFieldForUser(currentUserAddress, contactAddress, message);
-        
-        console.log(`🔍 [V2] Определяем поле для расшифровки:`);
-        console.log(`   👤 Текущий пользователь: ${currentUserAddress}`);
-        console.log(`   👥 Собеседник: ${contactAddress}`);
-        console.log(`   📄 Данные для расшифровки:`, encryptedData);
         
         // Пытаемся расшифровать сообщение
         const decryptedText = CryptoUtils.decryptMessage(encryptedData);
@@ -269,7 +250,6 @@ console.log('🔧 File: modules/chat-area-manager.js');
             const scrollToMax = () => {
                 const maxScroll = scrollableArea.scrollHeight - scrollableArea.clientHeight;
                 scrollableArea.scrollTop = maxScroll > 0 ? maxScroll : 0;
-                console.log(`📜 ChatAreaManager: Прокрутка - scrollTop: ${scrollableArea.scrollTop}, maxScroll: ${maxScroll}, scrollHeight: ${scrollableArea.scrollHeight}, clientHeight: ${scrollableArea.clientHeight}`);
             };
             
             // Немедленная попытка
@@ -364,11 +344,13 @@ console.log('🔧 File: modules/chat-area-manager.js');
             // Получаем публичный ключ получателя
             const recipientPublicKey = await this.contract.methods.getPublicKey(contactAddress).call();
             
-            // Шифруем сообщение для получателя
+            // Шифруем сообщение для получателя (ECIES)
             const encryptedForRecipient = CryptoUtils.encryptMessage(messageText, recipientPublicKey);
             
-            // Шифруем сообщение для отправителя
+            // Шифруем сообщение для отправителя (ECIES)
             const encryptedForSender = CryptoUtils.encryptMessage(messageText, this.appState.userPublicKey);
+            
+            console.log('🔐 ChatAreaManager: Сообщение зашифровано ECIES для обеих сторон');
             
             // Отправляем в блокчейн
             const result = await this.contract.methods.sendMessage(
