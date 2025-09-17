@@ -3,27 +3,32 @@ pragma solidity ^0.8.19;
 
 /**
  * @title CryptoMessenger
- * @dev Упрощенная версия децентрализованного зашифрованного мессенджера
+ * @dev Децентрализованный зашифрованный мессенджер. Версия V3.
  * @author CryptoMessenger Team
  */
 contract CryptoMessenger {
+
+    enum enumChatState {
+        allowedWrite, // разрешено писать в чат
+        notAllowedWrite, // не разрешено писать в чат
+        waitingAcceptance // ожидает принятия приглашения
+    }
         
     // Структура для хранения сообщений в чате
-    struct ChatMessage {
-        bytes encryptedForSmaller;   // Зашифрованное сообщение для участника с меньшим адресом кошелька
-        bytes encryptedForLarger;    // Зашифрованное сообщение для участника с большим адресом кошелька
+    struct TypeMessage {
+        bytes32 chatID;              // Ссылка на чат к которому относится это сообщение
+        uint256 messIndex;           // Индекс сообщения, начиная с 0 для первого сообщения. Сквозной индекс сообщения для всех чатов пользователя.
         uint256 messageTimestamp;    // Дата и время сообщения
-        address sender;              // Адрес отправителя сообщения
+        bytes encryptedMessage;      // Зашифрованное сообщение ключом publicKeyForEncode
+        bool isFromMe;               // true = сообщение от меня, false = сообщение от моего собеседника
+        enumChatState newChatState;  // Новое состояние чата, после получения этого сообщения
     }
 
-    // Структуры для работы с чатами
-    struct Chat {
-        uint256 messageCount;        // Количество сообщений в чате
-        ChatMessage[] messages;      // Массив сообщений
-        bool    isActive;            // true = чат активен (приглашение принято, можно писать в этом чате)
-        bool    isNeedAcceptance;    // true = чат ожидает принятия приглашения
-        uint256 createdAt; // Время создания приглашения
-        address inviter;             // Кто отправил приглашение
+    // Структура для хранения настроек одного чата
+    struct ChatSettings {
+        uint256 createdAt;           // Время создания приглашения
+        enumChatState state;         // Состояние чата (заменяет isActive и isNeedAcceptance)
+        address inviter;             // Адрес последнего участника чата, который отправил приглашение
         uint256 invitationFee;       // Сумма оплаты за последнее (текущее) приглашение
     }
     
@@ -37,61 +42,31 @@ contract CryptoMessenger {
 
     // Константы
     uint256 public constant INVITATION_TIMEOUT = 3 days; // 3 суток на принятие приглашения
-    
-    
+        
     // Дефолтная плата за запрос на добавление в контакты
     uint256 public defaultContactRequestFee;
     
     // Владелец контракта
     address public contractOwner;
+
     
     // Настройки пользователя
     mapping(address => UserSettings) public userSettings;
-
     
-    // [пользователь1][пользователь2] => били ли пользователи в контакте (даже если они уже не могут общаться).
-    // При этом, первым всегда передаётся пользователь с меньшим адресом кошелька
-    mapping(address => mapping(address => bool)) public isContact; // [меньший_адрес][больший_адрес] => true/false
-
     // МАССИВ всех контактов каждого пользователя, для быстрого доступа
     mapping(address => address[]) public userContacts; 
 
+    // МАССИВ входящих и исходящих сообщений для каждого пользователя
+    mapping(address => TypeMessage[]) public messages;   
     
-    // Хранилище чатов по их уникальному идентификатору
-    mapping(bytes32 => Chat) public chats;
+    // Хранилище настроек чатов по их уникальному идентификатору
+    mapping(bytes32 => ChatSettings) public chats;
 
-    // Маппинг ссылок на чаты. Храним только ссылку на чат
-    // При этом, первым всегда передаётся пользователь с меньшим адресом кошелька
-    mapping(address => mapping(address => bytes32)) public chatReferences; // [меньший_адрес][больший_адрес] => chatId
-
-
-    // События
-    event PublicKeyRegistered(address indexed userAddress, bytes publicKey);
-    event InvitationSent(
-        address indexed inviterAddress,
-        address indexed recipientAddress, 
-        bytes32 indexed chatId,
-        bytes encryptedForRecipient,
-        bytes encryptedForSender,
-        uint256 invitationFee
-    );
-    event InvitationAccepted(address indexed inviterAddress, address indexed recipientAddress, bytes32 indexed chatId);
-    event InvitationRejected(address indexed inviterAddress, address indexed recipientAddress, bytes32 indexed chatId);
-    event InvitationWithdrawn(address indexed inviterAddress, address indexed recipientAddress, bytes32 indexed chatId);
-    event ContactDeactivated(address indexed userAddress, address indexed contactAddress);
-    event MessageSent(
-        address indexed senderAddress, 
-        address indexed recipientAddress, 
-        bytes32 indexed chatId,
-        bytes encryptedForRecipient,
-        bytes encryptedForSender,
-        uint256 messageTimestamp
-    );
-    event ContactRequestFeeUpdated(address indexed userAddress, uint256 newFeeAmount);
-    event ContactNameUpdated(address indexed userAddress, string newContactName);
+    // Только два события оставили
     event DefaultContactRequestFeeUpdated(uint256 newDefaultFee);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     
+
     // Модификаторы
     modifier onlyOwner() {
         require(msg.sender == contractOwner, "Only contract owner can call this function");
@@ -113,7 +88,7 @@ contract CryptoMessenger {
     // Конструктор
     constructor() {       
         contractOwner = msg.sender;
-        defaultContactRequestFee = 0.00000217 ether; // 1 цент при курсе ETH $4600
+        defaultContactRequestFee = 0.00000217 ether; // 0.01 доллар при курсе ETH $4600
     }
     
     /**
@@ -125,20 +100,15 @@ contract CryptoMessenger {
         require(bytes(contactName).length > 0, "Contact name cannot be empty");
         require(bytes(contactName).length <= 50, "Contact name too long");
         require(userPublicKey.length > 0, "Public key cannot be empty");
-        require(!userSettings[msg.sender].isRegistered, "User already registered");
-        
+        require(!userSettings[msg.sender].isRegistered, "User already registered");        
         userSettings[msg.sender] = UserSettings({
             contactName: contactName,
             publicKeyForEncode: userPublicKey,
             contactRequestFee: defaultContactRequestFee,
             isRegistered: true
         });
-        
-        emit PublicKeyRegistered(msg.sender, userPublicKey);
-        emit ContactNameUpdated(msg.sender, contactName);
     }
-    
-    
+        
     /**
      * @dev Установка платы за запрос на добавление в контакты
      * @param contactRequestFee Плата в wei
@@ -147,10 +117,8 @@ contract CryptoMessenger {
       external 
       onlyRegisteredUser 
     {
-        require(contactRequestFee <= 1 ether, "Fee too high");
-        
+        require(contactRequestFee <= 1 ether, "Fee too high");        
         userSettings[msg.sender].contactRequestFee = contactRequestFee;
-        emit ContactRequestFeeUpdated(msg.sender, contactRequestFee);
     }
     
     /**
@@ -162,10 +130,8 @@ contract CryptoMessenger {
       onlyRegisteredUser 
     {
         require(bytes(newContactName).length > 0, "Contact name cannot be empty");
-        require(bytes(newContactName).length <= 50, "Contact name too long");
-        
+        require(bytes(newContactName).length <= 40, "Contact name too long");        
         userSettings[msg.sender].contactName = newContactName;
-        emit ContactNameUpdated(msg.sender, newContactName);
     }
     
     /**
@@ -184,137 +150,150 @@ contract CryptoMessenger {
       onlyRegisteredUser 
       validAddress(recipientAddress) 
     {
-        require(userSettings[recipientAddress].isRegistered, "Recipient not registered");
-        
+        // Не отправлять приглашение самому себе
+        require(!(msg.sender==recipientAddress), "It is you");
+        // Отпралять приглашения только зарегистрированным в контракте пользователям
+        require(userSettings[recipientAddress].isRegistered, "Recipient not registered");        
+        // Рассчитываю ID чата
         bytes32 chatId = _generateChatId(msg.sender, recipientAddress);
-        (address smaller, address larger) = _getOrderedAddresses(msg.sender, recipientAddress);
-        bool isNewChat = chatReferences[smaller][larger] == bytes32(0) && chats[chatId].messageCount == 0;
+        // Проверяю, что это новый чат (inviter никогда не устанавливался)
+        bool isNewChat = (chats[chatId].inviter == address(0));
         
         // ЕСЛИ чат существует, то проверяем, 
         //    что этот чат не активен (нельзя создавать приглашение в активный чат)
         //    и что этот чат не ожидает принятия приглашения (нельзя создавать приглашение в чат, который уже ожидает принятия приглашения)
         if (!isNewChat) {
-            require(!chats[chatId].isActive, "Chat is already active");
-            require(!chats[chatId].isNeedAcceptance, "Invitation already pending");
+            require(chats[chatId].state != enumChatState.allowedWrite, "Chat is already active");
+            require(chats[chatId].state != enumChatState.waitingAcceptance, "Invitation already pending");
         }
-        
+
+        // Проверяем что отправлено достаточно ETH в качестве комиссии за рассмотрение заявки на контакт
         uint256 requiredFee = userSettings[recipientAddress].contactRequestFee;
         require(msg.value >= requiredFee, "Insufficient payment");
         
-        // Всегда устанавливаем ссылки на чат (используем упорядоченные адреса)
-        chatReferences[smaller][larger] = chatId;
-        
-        // Устанавливаем факт контакта между пользователями
-        isContact[smaller][larger] = true;
-        
+        // Если это новый чат
         if (isNewChat) {
-            // Создаем новый чат в статусе "ожидания принятия"
-            Chat storage newChat = chats[chatId];
-            newChat.messageCount = 0;
-            newChat.isActive = false;
-            newChat.isNeedAcceptance = true;
+            // Создаем новый чат в статусе "ожидания принятия приглашения"
+            ChatSettings storage newChat = chats[chatId];
+            newChat.state = enumChatState.waitingAcceptance;
             newChat.createdAt = block.timestamp;
             newChat.inviter = msg.sender;
-            newChat.invitationFee = msg.value;
-            
+            newChat.invitationFee = msg.value;            
             // Добавляем в массивы контактов (первое приглашение)
             userContacts[msg.sender].push(recipientAddress);
             userContacts[recipientAddress].push(msg.sender);
         } else {
-            // Обновляем существующий чат (контакты уже в массивах)
-            Chat storage existingChat = chats[chatId];
-            existingChat.isNeedAcceptance = true;
-            existingChat.createdAt = block.timestamp;
+            // Обновляем параметры существующего чата
+            ChatSettings storage existingChat = chats[chatId];
+            existingChat.state = enumChatState.waitingAcceptance;
             existingChat.inviter = msg.sender;
             existingChat.invitationFee = msg.value;
         }
         
         // Добавляем первое сообщение в чат
-        _addMessageToChat(chatId, msg.sender, recipientAddress, encryptedForRecipient, encryptedForSender);
-        
-        emit InvitationSent(msg.sender, recipientAddress, chatId, encryptedForRecipient, encryptedForSender, msg.value);
+        // После добавления первого сообщения чат перестаёт быть новым
+        _addMessageToChat(chatId, msg.sender, recipientAddress, encryptedForRecipient, encryptedForSender, enumChatState.waitingAcceptance);        
     }
     
     /**
      * @dev Принятие приглашения на контакт
      * @param inviterAddress Адрес отправителя приглашения
+     * @param encryptedForRecipient Зашифрованные данные для получателя (inviter)
+     * @param encryptedForSender Зашифрованные данные для отправителя (msg.sender)
      */
-    function invitationAccept(address inviterAddress) 
+    function invitationAccept(address inviterAddress,
+        bytes memory encryptedForRecipient,
+        bytes memory encryptedForSender) 
       external 
       onlyRegisteredUser  
       validAddress(inviterAddress) 
     {
-        (address smaller, address larger) = _getOrderedAddresses(msg.sender, inviterAddress);
-        bytes32 chatId = chatReferences[smaller][larger];
-        require(chatId != bytes32(0), "No chat invitation found");
-        
-        Chat storage chat = chats[chatId];
-        require(chat.isNeedAcceptance, "Chat invitation already processed");
+        // Рассчитываю ID чата
+        bytes32 chatId = _generateChatId(msg.sender, inviterAddress);    
+        // Получаю доступ к хранилищу настроек чата
+        ChatSettings storage chat = chats[chatId];
+        // Проверяю, что приглашение активное в этом чате ждёт одобрения
+        require(chat.state == enumChatState.waitingAcceptance, "No chat invitation found");
+        // Проверяю, что отправитель приглашения действительно тот кто указан в настройках чата, а не текущий пользователь
         require(chat.inviter == inviterAddress, "Invalid inviter");
         
         // Активируем чат
-        chat.isNeedAcceptance = false;
-        chat.isActive = true;
+        chat.state = enumChatState.allowedWrite;
         
-        // Возвращаем деньги приглашающему
+        // Добавляем сообщение о принятии приглашения
+        _addMessageToChat(chatId, msg.sender, inviterAddress, encryptedForRecipient, encryptedForSender, enumChatState.allowedWrite);
+        
+        // Сумма комиссии возвращается приглашающему из смарт-контракта
         payable(inviterAddress).transfer(chat.invitationFee);
-        
-        emit InvitationAccepted(inviterAddress, msg.sender, chatId);
     }
     
     /**
      * @dev Отклонение приглашения на контакт
      * @param inviterAddress Адрес отправителя приглашения
+     * @param encryptedForRecipient Зашифрованные данные для получателя (inviter)
+     * @param encryptedForSender Зашифрованные данные для отправителя (msg.sender)
      */
-    function invitationReject(address inviterAddress) 
+    function invitationReject(address inviterAddress,
+        bytes memory encryptedForRecipient,
+        bytes memory encryptedForSender) 
       external 
       onlyRegisteredUser  
       validAddress(inviterAddress) 
     {
-        (address smaller, address larger) = _getOrderedAddresses(msg.sender, inviterAddress);
-        bytes32 chatId = chatReferences[smaller][larger];
+        // Рассчитываю ID чата
+        bytes32 chatId = _generateChatId(msg.sender, inviterAddress);
+        // Проряю что чат существует
         require(chatId != bytes32(0), "No chat invitation found");
-        
-        Chat storage chat = chats[chatId];
-        require(chat.isNeedAcceptance, "Chat invitation already processed");
-        require(chat.inviter == inviterAddress, "Invalid inviter");
-        
+        // Получаю доступ к хранилищу настроек чата
+        ChatSettings storage chat = chats[chatId];
+        // Проверяю что приглашение существует
+        require(chat.state == enumChatState.waitingAcceptance, "Chat invitation already processed");
+        // Проверяю, что отправитель приглашения действительно тот кто указан в настройках чата, а не текущий пользователь
+        require(chat.inviter == inviterAddress, "Invalid inviter");        
         // Деактивируем чат
-        chat.isNeedAcceptance = false;
-        chat.isActive = false;
+        chat.state = enumChatState.notAllowedWrite;
         
-        // Отправляем деньги получателю приглашения
+        // Добавляем сообщение об отклонении приглашения
+        _addMessageToChat(chatId, msg.sender, inviterAddress, encryptedForRecipient, encryptedForSender, enumChatState.notAllowedWrite);
+        
+        // Отправляем деньги получателю приглашения,
+        // то есть вызывающий этот метод (приглашаемый), 
+        // получает ETH в размере суммы комиссии из контракта себе
         payable(msg.sender).transfer(chat.invitationFee);
-        
-        emit InvitationRejected(inviterAddress, msg.sender, chatId);
     }
     
     /**
      * @dev Отзыв приглашения (возврат денег через 3 суток)
      * @param recipientAddress Адрес получателя приглашения
+     * @param encryptedForRecipient Зашифрованные данные для получателя
+     * @param encryptedForSender Зашифрованные данные для отправителя
      */
-    function invitationCancel(address recipientAddress) 
+    function invitationCancel(address recipientAddress,
+        bytes memory encryptedForRecipient,
+        bytes memory encryptedForSender) 
       external 
       onlyRegisteredUser  
       validAddress(recipientAddress) 
-    {
-        (address smaller, address larger) = _getOrderedAddresses(msg.sender, recipientAddress);
-        bytes32 chatId = chatReferences[smaller][larger];
-        require(chatId != bytes32(0), "No chat invitation found");
-        
-        Chat storage chat = chats[chatId];
-        require(chat.isNeedAcceptance, "Chat invitation already processed");
+    {        
+        // Рассчитываю ID чата
+        bytes32 chatId = _generateChatId(msg.sender, recipientAddress);
+        // Получаю доступ к хранилищу настроек чата
+        ChatSettings storage chat = chats[chatId];
+        // Проверяю что приглашение существует
+        require(chat.state == enumChatState.waitingAcceptance, "Chat invitation already processed");
+        // Проверяю, что приглашающим был именно текущий пользователь
         require(chat.inviter == msg.sender, "Only inviter can withdraw");
-        require(block.timestamp >= chat.createdAt + INVITATION_TIMEOUT, "Invitation timeout not reached");
-        
+        // Проверяю, что интервал минимального ожидания истёк
+        require(block.timestamp >= chat.createdAt + INVITATION_TIMEOUT, "Invitation timeout not reached");        
         // Деактивируем чат
-        chat.isNeedAcceptance = false;
-        chat.isActive = false;
+        chat.state = enumChatState.notAllowedWrite;
+        
+        // Добавляем сообщение об отзыве приглашения
+        _addMessageToChat(chatId, msg.sender, recipientAddress, encryptedForRecipient, encryptedForSender, enumChatState.notAllowedWrite);
         
         // Возвращаем деньги приглашающему
+        // То есть пользователю, вызывающему этот метод
         payable(msg.sender).transfer(chat.invitationFee);
-        
-        emit InvitationWithdrawn(msg.sender, recipientAddress, chatId);
     }
     
     /**
@@ -328,56 +307,45 @@ contract CryptoMessenger {
         bytes memory encryptedForRecipient,
         bytes memory encryptedForSender
     ) 
-      external 
-      onlyRegisteredUser 
-      validAddress(recipientAddress) 
+      external
+      onlyRegisteredUser
+      validAddress(recipientAddress)
     {
+        // Проверяю, что адресат зарегистрирован в контракте
         require(userSettings[recipientAddress].isRegistered, "Recipient not registered");
-        
-        (address smaller, address larger) = _getOrderedAddresses(msg.sender, recipientAddress);
-        bytes32 chatId = chatReferences[smaller][larger];
-        require(chatId != bytes32(0), "Chat not found");
-        
-        Chat storage chat = chats[chatId];
-        require(chat.isActive, "Chat is not active");
-        
-        require(encryptedForRecipient.length > 0, "Encrypted message for recipient cannot be empty");
+        // Рассчитываю ID чата
+        bytes32 chatId = _generateChatId(msg.sender, recipientAddress);
+        // Получаю доступ к хранилищу настроек чата
+        ChatSettings storage chat = chats[chatId];
+        // Проверяю что чат активен (что в нём можно писать новые сообщения)
+        require(chat.state == enumChatState.allowedWrite, "Chat is not active");
+        // Проверяю, что передано не пустое зашифрованное сообщение для отправителя
         require(encryptedForSender.length > 0, "Encrypted message for sender cannot be empty");
-        
+        // Проверяю, что передано не пустое зашифрованное сообщение для получателя
+        require(encryptedForRecipient.length > 0, "Encrypted message for recipient cannot be empty");       
         // Добавляем сообщение в чат
-        _addMessageToChat(chatId, msg.sender, recipientAddress, encryptedForRecipient, encryptedForSender);
-        
-        emit MessageSent(msg.sender, recipientAddress, chatId, encryptedForRecipient, encryptedForSender, block.timestamp);
+        _addMessageToChat(chatId, msg.sender, recipientAddress, encryptedForRecipient, encryptedForSender, enumChatState.allowedWrite);
     }
     
     
     /**
-     * @dev Деактивация чата с контактом
+     * @dev Деактивация чата с контактом (любой из двух участников чата может это сделать).
      * @param contactAddress Адрес контакта для деактивации чата
      */
-    function deactivateContact(address contactAddress) external onlyRegisteredUser validAddress(contactAddress) {
-        (address smaller, address larger) = _getOrderedAddresses(msg.sender, contactAddress);
-        bytes32 chatId = chatReferences[smaller][larger];
-        require(chatId != bytes32(0), "Chat not found");
-        
+    function deactivateChat(address contactAddress,
+        bytes memory encryptedForRecipient,
+        bytes memory encryptedForSender) 
+    external onlyRegisteredUser validAddress(contactAddress) {
+        // Рассчитываю ID чата
+        bytes32 chatId = _generateChatId(msg.sender, contactAddress);
+        // Получаю доступ к хранилищу настроек чата
+        ChatSettings storage chat = chats[chatId];        
         // Деактивируем чат (контакты остаются в списке, но чат становится неактивным)
-        chats[chatId].isActive = false;
-        
-        emit ContactDeactivated(msg.sender, contactAddress);
-        emit ContactDeactivated(contactAddress, msg.sender);
+        //При этом в этом чате будет запрещено писать новые сообщения.     
+        chat.state = enumChatState.notAllowedWrite;
+        // Добавляем сообщение в чат
+        _addMessageToChat(chatId, msg.sender, contactAddress, encryptedForRecipient, encryptedForSender, enumChatState.notAllowedWrite);
     }
-
-    /**
-     * @dev Проверка, состоят ли в контакте два пользователя
-     * @param userAddress1 Адрес пользователя #1
-     * @param userAddress2 Адрес пользователя #2
-     * @return true если контакт разрешен
-     */
-    function checkContact(address userAddress1, address userAddress2) public view returns (bool) {
-        (address smaller, address larger) = _getOrderedAddresses(userAddress1, userAddress2);
-        return isContact[smaller][larger];
-    }
-
     
     /**
      * @dev Установка дефолтной платы за запрос на добавление в контакты
@@ -396,14 +364,13 @@ contract CryptoMessenger {
     function transferOwnership(address newOwnerAddress) external onlyOwner {
         require(newOwnerAddress != address(0), "New owner cannot be zero address");
         require(newOwnerAddress != contractOwner, "New owner must be different from current owner");
-        
         address previousOwner = contractOwner;
         contractOwner = newOwnerAddress;
         emit OwnershipTransferred(previousOwner, newOwnerAddress);
     }
     
     /**
-     * @dev Вывод ETH с контракта (только для владельца)
+     * @dev Вывод ETH с контракта (только для владельца). Удалить этот метод на продакшене.
      */
     function withdrawETH() external onlyOwner {
         uint256 contractBalance = address(this).balance;
@@ -414,55 +381,32 @@ contract CryptoMessenger {
 
 
     // View функции
-    
+
     /**
-     * @dev Получение публичного ключа пользователя
-     * @param userAddress Адрес пользователя
-     * @return Публичный ключ
+     * @dev Получение суммарного количества сообщений текущего пользователя
+     * @return Количество сообщений
      */
-    function getPublicKey(address userAddress) external view returns (bytes memory) {
-        return userSettings[userAddress].publicKeyForEncode;
+    function getMessagesCount() external view returns (uint256) {
+        return messages[msg.sender].length;
     }
     
     /**
-     * @dev Получение имени контакта пользователя
-     * @param userAddress Адрес пользователя
-     * @return Имя контакта
-     */
-    function getContactName(address userAddress) external view returns (string memory) {
-        return userSettings[userAddress].contactName;
-    }
-    
-    /**
-     * @dev Получение списка контактов пользователя
-     * @param userAddress Адрес пользователя
-     * @return Массив адресов контактов
-     */
-    function getContacts(address userAddress) external view returns (address[] memory) {
-        return userContacts[userAddress];
-    }
-    
-    /**
-     * @dev Получение количества контактов пользователя
-     * @param userAddress Адрес пользователя
+     * @dev Получение количества контактов текущего пользователя
      * @return Количество контактов
      */
-    function getContactsCount(address userAddress) external view returns (uint256) {
-        return userContacts[userAddress].length;
+    function getContactsCount() external view returns (uint256) {
+        return userContacts[msg.sender].length;
     }
-    
     
     /**
      * @dev Получение контактов пользователя с полными данными (имена и публичные ключи)
-     * @param userAddress Адрес пользователя
      * @param startIndex Начальный индекс (включительно)
-     * @param endIndex Конечный индекс (исключительно, если передать 0, то верннёт всех контактов)
+     * @param endIndex Конечный индекс (исключительно)
      * @return contacts Массив адресов контактов
      * @return names Массив имен контактов
      * @return publicKeys Массив публичных ключей контактов
      */
-    function getContactsWithDetailsPaginated(
-        address userAddress, 
+    function getContactsPaginated(
         uint256 startIndex, 
         uint256 endIndex
     ) external view returns (
@@ -470,27 +414,27 @@ contract CryptoMessenger {
         string[] memory names,
         bytes[] memory publicKeys
     ) {
-        address[] storage userContactsList = userContacts[userAddress];
-        
+        // Получаю список контактов текущего пользователя
+        address[] storage userContactsList = userContacts[msg.sender];           
+        // Проверяем, что массив не пустой
+        if (userContactsList.length == 0) {
+            return (new address[](0), new string[](0), new bytes[](0));
+        }        
+        // Если endIndex больше длины массива контактов, то берем до конца массива
+        if (endIndex >= userContactsList.length) {
+            endIndex = userContactsList.length - 1;
+        }
         // Проверяем корректность диапазона
         require(startIndex <= userContactsList.length, "Start index out of bounds");
         require(endIndex == 0 || endIndex <= userContactsList.length, "End index out of bounds");
-        require(endIndex == 0 || startIndex <= endIndex, "Invalid range: startIndex > endIndex");
-        
-        if (startIndex >= userContactsList.length) {
-            return (new address[](0), new string[](0), new bytes[](0));
-        }
-        
-        // Если endIndex = 0, берем до конца массива
-        if (endIndex == 0) {
-            endIndex = userContactsList.length;
-        }
-        
+        require(endIndex == 0 || startIndex <= endIndex, "Invalid range: startIndex > endIndex");            
+        // Рассчитываем длину результата
         uint256 resultLength = endIndex - startIndex;
+        // Создаем массивы для результата
         contacts = new address[](resultLength);
         names = new string[](resultLength);
         publicKeys = new bytes[](resultLength);
-        
+        // Заполняем массивы результата
         for (uint256 i = startIndex; i < endIndex; i++) {
             address contactAddress = userContactsList[i];
             contacts[i - startIndex] = contactAddress;
@@ -502,71 +446,35 @@ contract CryptoMessenger {
 
     /**
      * @dev Получение сообщений из чата с пагинацией
-     * @param chatId Идентификатор чата
-     * @param startIndex Начальный индекс (включительно)
-     * @param endIndex Конечный индекс (исключительно, 0 = до конца)
+     * @param startMessIndex Начальный messIndex (включительно)
+     * @param endMessIndex Конечный messIndex
      * @return Массив сообщений
      */
-    function getChatMessagesPaginated(bytes32 chatId, uint256 startIndex, uint256 endIndex) external view returns (ChatMessage[] memory) {
-        Chat storage chat = chats[chatId];
-        
+    function getMessagesPaginated(uint256 startMessIndex, uint256 endMessIndex) 
+      external
+      view 
+    returns (TypeMessage[] memory) {
+        // Проверяем, что массив не пустой
+        if (messages[msg.sender].length == 0) {
+            return new TypeMessage[](0);
+        }        
+        // Если endMessIndex больше длины массива сообщений, то берем до конца массива
+        if (endMessIndex >= messages[msg.sender].length) {
+            endMessIndex = messages[msg.sender].length - 1;
+        }
         // Проверяем корректность диапазона
-        require(startIndex <= chat.messageCount, "Start index out of bounds");
-        require(endIndex == 0 || endIndex <= chat.messageCount, "End index out of bounds");
-        require(endIndex == 0 || startIndex <= endIndex, "Invalid range: startIndex > endIndex");
-        
-        if (startIndex >= chat.messageCount) {
-            return new ChatMessage[](0);
+        require(startMessIndex <= messages[msg.sender].length, "Start index out of bounds");
+        require(startMessIndex <= endMessIndex, "Invalid range: startIndex > endIndex");
+        // Рассчитываем длину результата
+        uint256 resultLength = endMessIndex - startMessIndex + 1;
+        // Создаем массив для результата
+        TypeMessage[] memory result = new TypeMessage[](resultLength);
+        // Заполняем массив результата
+        for (uint256 i = startMessIndex; i <= endMessIndex; i++) {
+            result[i - startMessIndex] = messages[msg.sender][i];
         }
-        
-        // Если endIndex = 0, берем до конца массива
-        if (endIndex == 0) {
-            endIndex = chat.messageCount;
-        }
-        
-        uint256 resultLength = endIndex - startIndex;
-        ChatMessage[] memory result = new ChatMessage[](resultLength);
-        
-        for (uint256 i = startIndex; i < endIndex; i++) {
-            result[i - startIndex] = chat.messages[i];
-        }
-        
+        // Возвращаем результат
         return result;
-    }
-
-    /**
-     * @dev Получение последних N сообщений из чата
-     * @param chatId Идентификатор чата
-     * @param count Количество последних сообщений
-     * @return Массив последних сообщений
-     */
-    function getLastChatMessages(bytes32 chatId, uint256 count) external view returns (ChatMessage[] memory) {
-        Chat storage chat = chats[chatId];
-        
-        if (chat.messageCount == 0) {
-            return new ChatMessage[](0);
-        }
-        
-        uint256 startIndex = chat.messageCount > count ? chat.messageCount - count : 0;
-        uint256 resultLength = chat.messageCount - startIndex;
-        
-        ChatMessage[] memory result = new ChatMessage[](resultLength);
-        
-        for (uint256 i = 0; i < resultLength; i++) {
-            result[i] = chat.messages[startIndex + i];
-        }
-        
-        return result;
-    }
-
-    
-    /**
-     * @dev Получение настроек пользователя
-     * @param userAddress Адрес пользователя
-     * @return Структура настроек пользователя
-     */
-    function getUserSettings(address userAddress) external view returns (UserSettings memory) {
-        return userSettings[userAddress];
     }
     
     /**
@@ -583,31 +491,9 @@ contract CryptoMessenger {
      * @param chatId Идентификатор чата
      * @return Структура чата
      */
-    function getChat(bytes32 chatId) external view returns (Chat memory) {
+    function getChat(bytes32 chatId) external view returns (ChatSettings memory) {
         return chats[chatId];
     }
-    
-    /**
-     * @dev Получение идентификатора чата между двумя пользователями
-     * @param user1 Адрес первого пользователя
-     * @param user2 Адрес второго пользователя
-     * @return Идентификатор чата (0 если чат не существует)
-     */
-    function getChatId(address user1, address user2) external view returns (bytes32) {
-        (address smaller, address larger) = _getOrderedAddresses(user1, user2);
-        return chatReferences[smaller][larger];
-    }
-    
-    /**
-     * @dev Получение сообщений из чата
-     * @param chatId Идентификатор чата
-     * @return Количество сообщений и массив сообщений
-     */
-    function getChatMessages(bytes32 chatId) external view returns (uint256, ChatMessage[] memory) {
-        Chat storage chat = chats[chatId];
-        return (chat.messageCount, chat.messages);
-    }
-
 
 
 
@@ -628,8 +514,7 @@ contract CryptoMessenger {
         } else {
             return (address2, address1);
         }
-    }
-    
+    }    
     
     /**
      * @dev Создание уникального идентификатора чата на основе двух адресов
@@ -649,38 +534,36 @@ contract CryptoMessenger {
      * @param recipientAddress Адрес получателя
      * @param encryptedForRecipient Зашифрованные данные для получателя
      * @param encryptedForSender Зашифрованные данные для отправителя
+     * @param newChatState Новое состояние чата после этого сообщения
      */
-    function _addMessageToChat(bytes32 chatId, address senderAddress, address recipientAddress, bytes memory encryptedForRecipient, bytes memory encryptedForSender) internal {
-        Chat storage chat = chats[chatId];
-        
-        // Определяем порядок адресов
-        (address smaller,) = _getOrderedAddresses(senderAddress, recipientAddress);
-        
-        // Определяем, какое шифрование для кого
-        bytes memory encryptedForSmaller;
-        bytes memory encryptedForLarger;
-        
-        if (senderAddress == smaller) {
-            // Отправитель - меньший адрес
-            encryptedForSmaller = encryptedForSender;
-            encryptedForLarger = encryptedForRecipient;
-        } else {
-            // Отправитель - больший адрес
-            encryptedForSmaller = encryptedForRecipient;
-            encryptedForLarger = encryptedForSender;
-        }
-        
-        // Создаем одно сообщение для чата
-        ChatMessage memory message = ChatMessage({
-            encryptedForSmaller: encryptedForSmaller,
-            encryptedForLarger: encryptedForLarger,
+    function _addMessageToChat(bytes32 chatId, address senderAddress, address recipientAddress, bytes memory encryptedForRecipient, bytes memory encryptedForSender, enumChatState newChatState) internal {
+        // Получаю доступ к хранилищу сообщений отправителя
+        TypeMessage[] storage senderMessages = messages[senderAddress];     
+        // Создаем одно сообщение для отправителя
+        TypeMessage memory newMessageForSender = TypeMessage({
+            chatID: chatId,
+            messIndex: senderMessages.length,
             messageTimestamp: block.timestamp,
-            sender: senderAddress
+            encryptedMessage: encryptedForSender,
+            isFromMe: true,
+            newChatState: newChatState
         });
-        
-        // Добавляем сообщение в чат
-        chat.messages.push(message);
-        chat.messageCount++;
+        // Добавляем сообщение в массив отправителя
+        senderMessages.push(newMessageForSender);
+
+        // Получаю доступ к хранилищу сообщений получателя
+        TypeMessage[] storage recipientMessages = messages[recipientAddress];   
+        // Создаем одно сообщение для получателя
+        TypeMessage memory newMessageForRecipient = TypeMessage({
+            chatID: chatId,
+            messIndex: recipientMessages.length,
+            messageTimestamp: block.timestamp,
+            encryptedMessage: encryptedForRecipient,
+            isFromMe: false,
+            newChatState: newChatState
+        });
+        // Добавляем сообщение в массив получателя
+        recipientMessages.push(newMessageForRecipient);
     }
 
 }
