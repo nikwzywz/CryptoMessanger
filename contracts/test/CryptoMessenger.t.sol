@@ -294,9 +294,9 @@ contract CryptoMessengerTest is Test {
         vm.startPrank(alice);
         assertEq(cryptoMessenger.getContactsCount(), 3);
         
-        // Получаем первые 2 контакта (endIndex исключительный)
+        // Получаем первые 2 контакта (endIndex включительный)
         (address[] memory firstTwo, string[] memory names1, ) = 
-            cryptoMessenger.getContactsPaginated(0, 2);
+            cryptoMessenger.getContactsPaginated(0, 1);
         assertEq(firstTwo.length, 2);
         assertEq(firstTwo[0], bob);
         assertEq(firstTwo[1], charlie);
@@ -305,7 +305,7 @@ contract CryptoMessengerTest is Test {
         
         // Получаем последний контакт
         (address[] memory lastOne, string[] memory names2, ) = 
-            cryptoMessenger.getContactsPaginated(2, 3);
+            cryptoMessenger.getContactsPaginated(2, 2);
         assertEq(lastOne.length, 1);
         assertEq(lastOne[0], dave);
         assertEq(names2[0], daveName);

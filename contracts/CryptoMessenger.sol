@@ -401,7 +401,7 @@ contract CryptoMessenger {
     /**
      * @dev Получение контактов пользователя с полными данными (имена и публичные ключи)
      * @param startIndex Начальный индекс (включительно)
-     * @param endIndex Конечный индекс (исключительно)
+     * @param endIndex Конечный индекс (включительно)
      * @return contacts Массив адресов контактов
      * @return names Массив имен контактов
      * @return publicKeys Массив публичных ключей контактов
@@ -421,22 +421,22 @@ contract CryptoMessenger {
             return (new address[](0), new string[](0), new bytes[](0));
         }        
         // Проверяем корректность диапазона
-        require(startIndex < userContactsList.length, "Start index out of bounds");
+        require(startIndex <= userContactsList.length, "Start index out of bounds");
         
         // Если endIndex больше длины массива контактов, то берем до конца массива
-        if (endIndex > userContactsList.length) {
-            endIndex = userContactsList.length;
+        if (endIndex >= userContactsList.length) {
+            endIndex = userContactsList.length - 1;
         }
         
-        require(startIndex < endIndex, "Invalid range: startIndex >= endIndex");            
-        // Рассчитываем длину результата (endIndex исключительный)
-        uint256 resultLength = endIndex - startIndex;
+        require(startIndex <= endIndex, "Invalid range: startIndex > endIndex");            
+        // Рассчитываем длину результата (endIndex включительный)
+        uint256 resultLength = endIndex - startIndex + 1;
         // Создаем массивы для результата
         contacts = new address[](resultLength);
         names = new string[](resultLength);
         publicKeys = new bytes[](resultLength);
         // Заполняем массивы результата
-        for (uint256 i = startIndex; i < endIndex; i++) {
+        for (uint256 i = startIndex; i <= endIndex; i++) {
             address contactAddress = userContactsList[i];
             contacts[i - startIndex] = contactAddress;
             names[i - startIndex] = userSettings[contactAddress].contactName;
@@ -448,7 +448,7 @@ contract CryptoMessenger {
     /**
      * @dev Получение сообщений из чата с пагинацией
      * @param startMessIndex Начальный messIndex (включительно)
-     * @param endMessIndex Конечный messIndex
+     * @param endMessIndex Конечный messIndex (включительно)
      * @return Массив сообщений
      */
     function getMessagesPaginated(uint256 startMessIndex, uint256 endMessIndex) 

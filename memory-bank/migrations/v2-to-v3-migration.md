@@ -41,7 +41,7 @@ for (contact of contacts) {
 }
 
 // V3: Один запрос для всех чатов, выбирающий до 100 новых сообщений за одно чтение
-const newMessages = await contract.getChatMessagesPaginated(lastMessageNum+1, lastMessageNum+100);
+const newMessages = await contract.getMessagesPaginated(lastMessageIndex+1, lastMessageIndex+100);
 ```
 
 ### ✅ Отличие в хранении зашифрованнных сообщений:
@@ -56,7 +56,7 @@ struct ChatMessage {
 // МАССИВ входящих и исходящих сообщений для каждого пользователя. Ключевое слово ДЛЯ КАЖДОГО пользователя.
 struct TypeMessage {
     bytes32 chatID;              // К какому чату относится
-    uint256 messNum;             // Номер сообщения
+    uint256 messIndex;           // Индекс сообщения (начиная с 0)
     uint256 messageTimestamp;    // Время сообщения
     bytes encryptedMessage;      // Зашифровано ключом владельца массива
     bool isFromMe;              // Направление сообщения
@@ -135,9 +135,10 @@ User[alice].messages: [
 - **🆕 Автоматическое обновление** статусов чатов через сообщения
 - **🆕 Нет рассинхронизации** между состоянием чата и сообщениями
 - **🆕 Полная история** изменений состояний в хронологическом порядке
+- **🆕 Определение роли в приглашении** через комбинацию `newChatState` + `isFromMe`
 
 ### 🛠️ Логика работы с перемешанными сообщениями:
-- **Получение новых сообщений** - один вызов `getChatMessagesPaginated(lastNum+1, lastNum+100)`
+- **Получение новых сообщений** - один вызов `getMessagesPaginated(lastIndex+1, lastIndex+100)`
 - **Группировка по чатам** - frontend фильтрует массив по `chatID`
 - **Обновление конкретного чата** - находим сообщения с нужным `chatID`
 - **Уведомления** - можем определить, в каких чатах появились новые сообщения
@@ -209,9 +210,9 @@ async function pollForNewMessages() {
         return; // Новых сообщений нет
     }
 
-    // 2. Группируем по чатам И обновляем состояния
+    // 2. Группируем по чатам И определяем frontend состояния
     const messagesByChat = {};
-    const chatStates = {};
+    const chatFrontendStates = {}; // 🆕 Frontend состояния чатов
     const newChatIDs = new Set();
 
     newMessages.forEach(msg => {
@@ -221,8 +222,8 @@ async function pollForNewMessages() {
         }
         messagesByChat[msg.chatID].push(msg);
         
-        // 🆕 АВТОМАТИЧЕСКОЕ обновление состояния чата!
-        chatStates[msg.chatID] = msg.newChatState;
+        // 🆕 ОПРЕДЕЛЕНИЕ FRONTEND СОСТОЯНИЯ ЧАТА
+        chatFrontendStates[msg.chatID] = determineFrontendChatState(msg);
         
         // Запоминаем новые чаты
         newChatIDs.add(msg.chatID);
@@ -247,11 +248,11 @@ async function pollForNewMessages() {
             updateChatUI(messagesByChat[chatID]);
         }
         
-        // 🆕 Обновляем состояние чата (приглашение/активный/заблокированный)
-        updateChatState(chatID, chatStates[chatID]);
+        // 🆕 Обновляем frontend состояние чата
+        updateChatFrontendState(chatID, chatFrontendStates[chatID]);
         
         // 🆕 Обновляем иконки в списке контактов
-        updateContactListIcon(chatID, chatStates[chatID]);
+        updateContactListIcon(chatID, chatFrontendStates[chatID]);
         
         // 🆕 Показываем уведомления о новых сообщениях
         if (!isCurrentlyOpenChat(chatID)) {
@@ -305,6 +306,72 @@ async function loadNewContacts() {
 5. **Синхронизация**: Состояния чатов обновляются через сообщения
 6. **Уведомления**: Показываем уведомления о новых сообщениях
 7. **🆕 Без лишних count-запросов**: Используем пагинацию до исчерпания вместо `getContactsCount()`
+8. **🆕 Унифицированная пагинация**: Обе функции (`getMessagesPaginated` и `getContactsPaginated`) используют включительные диапазоны
+
+## 🎯 ОПРЕДЕЛЕНИЕ РОЛЕЙ В ПРИГЛАШЕНИЯХ V3
+
+### 📋 Логика определения роли:
+
+Frontend должен анализировать комбинацию `newChatState` + `isFromMe` для понимания роли пользователя в приглашении:
+
+```javascript
+function determineFrontendChatState(message) {
+    if (message.newChatState === 'allowedWrite') {
+        return 'allowedWrite'; // Разрешено писать в чат
+    }
+    
+    if (message.newChatState === 'notAllowedWrite') {
+        return 'notAllowedWrite'; // Не разрешено писать в чат
+    }
+    
+    if (message.newChatState === 'waitingAcceptance') {
+        if (message.isFromMe) {
+            return 'waitingAcceptanceFromOther'; // Жду принятия от собеседника
+        } else {
+            return 'waitingAcceptanceFromMe'; // Нужно принять или отклонить
+        }
+    }
+}
+```
+
+### 🎨 Frontend состояния чатов:
+
+| Frontend состояние | Описание | UI отображение |
+|-------------------|----------|----------------|
+| `allowedWrite` | Разрешено писать в чат | Обычный чат с полем ввода |
+| `notAllowedWrite` | Не разрешено писать в чат | Заблокированный чат |
+| `waitingAcceptanceFromMe` | Нужно принять приглашение | "✅ Принять" + "❌ Отклонить" |
+| `waitingAcceptanceFromOther` | Жду принятия от собеседника | "⏳ Ожидание принятия приглашения" |
+
+### 💡 Пример использования:
+
+```javascript
+newMessages.forEach(msg => {
+    const frontendState = determineFrontendChatState(msg);
+    
+    switch (frontendState) {
+        case 'allowedWrite':
+            // Показываем обычный чат с полем ввода
+            showNormalChat(msg.chatID);
+            break;
+            
+        case 'notAllowedWrite':
+            // Показываем заблокированный чат
+            showBlockedChat(msg.chatID);
+            break;
+            
+        case 'waitingAcceptanceFromMe':
+            // Показываем кнопки "Принять" и "Отклонить"
+            showInvitationButtons(msg.chatID);
+            break;
+            
+        case 'waitingAcceptanceFromOther':
+            // Показываем статус ожидания
+            showWaitingStatus(msg.chatID);
+            break;
+    }
+});
+```
 
 ## 🗓️ ПЛАН МИГРАЦИИ
 
@@ -312,10 +379,12 @@ async function loadNewContacts() {
 - [x] Убрать `messageCount` из `ChatSettings`
 - [x] Исправить ошибки типов в функциях
 - [x] Переименовать `ChatMessage` в `TypeMessage`
-- [x] Исправить `getChatMessagesPaginated` в `getTypeMessagesPaginated`
+- [x] Исправить `getChatMessagesPaginated` в `getMessagesPaginated`
+- [x] Заменить `messNum` на `messIndex` (индексация с 0)
 - [x] Исправить логику определения новых чатов (`inviter == address(0)`)
 - [x] 🆕 Заменить `isActive/isNeedAcceptance` на `enumChatState`
 - [x] 🆕 Добавить поле `newChatState` в структуру `TypeMessage`
+- [x] 🆕 Унифицировать пагинацию - обе функции используют включительные диапазоны
 - [x] 🆕 Обновить все функции для передачи состояний через сообщения:
   - `invitationAccept` - передает `allowedWrite`
   - `invitationReject` - передает `notAllowedWrite`
@@ -324,15 +393,16 @@ async function loadNewContacts() {
   - `sendMessage` - передает `allowedWrite`
   - `deactivateChat` - передает `notAllowedWrite`
 
-### Этап 2: Обновление тестов (3-4 часа) ⏳ В ПРОЦЕССЕ
-- [ ] Адаптировать тесты под новую структуру `TypeMessage`
-- [ ] Обновить тесты отправки сообщений
-- [ ] Добавить тесты персональных массивов сообщений
-- [ ] Тесты пагинации для новой архитектуры
-- [ ] Тесты polling функций
-- [ ] 🆕 Тесты состояний чатов в сообщениях
-- [ ] 🆕 Тесты всех функций с зашифрованными параметрами
-- [ ] 🆕 Тесты enum состояний (allowedWrite/notAllowedWrite/waitingAcceptance)
+### Этап 2: Обновление тестов (3-4 часа) ✅ ЗАВЕРШЕН
+- [x] Адаптировать тесты под новую структуру `TypeMessage`
+- [x] Обновить тесты отправки сообщений
+- [x] Добавить тесты персональных массивов сообщений
+- [x] Тесты пагинации для новой архитектуры (`messIndex` с 0)
+- [x] Тесты polling функций (эффективность одного запроса)
+- [x] 🆕 Тесты состояний чатов в сообщениях
+- [x] 🆕 Тесты всех функций с зашифрованными параметрами
+- [x] 🆕 Тесты enum состояний (allowedWrite/notAllowedWrite/waitingAcceptance)
+- [x] 🆕 Тесты унифицированной пагинации (включительные диапазоны)
 
 ### Этап 3: Обновление frontend (4-5 часов)
 - [ ] Создать новый `DecentralizedEventSystem` для V3
@@ -340,6 +410,8 @@ async function loadNewContacts() {
 - [ ] Адаптировать `ChatAreaManager` под новую структуру `TypeMessage`
 - [ ] Обновить `ContactListManager` для новых функций
 - [ ] 🆕 Реализовать автоматическое обновление состояний чатов
+- [ ] 🆕 Реализовать frontend состояния чатов: `allowedWrite`, `notAllowedWrite`, `waitingAcceptanceFromMe`, `waitingAcceptanceFromOther`
+- [ ] 🆕 Обновить UI для отображения состояний: поле ввода / кнопки принятия / статус ожидания
 - [ ] 🆕 Обновить все функции для передачи зашифрованных сообщений
 - [ ] 🆕 Адаптировать UI под enum состояния
 - [ ] Тестирование полного цикла
@@ -420,10 +492,11 @@ async function loadNewContacts() {
 
 ### Контракт:
 - [x] Все ошибки исправлены
-- [ ] Тесты проходят (18/18)
+- [x] Тесты проходят (22/22) ✅
 - [ ] Gas costs оптимизированы
 - [x] 🆕 Функции обновлены под новую архитектуру
 - [x] 🆕 Состояния чатов передаются через сообщения
+- [x] 🆕 Унифицированная пагинация (включительные диапазоны)
 - [ ] 🆕 Frontend совместимость проверена
 
 ### Frontend:
@@ -431,6 +504,8 @@ async function loadNewContacts() {
 - [ ] Polling механизм реализован
 - [ ] UI адаптирован под новую структуру `TypeMessage`
 - [ ] 🆕 Автоматическое обновление состояний чатов
+- [ ] 🆕 Frontend состояния чатов: `allowedWrite`, `notAllowedWrite`, `waitingAcceptanceFromMe`, `waitingAcceptanceFromOther`
+- [ ] 🆕 UI для состояний: поле ввода / кнопки принятия / статус ожидания / заблокированный чат
 - [ ] 🆕 Все функции обновлены для передачи зашифрованных параметров
 - [ ] 🆕 Enum состояния интегрированы в UI
 - [ ] Обратная совместимость с V2 (при необходимости)
