@@ -420,15 +420,16 @@ contract CryptoMessenger {
         if (userContactsList.length == 0) {
             return (new address[](0), new string[](0), new bytes[](0));
         }        
-        // Если endIndex больше длины массива контактов, то берем до конца массива
-        if (endIndex >= userContactsList.length) {
-            endIndex = userContactsList.length - 1;
-        }
         // Проверяем корректность диапазона
-        require(startIndex <= userContactsList.length, "Start index out of bounds");
-        require(endIndex == 0 || endIndex <= userContactsList.length, "End index out of bounds");
-        require(endIndex == 0 || startIndex <= endIndex, "Invalid range: startIndex > endIndex");            
-        // Рассчитываем длину результата
+        require(startIndex < userContactsList.length, "Start index out of bounds");
+        
+        // Если endIndex больше длины массива контактов, то берем до конца массива
+        if (endIndex > userContactsList.length) {
+            endIndex = userContactsList.length;
+        }
+        
+        require(startIndex < endIndex, "Invalid range: startIndex >= endIndex");            
+        // Рассчитываем длину результата (endIndex исключительный)
         uint256 resultLength = endIndex - startIndex;
         // Создаем массивы для результата
         contacts = new address[](resultLength);
