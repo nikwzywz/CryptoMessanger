@@ -2,12 +2,12 @@
 
 /* Стили для компонентных панелей */
 .panel-component {
-    padding: 20px;
-    margin: 10px;
-    background: #2a2a2a;
-    border: 1px solid #444;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    padding: 0;
+    margin: 0;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
 }
 
 .invitation-panel-content {
