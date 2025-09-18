@@ -512,6 +512,8 @@ class ContactListManagerV3 {
         if (lastMessageElement) {
             // Показываем текст последнего сообщения (если есть)
             const displayText = contactData.lastMessageText || '';
+
+            console.log(`❤️❤️❤️❤️❤️ V3: displayText = ${displayText}`);
             
             // Ограничиваем длину текста для отображения
             const shortText = displayText.length > 40 ? 
@@ -771,6 +773,8 @@ class ContactListManagerV3 {
             contactData.lastMessageTime = messageTime;
             contactData.frontendState = frontendState;
             contactData.unreadCount = newUnreadCount;
+            
+            console.log(`💾 V3: Обновлен lastMessageText = "${messageText}" для ${addressLower}`);
             
             console.log(`📨 V3: Обновлено последнее сообщение для ${addressLower}:`, {
                 messageIndex: messageIndex,

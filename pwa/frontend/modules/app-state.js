@@ -389,14 +389,17 @@ class AppState {
             
             // 7.1. обновляем данные по контактам-чатам
             const contactAddress = this.pollingCoordinator.contactListManager.getAddressByChatId(message.chatID);
+            console.log(`🔍 V3: Ищем контакт для chatID ${message.chatID}, найден адрес: ${contactAddress}`);
             
             if (contactAddress) {
                 // Расшифровываем сообщение
                 let decryptedText = '';
                 try {
                     decryptedText = CryptoUtils.decryptMessage(message.encryptedMessage, this.userPrivateKey);
+                    console.log(`🔓 V3: Расшифровано сообщение: "${decryptedText}"`);
                 } catch (error) {
                     decryptedText = '[Не удалось расшифровать]';
+                    console.log(`❌ V3: Ошибка расшифровки:`, error);
                 }
                 
                 // Определяем frontend состояние
