@@ -1,5 +1,8 @@
 // Конфигурация CryptoMessenger
 window.CryptoMessengerConfig = {
+    // Режим отладки - показывает дополнительную информацию. Например, на карточках контактов.
+    debugMode: true, // true - показывать отладочную информацию, false - обычный режим
+    
     // Сеть Base
     network: {
         chainId: '0x2105', // 8453 в hex

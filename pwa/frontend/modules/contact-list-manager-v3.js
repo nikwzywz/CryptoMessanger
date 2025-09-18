@@ -100,7 +100,17 @@ class ContactListManagerV3 {
             </div>
             <div class="contact-info">
                 <div class="contact-name">${name}</div>
-                <div class="contact-address">${address.slice(0, 6)}...${address.slice(-4)}</div>
+                <div class="contact-last-message" id="lastMessage-${address.toLowerCase()}">
+                    Нет сообщений
+                </div>
+                ${window.CryptoMessengerConfig.debugMode ? `
+                <div class="contact-debug-info" style="font-size: 10px; color: #666; margin-top: 2px;">
+                    <div>📍 ${address}</div>
+                    <div>🕒 <span id="debugTime-${address.toLowerCase()}">-</span></div>
+                    <div>📊 State: <span id="debugState-${address.toLowerCase()}">unknown</span></div>
+                    <div>📋 Order: <span id="debugOrder-${address.toLowerCase()}">-1</span></div>
+                </div>
+                ` : ''}
             </div>
             <div class="contact-status" id="status-${address.toLowerCase()}">
                 <!-- Статус будет обновлен через updateChatStateIcon -->
@@ -344,23 +354,47 @@ class ContactListManagerV3 {
         // Обновляем последнее сообщение
         const lastMessageElement = contactElement.querySelector('.contact-last-message');
         if (lastMessageElement) {
+            console.log(`🎨 V3: Обновляем UI lastMessage для ${address}:`, {
+                hasLastMessageText: !!contactData.lastMessageText,
+                lastMessageText: contactData.lastMessageText?.substring(0, 30) + '...',
+                frontendState: contactData.frontendState
+            });
+            
             if (contactData.lastMessageText) {
-                // Показываем время и текст последнего сообщения
-                const timeStr = contactData.lastMessageTime ? 
-                    Utils.formatTime(new Date(contactData.lastMessageTime)) : '';
-                
-                // Ограничиваем длину текста сообщения
-                const shortText = contactData.lastMessageText.length > 50 ? 
-                    contactData.lastMessageText.substring(0, 50) + '...' : 
+                // Ограничиваем длину текста сообщения для основного отображения
+                const shortText = contactData.lastMessageText.length > 40 ? 
+                    contactData.lastMessageText.substring(0, 40) + '...' : 
                     contactData.lastMessageText;
                 
-                lastMessageElement.textContent = `${timeStr}: ${shortText}`;
-                lastMessageElement.title = `${timeStr} - ${contactData.lastMessageText}`;
+                lastMessageElement.textContent = shortText;
+                lastMessageElement.title = contactData.lastMessageText; // Полный текст в tooltip
+                console.log(`✅ V3: UI обновлен для ${address}: "${shortText}"`);
             } else {
                 // Показываем статус если нет сообщений
                 const statusText = this.getStatusText(contactData.frontendState);
                 lastMessageElement.textContent = statusText;
                 lastMessageElement.title = statusText;
+                console.log(`ℹ️ V3: Показан статус для ${address}: "${statusText}"`);
+            }
+        }
+
+        // 🆕 Обновляем отладочную информацию если включен debugMode
+        if (window.CryptoMessengerConfig.debugMode) {
+            const debugTimeElement = contactElement.querySelector(`#debugTime-${address.toLowerCase()}`);
+            const debugStateElement = contactElement.querySelector(`#debugState-${address.toLowerCase()}`);
+            const debugOrderElement = contactElement.querySelector(`#debugOrder-${address.toLowerCase()}`);
+            
+            if (debugTimeElement) {
+                debugTimeElement.textContent = contactData.lastMessageTime ? 
+                    Utils.formatTime(new Date(contactData.lastMessageTime)) : '-';
+            }
+            
+            if (debugStateElement) {
+                debugStateElement.textContent = contactData.frontendState || 'unknown';
+            }
+            
+            if (debugOrderElement) {
+                debugOrderElement.textContent = contactData.orderIndex !== undefined ? contactData.orderIndex : '-1';
             }
         }
 
@@ -499,45 +533,59 @@ class ContactListManagerV3 {
     }
 
     /**
-     * Обновление данных последнего сообщения для контакта
+     * Обновление данных последнего сообщения для контакта (упрощенная версия)
      */
-    updateLastMessage(chatID, messageIndex, messageText, messageTime, frontendState, isFromCurrentUser = false) {
-        // Находим контакт по chatID
-        for (const [address, contactData] of this.contactsCache.entries()) {
-            if (contactData.chatID === chatID) {
-                // Обновляем только если это более новое сообщение
-                if (messageIndex > contactData.lastMessageIndex) {
-                    const updates = {
-                        lastMessageIndex: messageIndex,
-                        lastMessageText: messageText,
-                        lastMessageTime: messageTime,
-                        frontendState: frontendState
-                    };
-                    
-                    // Увеличиваем счетчик непрочитанных, если это НЕ текущий активный контакт
-                    // и сообщение НЕ от текущего пользователя
-                    const currentContact = this.appState.currentContact;
-                    const isCurrentActiveContact = currentContact && currentContact.address.toLowerCase() === address.toLowerCase();
-                    
-                    if (!isFromCurrentUser && !isCurrentActiveContact) {
-                        updates.unreadCount = contactData.unreadCount + 1;
-                        console.log(`🔔 V3: Увеличен счетчик непрочитанных для ${address}: ${updates.unreadCount}`);
-                    }
-                    
-                    console.log(`📨 V3: updateLastMessage → updateContactData для ${address} с обновлениями:`, updates);
-                    this.updateContactData(address, updates);
-                    
-                    console.log(`📨 V3: Обновлено последнее сообщение для ${address}:`, {
-                        messageIndex: messageIndex,
-                        messageText: messageText.substring(0, 50) + '...',
-                        frontendState: frontendState,
-                        unreadCount: updates.unreadCount || contactData.unreadCount
-                    });
-                }
-                return;
-            }
+    updateLastMessage(address, messageIndex, messageText, messageTime, frontendState, isFromCurrentUser = false) {
+        console.log(`🔍 V3: updateLastMessage ВЫЗВАНА для ${address}:`, {
+            messageIndex: messageIndex,
+            messageText: messageText?.substring(0, 50) + '...',
+            messageTime: new Date(messageTime).toLocaleString(),
+            frontendState: frontendState,
+            isFromCurrentUser: isFromCurrentUser
+        });
+        
+        // 🛡️ ПРАВИЛО: Используем lowercase для поиска
+        const addressLower = address.toLowerCase();
+        const contactData = this.contactsCache.get(addressLower);
+        
+        if (!contactData) {
+            console.warn(`⚠️ V3: Контакт ${addressLower} не найден для обновления сообщения`);
+            return;
         }
-        console.warn(`⚠️ V3: Не найден контакт для обновления сообщения chatID: ${chatID.substring(0, 8)}`);
+
+        // Обновляем только если это более новое сообщение
+        if (messageIndex > contactData.lastMessageIndex) {
+            // Увеличиваем счетчик непрочитанных, если это НЕ текущий активный контакт
+            // и сообщение НЕ от текущего пользователя
+            const currentContact = this.appState.currentContact;
+            const isCurrentActiveContact = currentContact && currentContact.address.toLowerCase() === addressLower;
+            
+            let newUnreadCount = contactData.unreadCount;
+            if (!isFromCurrentUser && !isCurrentActiveContact) {
+                newUnreadCount = contactData.unreadCount + 1;
+                console.log(`🔔 V3: Увеличен счетчик непрочитанных для ${addressLower}: ${newUnreadCount}`);
+            }
+            
+            // 🛠️ ПРЯМОЕ ОБНОВЛЕНИЕ: Обновляем все поля сразу в кэше
+            contactData.lastMessageIndex = messageIndex;
+            contactData.lastMessageText = messageText;
+            contactData.lastMessageTime = messageTime;
+            contactData.frontendState = frontendState;
+            contactData.unreadCount = newUnreadCount;
+            
+            console.log(`📨 V3: Обновлено последнее сообщение для ${addressLower}:`, {
+                messageIndex: messageIndex,
+                messageText: messageText.substring(0, 30) + '...',
+                frontendState: frontendState,
+                unreadCount: newUnreadCount
+            });
+            
+            // Обновляем UI элемент контакта
+            this.updateContactElementUI(addressLower, contactData);
+        }
+        else {
+            console.log(`🔔 CRITICAL ERROR! Мы считали сообщение с индексом messageIndex, которое уже было считано ранее!`)
+        }
     }
 
     /**

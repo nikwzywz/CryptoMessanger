@@ -464,7 +464,7 @@ class AppState {
                     }
                     
                     this.contactListManager.updateLastMessage(
-                        contactAddress,
+                        contactAddress, // Передаем address (уже в правильном формате)
                         parseInt(lastMessage.messIndex),
                         decryptedText,
                         parseInt(lastMessage.messageTimestamp) * 1000,

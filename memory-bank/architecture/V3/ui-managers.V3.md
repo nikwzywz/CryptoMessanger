@@ -100,56 +100,6 @@ cancelInvitation() → contract.methods.invitationCancel()
 ✅ **Кэширование** известных контактов и состояний чатов
 ✅ **UI обновления** через callbacks без прямых вызовов между модулями
 
-### 🚨 АЛГОРИТМ АВТОЗАГРУЗКИ НОВЫХ КОНТАКТОВ:
-
-**КЕЙС:** Для примера: Пользователь отправил приглашение новому пользователю
-
-```javascript
-// 1. Пользователь отправляет приглашение через ContactListManagerV3.sendInvitation()
-await contract.methods.invitationSend(recipientAddress, encryptedForRecipient, encryptedForSender)
-
-// 2. В контракте создается новое сообщение с новым chatID
-// 3. Через 15 секунд polling обнаруживает новое сообщение
-
-async pollForNewMessages() {
-    const newMessages = await contract.methods.getMessagesPaginated(startIndex, endIndex);
-    
-    // 4. Извлекаем chatID из новых сообщений
-    const newChatIDs = new Set();
-    newMessages.forEach(msg => {
-        newChatIDs.add(msg.chatID);
-    });
-    
-    // 5. КЛЮЧЕВАЯ ЛОГИКА: Проверяем неизвестные чаты
-    const unknownChatIDs = Array.from(newChatIDs).filter(chatID => {
-        // Проверяем, знаем ли мы уже этот chatID среди известных контактов
-        const currentUserLower = this.userAddress.toLowerCase();
-        
-        for (const contactAddress of this.knownContacts) {
-            const testChatID = this.generateChatId(currentUserLower, contactAddress);
-            if (testChatID === chatID) {
-                return false; // Контакт известен
-            }
-        }
-        return true; // Контакт неизвестен - НОВЫЙ!
-    });
-    
-    // 6. Если найдены неизвестные чаты → загружаем пачку новых контактов используя пулинг
-    if (unknownChatIDs.length > 0) {
-        console.log(`🚨 Обнаружены новые контакты в ${unknownChatIDs.length} чатах`);
-        await this.loadNewContacts(); // Загрузка следующих 100 контактов
-    }
-}
-```
-
-**📊 РЕЗУЛЬТАТ:**
-- ✅ Отправили приглашение → создался новый чат
-- ✅ Polling обнаружил сообщение с неизвестным chatID  
-- ✅ Автоматически загрузились новые контакты
-- ✅ Новый контакт появился в списке
-- ✅ UI обновился через callbacks
-
-
 ### 💡 ПРЕИМУЩЕСТВА V3:
 
 ✅ **Надежность** - работает с любыми RPC endpoints (HTTP/WebSocket)
