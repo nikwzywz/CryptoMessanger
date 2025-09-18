@@ -514,24 +514,18 @@
                 appState.chatUIManager = chatUIManager;
                 chatUIManager.contactListManager = contactListManager;
                 
-                // 🆕 Инициализация PollingManager в AppState
-                appState.initializePollingManager(chatUIManager, contactListManager);
+                // 🆕 Инициализация PollingCoordinator в AppState
+                appState.initializePollingCoordinator(chatUIManager, contactListManager, contract, currentUser);
 
                 // UI обновится автоматически через V3 модули
                 
                 // V3: Скрываем все панели при инициализации (контакт не выбран)
                 chatUIManager.updateChatAreaForState('allowedWrite'); // Показываем приветствие
                 
-                // 🆕 Инициализируем V3 систему (загрузка контактов + запуск polling)
-                console.log('🚀 V3: Инициализируем новую архитектуру...');
+                // 🆕 Запускаем V3 polling систему (БЕЗ инициальной загрузки согласно алгоритму)
+                console.log('🚀 V3: Запускаем polling без инициальной загрузки...');
                 
-                // Инициализируем индекс сообщений
-                await chatUIManager.initializeMessageIndex();
-                
-                // Загружаем контакты
-                await contactListManager.loadInitialContacts();
-                
-                // Запускаем polling
+                // Запускаем polling - данные будут загружены автоматически через 15 секунд
                 appState.startPolling();
                 
                 // 🆕 Скрываем индикатор загрузки после инициализации
@@ -567,8 +561,8 @@
                 // Статистика доступна через отдельные модули
                 const stats = {
                     contactsCount: contactListManager.contactsCache.size,
-                    lastMessageIndex: chatUIManager.lastMessageIndex,
-                    isPollingActive: appState.pollingManager?.isActive || false
+                    messLastIndex: chatUIManager.messLastIndex,
+                    isPollingActive: appState.pollingCoordinator?.isActive || false
                 };
                 console.log('📊 V3: Статистика новой архитектуры:', stats);
                 

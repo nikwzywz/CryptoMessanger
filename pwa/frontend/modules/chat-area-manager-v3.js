@@ -1,5 +1,24 @@
 /**
- * Менеджер UI для чата V3 с поддержкой TypeMessage и frontend состояний
+ * ChatAreaManager V3 - Управление областью чата и сообщениями
+ * 
+ * 🎯 ЗОНА ОТВЕТСТВЕННОСТИ:
+ * ✅ UI области чата (панели, заголовки, приветствие)
+ * ✅ Загрузка и отображение сообщений (loadAllUserMessages, renderMessages)
+ * ✅ Определение состояний чата (determineFrontendChatState, updateChatState)
+ * ✅ Панели приглашений (setVisiblePanel*, checkInvitationTimeout)
+ * ✅ Отправка сообщений (sendMessage)
+ * ✅ Действия с приглашениями (acceptInvitation, rejectInvitation, cancelInvitation)
+ * ✅ Фильтрация сообщений по чатам (filterMessagesForCurrentChat)
+ * ✅ Polling сообщений (messLastIndex, addMessageToUI)
+ * ✅ Прокрутка и навигация в чате (scrollToBottom)
+ * 
+ * ❌ НЕ ОТВЕЧАЕТ ЗА:
+ * ❌ Список контактов и их данные (→ ContactListManagerV3)
+ * ❌ Криптографию и шифрование (→ CryptoUtils)
+ * ❌ Глобальное состояние пользователя (→ AppState)
+ * ❌ Сортировку и позиционирование контактов (→ ContactListManagerV3)
+ * 
+ * CryptoMessenger v3.0.0
  */
 
 class ChatAreaManagerV3 {
@@ -16,10 +35,12 @@ class ChatAreaManagerV3 {
         
         // Кэш сообщений для текущего чата
         this.currentChatMessages = [];
+        this.allUserMessages = [];
+        this.allUserMessagesLoaded = false;
         
-        // 🆕 Polling состояние для сообщений
-        this.lastMessageIndex = -1;
-        this.messagesBatchSize = 100;
+        // 🆕 Polling состояние для сообщений (согласно алгоритму)
+        this.messagesBatchSize = window.CryptoMessengerConfig.pollingConfig.MESSAGES_BATCH_SIZE;
+        this.messLastIndex = 0; // Начальное состояние (пункт 20 алгоритма)
         
         // Подписываемся на изменения текущего контакта
         this.appState.subscribe('currentContact', this.onContactChanged.bind(this));
@@ -77,6 +98,7 @@ class ChatAreaManagerV3 {
             // Загружаем все сообщения пользователя один раз при первом открытии любого чата
             if (!this.allUserMessagesLoaded) {
                 await this.loadAllUserMessages();
+                this.allUserMessagesLoaded = true;
             }
 
             // Фильтруем и отображаем сообщения для текущего чата
@@ -169,7 +191,7 @@ class ChatAreaManagerV3 {
     }
 
     /**
-     * Отображение сообщений в UI
+     * Отображение сообщений в UI (использует currentChatMessages из модели)
      */
     renderMessages() {
         const messagesContainer = document.getElementById('chat-messages');
@@ -190,6 +212,30 @@ class ChatAreaManagerV3 {
         this.scrollToBottom();
         
         console.log(`✅ V3: Отображено ${this.currentChatMessages.length} сообщений`);
+    }
+
+    /**
+     * Отображение сообщений в UI (принимает сообщения как параметр, НЕ изменяет модель)
+     */
+    renderMessagesForChat(messages) {
+        const messagesContainer = document.getElementById('chat-messages');
+        if (!messagesContainer) {
+            console.error('❌ V3: Контейнер сообщений не найден');
+            return;
+        }
+        
+        // Очищаем контейнер
+        messagesContainer.innerHTML = '';
+        
+        // Отображаем каждое сообщение (НЕ изменяем currentChatMessages)
+        messages.forEach(msg => {
+            this.addMessageToUI(msg);
+        });
+        
+        // Прокручиваем вниз
+        this.scrollToBottom();
+        
+        console.log(`✅ V3: Отображено ${messages.length} сообщений (без изменения модели)`);
     }
 
     /**
@@ -221,7 +267,7 @@ class ChatAreaManagerV3 {
             }
             
             // Создаем элемент сообщения
-            const messageElement = this.createMessageElement(
+            const messageElement = Utils.createMessageElement(
                 decryptedText,
                 message.isFromMe,
                 new Date(parseInt(message.messageTimestamp) * 1000),
@@ -243,30 +289,7 @@ class ChatAreaManagerV3 {
         }
     }
 
-    /**
-     * Создание DOM элемента сообщения
-     */
-    createMessageElement(text, isFromMe, timestamp, messIndex) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${isFromMe ? 'outgoing' : 'incoming'}`;
-        messageDiv.setAttribute('data-mess-index', messIndex);
-        
-        const messageContent = document.createElement('div');
-        messageContent.className = 'message-content';
-        messageContent.textContent = text;
-        
-        const messageTime = document.createElement('div');
-        messageTime.className = 'message-time';
-        messageTime.textContent = timestamp.toLocaleTimeString('ru-RU', {
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-        
-        messageDiv.appendChild(messageContent);
-        messageDiv.appendChild(messageTime);
-        
-        return messageDiv;
-    }
+    // ❌ УДАЛЕНО: createMessageElement() - перенесено в Utils.createMessageElement()
 
     /**
      * Определение и обновление состояния чата
@@ -466,7 +489,10 @@ class ChatAreaManagerV3 {
                 // Заполняем данные текущего контакта и рассчитываем дни
                 const currentContact = this.appState.currentContact;
                 if (currentContact) {
-                    const daysSince = this.calculateDaysSinceLastMessage();
+                    // Вычисляем дни с последнего сообщения
+                    const lastMessageTime = this.currentChatMessages.length > 0 ? 
+                        parseInt(this.currentChatMessages[this.currentChatMessages.length - 1].messageTimestamp) * 1000 : 0;
+                    const daysSince = Utils.calculateDaysSince(lastMessageTime);
                     
                     // Обновляем заголовок с количеством дней
                     const daysSinceSpan = document.getElementById('daysSinceInvitation');
@@ -492,37 +518,22 @@ class ChatAreaManagerV3 {
         
         // Берем последнее сообщение
         const lastMessage = this.currentChatMessages[this.currentChatMessages.length - 1];
-        const lastMessageTime = parseInt(lastMessage.messageTimestamp) * 1000; // Конвертируем в миллисекунды
-        const now = Date.now();
-        
-        const timeSinceLastMessage = now - lastMessageTime;
+        const lastMessageTime = parseInt(lastMessage.messageTimestamp) * 1000;
         const timeoutThreshold = window.CryptoMessengerConfig.INVITATION_TIMEOUT;
+        
+        const isExpired = Utils.checkTimeout(lastMessageTime, timeoutThreshold);
         
         console.log(`⏰ V3: Проверка таймаута приглашения:`, {
             lastMessageTime: new Date(lastMessageTime).toLocaleString(),
-            timeSinceLastMessage: Math.floor(timeSinceLastMessage / (24 * 60 * 60 * 1000)) + ' дней',
-            timeoutThreshold: Math.floor(timeoutThreshold / (24 * 60 * 60 * 1000)) + ' дней',
-            isExpired: timeSinceLastMessage > timeoutThreshold
+            daysSince: Utils.calculateDaysSince(lastMessageTime),
+            timeoutDays: Math.floor(timeoutThreshold / (24 * 60 * 60 * 1000)),
+            isExpired: isExpired
         });
         
-        return timeSinceLastMessage > timeoutThreshold;
+        return isExpired;
     }
 
-    /**
-     * Расчет количества дней с последнего сообщения
-     */
-    calculateDaysSinceLastMessage() {
-        if (!this.currentChatMessages || this.currentChatMessages.length === 0) {
-            return 0;
-        }
-        
-        const lastMessage = this.currentChatMessages[this.currentChatMessages.length - 1];
-        const lastMessageTime = parseInt(lastMessage.messageTimestamp) * 1000;
-        const now = Date.now();
-        
-        const daysSince = Math.floor((now - lastMessageTime) / (24 * 60 * 60 * 1000));
-        return daysSince;
-    }
+    // ❌ УДАЛЕНО: calculateDaysSinceLastMessage() - заменено на Utils.calculateDaysSince()
 
     // Удален устаревший метод showInvitationButtons()
     // Заменен компонентной функцией setVisiblePanelWaitingAcceptanceFromMe() в main.html
@@ -543,8 +554,8 @@ class ChatAreaManagerV3 {
         try {
             const acceptMessage = window.CryptoMessengerConfig.invitationMessages.accept;
             // 🛡️ ПРАВИЛО: Адрес уже должен быть в lowerCase из appState
-            const encryptedForRecipient = await this.encryptForContact(acceptMessage, currentContactAddress);
-            const encryptedForSender = await this.encryptForSelf(acceptMessage);
+            const encryptedForRecipient = await CryptoUtils.encryptForContact(acceptMessage, currentContactAddress, this.contract, this.contactListManager.contactsCache);
+            const encryptedForSender = CryptoUtils.encryptForSelf(acceptMessage, this.appState.userPublicKey, this.appState.userPrivateKey);
 
             await this.contract.methods.invitationAccept(
                 currentContactAddress, 
@@ -573,8 +584,8 @@ class ChatAreaManagerV3 {
         try {
             const rejectMessage = window.CryptoMessengerConfig.invitationMessages.reject;
             // 🛡️ ПРАВИЛО: Адрес уже должен быть в lowerCase из appState
-            const encryptedForRecipient = await this.encryptForContact(rejectMessage, currentContactAddress);
-            const encryptedForSender = await this.encryptForSelf(rejectMessage);
+            const encryptedForRecipient = await CryptoUtils.encryptForContact(rejectMessage, currentContactAddress, this.contract, this.contactListManager.contactsCache);
+            const encryptedForSender = CryptoUtils.encryptForSelf(rejectMessage, this.appState.userPublicKey, this.appState.userPrivateKey);
 
             await this.contract.methods.invitationReject(
                 currentContactAddress, 
@@ -603,8 +614,8 @@ class ChatAreaManagerV3 {
         try {
             const cancelMessage = window.CryptoMessengerConfig.invitationMessages.cancel;
             // 🛡️ ПРАВИЛО: Адрес уже должен быть в lowerCase из appState
-            const encryptedForRecipient = await this.encryptForContact(cancelMessage, currentContactAddress);
-            const encryptedForSender = await this.encryptForSelf(cancelMessage);
+            const encryptedForRecipient = await CryptoUtils.encryptForContact(cancelMessage, currentContactAddress, this.contract, this.contactListManager.contactsCache);
+            const encryptedForSender = CryptoUtils.encryptForSelf(cancelMessage, this.appState.userPublicKey, this.appState.userPrivateKey);
 
             await this.contract.methods.invitationCancel(
                 currentContactAddress, 
@@ -633,8 +644,8 @@ class ChatAreaManagerV3 {
             console.log('📤 V3: Отправляем сообщение:', messageText);
             
             // Шифруем сообщения для обеих сторон
-            const encryptedForRecipient = await this.encryptForContact(messageText, currentContact.address);
-            const encryptedForSender = await this.encryptForSelf(messageText);
+            const encryptedForRecipient = await CryptoUtils.encryptForContact(messageText, currentContact.address, this.contract, this.contactListManager.contactsCache);
+            const encryptedForSender = CryptoUtils.encryptForSelf(messageText, this.appState.userPublicKey, this.appState.userPrivateKey);
             
             // Отправляем через контракт V3
             await this.contract.methods.sendMessage(
@@ -663,8 +674,8 @@ class ChatAreaManagerV3 {
         try {
             const deactivateMessage = window.CryptoMessengerConfig.invitationMessages.deactivate;
             // 🛡️ ПРАВИЛО: Адрес уже должен быть в lowerCase из appState
-            const encryptedForRecipient = await this.encryptForContact(deactivateMessage, currentContactAddress);
-            const encryptedForSender = await this.encryptForSelf(deactivateMessage);
+            const encryptedForRecipient = await CryptoUtils.encryptForContact(deactivateMessage, currentContactAddress, this.contract, this.contactListManager.contactsCache);
+            const encryptedForSender = CryptoUtils.encryptForSelf(deactivateMessage, this.appState.userPublicKey, this.appState.userPrivateKey);
 
             await this.contract.methods.deactivateChat(
                 currentContactAddress, 
@@ -680,109 +691,12 @@ class ChatAreaManagerV3 {
         }
     }
 
-    /**
-     * Шифрование сообщения для контакта
-     */
-    async encryptForContact(message, contactAddress) {
-        try {
-            // 🛡️ ПРАВИЛО: Убеждаемся, что адрес в lowerCase
-            const addressLower = contactAddress.toLowerCase();
-            const contactPublicKey = await this.getContactPublicKey(addressLower);
-            return CryptoUtils.encryptMessage(message, contactPublicKey);
-        } catch (error) {
-            console.error(`❌ V3: Ошибка шифрования для контакта ${contactAddress}:`, error);
-            throw error;
-        }
-    }
+    // ❌ УДАЛЕНЫ дублированные функции шифрования:
+    // encryptForContact() - заменено на CryptoUtils.encryptForContact()
+    // encryptForSelf() - заменено на CryptoUtils.encryptForSelf()  
+    // getContactPublicKey() - заменено на CryptoUtils.getContactPublicKey()
 
-    /**
-     * Шифрование сообщения для себя
-     */
-    async encryptForSelf(message) {
-        console.log('🔐 V3: Шифруем для себя:', {
-            message: message,
-            userPublicKey: this.appState.userPublicKey.substring(0, 20) + '...',
-            userPrivateKey: this.appState.userPrivateKey.substring(0, 20) + '...'
-        });
-        
-        // Шифруем сообщение
-        const encryptedForSelf = CryptoUtils.encryptMessage(message, this.appState.userPublicKey);
-        
-        // 🧪 ТЕСТ: Сразу же расшифровываем то, что зашифровали
-        console.log('🧪 V3: ТЕСТ ШИФРОВКИ/РАСШИФРОВКИ:');
-        console.log('  📝 Исходное сообщение:', message);
-        console.log('  🔐 Зашифрованное сообщение для отправителя (для нас):', encryptedForSelf);
-        
-        try {
-            const decryptedBack = CryptoUtils.decryptMessage(encryptedForSelf, this.appState.userPrivateKey);
-            console.log('  🔓 Расшифрованное сообщение:', decryptedBack);
-            
-            if (decryptedBack === message) {
-                console.log('  ✅ ТЕСТ ПРОШЕЛ: Шифровка/расшифровка работает!');
-            } else {
-                console.log('  ❌ ТЕСТ НЕ ПРОШЕЛ: Расшифрованное сообщение не совпадает!');
-                console.log('    - Ожидалось:', message);
-                console.log('    - Получено:', decryptedBack);
-            }
-        } catch (testError) {
-            console.log('  ❌ ТЕСТ НЕ ПРОШЕЛ: Ошибка расшифровки:', testError.message);
-        }
-        
-        return encryptedForSelf;
-    }
-
-    /**
-     * Получение публичного ключа контакта
-     */
-    async getContactPublicKey(contactAddress) {
-        try {
-            // 🛡️ ПРАВИЛО: Используем lowercase для получения данных из кэша
-            const addressLower = contactAddress.toLowerCase();
-            const contactData = this.contactListManager.contactsCache.get(addressLower);
-            
-            if (contactData && contactData.publicKeyForEncode) {
-                console.log(`🔑 V3: Ключ для ${addressLower} найден в кэше`);
-                return contactData.publicKeyForEncode;
-            }
-
-            // Если в кэше нет, запрашиваем у контракта
-            console.log(`🔍 V3: Ключ для ${addressLower} не найден в кэше, запрашиваем у контракта...`);
-            const userSettings = await this.contract.methods.userSettings(addressLower).call();
-            const contactPublicKey = userSettings.publicKeyForEncode;
-
-            if (!contactPublicKey || contactPublicKey === '0x' || contactPublicKey.length < 60) {
-                throw new Error(`Пользователь ${addressLower} не зарегистрирован или имеет неверный ключ.`);
-            }
-
-            // Сохраняем в кэш для будущего использования
-            if (contactData) {
-                contactData.publicKeyForEncode = contactPublicKey;
-            } else {
-                // Этого быть не должно, если контакт есть в списке, но на всякий случай
-                console.warn(`⚠️ V3: Контакт ${addressLower} не был в кэше, но для него запрошен ключ.`);
-            }
-
-            console.log('🔑 V3: Публичный ключ для шифрования (publicKeyForEncode):', {
-                contactAddress: addressLower,
-                publicKey: contactPublicKey.substring(0, 20) + '...',
-                fullLength: contactPublicKey.length
-            });
-
-            return contactPublicKey;
-
-        } catch (error) {
-            console.error(`❌ V3: Не удалось получить публичный ключ для ${contactAddress}:`, error);
-            this.appState.showNotification(`Не удалось получить ключ для ${contactAddress.slice(0, 8)}...`, 'error');
-            throw error;
-        }
-    }
-
-    /**
-     * Генерация chatID (аналогично контракту)
-     */
-    generateChatId(address1, address2) {
-        return CryptoUtils.generateChatId(address1, address2);
-    }
+    // ❌ УДАЛЕНО: generateChatId() - дублирует CryptoUtils.generateChatId()
 
     /**
      * Прокрутка к последнему сообщению

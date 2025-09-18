@@ -1,37 +1,41 @@
 /**
- * AppState - Централизованное управление состоянием приложения
+ * AppState - Минимальный глобальный менеджер состояния приложения
+ * 
+ * 🎯 ЗОНА ОТВЕТСТВЕННОСТИ:
+ * ✅ Хранение глобальных данных пользователя (currentUser, ключи шифрования)
+ * ✅ Управление текущим выбранным контактом (currentContact)
+ * ✅ Система подписок для координации между модулями (subscribe/notify)
+ * ✅ Глобальные уведомления пользователю (showNotification)
+ * ✅ Централизованный Polling Coordinator для синхронизации данных
+ * 
+ * ❌ НЕ ОТВЕЧАЕТ ЗА:
+ * ❌ Управление списком контактов (→ ContactListManagerV3)
+ * ❌ Управление сообщениями и UI чата (→ ChatAreaManagerV3)
+ * ❌ Работу с блокчейном и контрактами (→ менеджеры)
+ * ❌ DOM манипуляции и UI логику (→ менеджеры)
+ * 
  * CryptoMessenger v3.0.0
  */
 
 class AppState {
     constructor() {
-        // Основные данные
+        // ✅ ТОЛЬКО глобальные данные пользователя
         this.currentUser = null;
         this.currentContact = null;
-        this.currentChat = null;
-        // V2 contacts array удален - используется ContactListManagerV3.contactsCache
-        this.messages = {};
-        
-        // Web3 и контракт
-        this.web3 = null;
-        this.contract = null;
-        
-        // Ключи шифрования
         this.userPrivateKey = null;
         this.userPublicKey = null;
         
-        // Системы
-        this.eventSystem = null;
-        this.chatUIManager = null;
+        // ✅ Ссылки на менеджеры для координации
         this.contactListManager = null;
+        this.chatUIManager = null;
         
-        // 🆕 PollingManager для координации между модулями
-        this.pollingManager = null;
-        
-        // Подписчики на изменения состояния
+        // ✅ Система подписок для координации между модулями
         this.subscribers = new Map();
         
-        console.log('📦 AppState v3.0.0 - Centralized state management loaded');
+        // ✅ PollingCoordinator для синхронизации данных
+        this.pollingCoordinator = null;
+        
+        console.log('📦 AppState v3.0.0 - Minimal global state manager loaded');
     }
 
     /**
@@ -120,61 +124,10 @@ class AppState {
         }
     }
 
-    /**
-     * Установка текущего чата
-     * @param {Object} chat - Объект чата из смарт-контракта
-     */
-    setCurrentChat(chat) {
-        const oldValue = this.currentChat;
-        this.currentChat = chat;
-        // Простое сравнение вместо JSON.stringify (проблема с BigInt)
-        if (oldValue !== chat) {
-            this.notify('currentChat', chat);
-        }
-    }
+    // ❌ УДАЛЕНЫ неиспользуемые методы:
+    // setCurrentChat, setWeb3AndContract, setEncryptionKeys, setSystems
 
-    /**
-     * Обновление списка контактов
-     * @param {Array} contacts - Массив контактов
-     */
-    // V2 метод setContacts удален
-
-    // V2 метод addContact удален
-
-    /**
-     * Установка Web3 и контракта
-     * @param {Object} web3 - Экземпляр Web3
-     * @param {Object} contract - Экземпляр контракта
-     */
-    setWeb3AndContract(web3, contract) {
-        this.web3 = web3;
-        this.contract = contract;
-        this.notify('web3', { web3, contract });
-    }
-
-    /**
-     * Установка ключей шифрования
-     * @param {string} privateKey - Приватный ключ
-     * @param {string} publicKey - Публичный ключ
-     */
-    setEncryptionKeys(privateKey, publicKey) {
-        this.userPrivateKey = privateKey;
-        this.userPublicKey = publicKey;
-        this.notify('encryptionKeys', { privateKey, publicKey });
-    }
-
-    /**
-     * Установка систем (eventSystem, chatUIManager)
-     * @param {Object} eventSystem - Система событий
-     * @param {Object} chatUIManager - Менеджер UI чата
-     */
-    setSystems(eventSystem, chatUIManager) {
-        this.eventSystem = eventSystem;
-        this.chatUIManager = chatUIManager;
-        this.notify('systems', { eventSystem, chatUIManager });
-    }
-
-    // ========== УТИЛИТНЫЕ МЕТОДЫ ==========
+    // ✅ УТИЛИТНЫЕ МЕТОДЫ (только используемые)
 
     /**
      * Проверка, выбран ли контакт
@@ -184,64 +137,8 @@ class AppState {
         return this.currentContact !== null;
     }
 
-    /**
-     * Проверка, активен ли текущий чат
-     * @returns {boolean}
-     */
-    isChatActive() {
-        return this.currentChat && this.currentChat.isActive;
-    }
-
-    /**
-     * Проверка, ожидает ли чат принятия приглашения
-     * @returns {boolean}
-     */
-    isChatNeedAcceptance() {
-        return this.currentChat && this.currentChat.isNeedAcceptance;
-    }
-
-    /**
-     * Проверка, является ли текущий пользователь отправителем приглашения
-     * @returns {boolean}
-     */
-    isCurrentUserInviter() {
-        return this.currentChat && 
-               this.currentChat.inviter && 
-               this.currentChat.inviter.toLowerCase() === this.currentUser?.toLowerCase();
-    }
-
-    /**
-     * Полная очистка состояния
-     */
-    clearAll() {
-        this.currentUser = null;
-        this.currentContact = null;
-        this.currentChat = null;
-        // V2 contacts array удален
-        this.messages = {};
-        this.userPrivateKey = null;
-        this.userPublicKey = null;
-        
-        this.notify('cleared', true);
-    }
-
-    /**
-     * Получение полного состояния для отладки
-     * @returns {Object}
-     */
-    getDebugState() {
-        return {
-            currentUser: this.currentUser,
-            currentContact: this.currentContact,
-            currentChat: this.currentChat,
-            contactsCount: this.contacts.length,
-            messagesCount: Object.keys(this.messages).length,
-            hasEncryptionKeys: !!(this.userPrivateKey && this.userPublicKey),
-            hasWeb3: !!this.web3,
-            hasContract: !!this.contract,
-            hasSystems: !!(this.eventSystem && this.chatUIManager)
-        };
-    }
+    // ❌ УДАЛЕНЫ неиспользуемые V2 методы:
+    // isChatActive, isChatNeedAcceptance, isCurrentUserInviter, clearAll, getDebugState
 
     // ========== ГЛОБАЛЬНЫЕ УВЕДОМЛЕНИЯ ==========
 
@@ -312,77 +209,126 @@ class AppState {
     }
 
     //================================================================================
-    // 🆕 POLLING MANAGER (перенесено из DecentralizedEventSystemV3)
+    // ✅ POLLING COORDINATOR - Централизованная координация обновлений данных
     //================================================================================
 
     /**
-     * Инициализация PollingManager
+     * Инициализация PollingCoordinator
      */
-    initializePollingManager(chatManager, contactManager) {
-        this.pollingManager = {
+    initializePollingCoordinator(chatManager, contactListManager, contract, currentUser) {
+        this.pollingCoordinator = {
             chatManager: chatManager,
-            contactManager: contactManager,
-            pollingInterval: 15000,
+            contactListManager: contactListManager,
+            contract: contract,
+            currentUser: currentUser,
+            pollingInterval: window.CryptoMessengerConfig.pollingConfig.POLLING_INTERVAL,
             checkInterval: 1000,
             isActive: false,
             intervalId: null,
             lastUpdateTime: 0
         };
         
-        console.log('🔄 V3: PollingManager инициализирован');
+        console.log('🔄 V3: PollingCoordinator инициализирован');
     }
 
     /**
      * Запуск polling
      */
     startPolling() {
-        if (!this.pollingManager || this.pollingManager.isActive) {
+        if (!this.pollingCoordinator || this.pollingCoordinator.isActive) {
             return;
         }
         
-        this.pollingManager.isActive = true;
-        this.pollingManager.lastUpdateTime = Date.now();
+        this.pollingCoordinator.isActive = true;
+        this.pollingCoordinator.lastUpdateTime = Date.now();
         
-        this.pollingManager.intervalId = setInterval(() => {
+        this.pollingCoordinator.intervalId = setInterval(() => {
             this.checkForUpdates();
-        }, this.pollingManager.checkInterval);
+        }, this.pollingCoordinator.checkInterval);
         
-        console.log('🔄 V3: Polling запущен через AppState');
+        console.log('🔄 V3: Polling запущен через PollingCoordinator');
     }
 
     /**
      * Остановка polling
      */
     stopPolling() {
-        if (this.pollingManager && this.pollingManager.intervalId) {
-            clearInterval(this.pollingManager.intervalId);
-            this.pollingManager.intervalId = null;
-            this.pollingManager.isActive = false;
+        if (this.pollingCoordinator && this.pollingCoordinator.intervalId) {
+            clearInterval(this.pollingCoordinator.intervalId);
+            this.pollingCoordinator.intervalId = null;
+            this.pollingCoordinator.isActive = false;
             console.log('⏹️ V3: Polling остановлен');
         }
     }
 
     /**
-     * Проверка обновлений
+     * Проверка обновлений (строго по алгоритму пункты 2-9)
      */
     async checkForUpdates() {
-        if (!this.pollingManager) return;
+        if (!this.pollingCoordinator) return;
         
         const now = Date.now();
-        if (now - this.pollingManager.lastUpdateTime < this.pollingManager.pollingInterval) {
+        if (now - this.pollingCoordinator.lastUpdateTime < this.pollingCoordinator.pollingInterval) {
             return;
         }
         
-        this.pollingManager.lastUpdateTime = now;
+        this.pollingCoordinator.lastUpdateTime = now;
         
         try {
-            // Polling сообщений через ChatManager
-            const newMessages = await this.pollingManager.chatManager.pollForNewMessages();
+            // 🆕 ПУНКТ 2: Каждые 15 секунд polling проверяет наличие новых сообщений
+            const startIndex = this.pollingCoordinator.chatManager.messLastIndex + 1;
+            const endIndex = startIndex - 1 + window.CryptoMessengerConfig.pollingConfig.MESSAGES_BATCH_SIZE;
             
-            if (newMessages.length > 0) {
-                // Обработка новых сообщений
-                await this.processNewMessages(newMessages);
+            console.log(`🔍 V3: Polling сообщений (алгоритм п.2): ${startIndex} - ${endIndex}`);
+            
+            const newMessages = await this.pollingCoordinator.contract.methods.getMessagesPaginated(
+                startIndex, 
+                endIndex
+            ).call({ from: this.pollingCoordinator.currentUser });
+            
+            if (newMessages.length === 0) {
+                console.log('📭 V3: Новых сообщений нет');
+                return;
             }
+            
+            // 🆕 ПУНКТ 3: Создаём множество, извлекая chatID из новых полученных сообщений
+            const newChatIDs = new Set(newMessages.map(msg => msg.chatID));
+            console.log(`💬 V3: Обнаружены сообщения в ${newChatIDs.size} чатах`);
+            
+            // 🆕 ПУНКТ 4: Проверяем, есть ли среди этого множества chatID неизвестные чаты
+            const unknownChatIDs = Array.from(newChatIDs).filter(chatID => {
+                return !this.pollingCoordinator.contactListManager.getAddressByChatId(chatID); // O(1) поиск!
+            });
+            
+            const isExistsNewChatIDs = unknownChatIDs.length > 0;
+            console.log(`🔍 V3: isExistsNewChatIDs = ${isExistsNewChatIDs} (неизвестных чатов: ${unknownChatIDs.length})`);
+            
+            // 🆕 ПУНКТ 5: Если isExistsNewChatIDs==false, то переходим к пункту 7, иначе к пункту 6
+            if (isExistsNewChatIDs) {
+                // 🆕 ПУНКТ 6: Пытаемся загрузить очередные контакты
+                await this.loadNewContactsBatch();
+                
+                // 🆕 ПУНКТЫ 10-12: Отдельный алгоритм отрисовки UI после загрузки контактов
+                this.renderUIUpdates();
+                
+                // После этого ВЫХОДИМ из этого алгоритма!
+                console.log('🚪 V3: Загружены новые контакты, ВЫХОДИМ из алгоритма (как требует пункт 6)');
+                return;
+            }
+            
+            // 🆕 ПУНКТ 7: Сохраняем новые сообщения в памяти (не в интерфейсе, а в данных)
+            await this.saveNewMessagesToModel(newMessages);
+            
+            // 🆕 ПУНКТ 8: Если количество новых сообщений > 0, то вызываем пересортировку
+            if (newMessages.length > 0) {
+                this.pollingCoordinator.contactListManager.resortAllContacts();
+            }
+            
+            // 🆕 ПУНКТ 9: Конец алгоритма загрузки данных
+            console.log(`✅ V3: Алгоритм загрузки данных завершен, обработано ${newMessages.length} сообщений`);
+            
+            // 🆕 ПУНКТЫ 10-12: Отдельный алгоритм отрисовки UI (Model-View-Controller)
+            this.renderUIUpdates();
             
         } catch (error) {
             // Подавляем ошибки сети
@@ -390,91 +336,177 @@ class AppState {
     }
 
     /**
-     * Обработка новых сообщений
+     * ПУНКТ 6: Загрузка новых контактов (строго по алгоритму)
      */
-    async processNewMessages(newMessages) {
-        // Группируем по чатам
-        const messagesByChat = {};
-        const chatFrontendStates = {};
-        const newChatIDs = new Set();
+    async loadNewContactsBatch() {
+        const startIndex = this.pollingCoordinator.contactListManager.contactLastIndex + 1;
+        const endIndex = startIndex - 1 + window.CryptoMessengerConfig.pollingConfig.CONTACTS_BATCH_SIZE;
         
-        newMessages.forEach(msg => {
-            if (!messagesByChat[msg.chatID]) {
-                messagesByChat[msg.chatID] = [];
+        console.log(`📇 V3: Загружаем контакты (алгоритм п.6): ${startIndex} - ${endIndex}`);
+        
+        const newContacts = await this.pollingCoordinator.contract.methods.getContactsPaginated(
+            startIndex, 
+            endIndex
+        ).call({ from: this.pollingCoordinator.currentUser });
+        
+        if (newContacts && newContacts.contacts && newContacts.contacts.length > 0) {
+            // Сохраняем новые контакты-чаты в памяти (маппинги) - НЕ в интерфейсе!
+            const formattedContacts = [];
+            for (let i = 0; i < newContacts.contacts.length; i++) {
+                formattedContacts.push({
+                    address: newContacts.contacts[i],
+                    name: newContacts.names[i],
+                    publicKeyForEncode: newContacts.publicKeys[i],
+                    lastMessageTimestamp: 0
+                });
+                
+                // Обновляем contactLastIndex
+                this.pollingCoordinator.contactListManager.contactLastIndex = startIndex + i;
             }
-            messagesByChat[msg.chatID].push(msg);
             
-            // Определяем frontend состояние
-            chatFrontendStates[msg.chatID] = this.chatUIManager.determineFrontendChatStateFromMessage(msg);
-            newChatIDs.add(msg.chatID);
-        });
-        
-        // Проверяем новые контакты
-        await this.checkForNewContacts(Array.from(newChatIDs));
-        
-        // Обновляем UI
-        this.updateMessagesUI(messagesByChat, chatFrontendStates);
-    }
-
-    /**
-     * Проверка новых контактов
-     */
-    async checkForNewContacts(chatIDs) {
-        const unknownChatIDs = chatIDs.filter(chatID => {
-            const contactAddress = this.contactListManager.findContactByChatID(chatID);
-            return !contactAddress;
-        });
-        
-        if (unknownChatIDs.length > 0) {
-            console.log(`🚨 V3: Обнаружены новые контакты в ${unknownChatIDs.length} чатах`);
-            await this.contactListManager.loadNewContacts();
+            // Добавляем в данные (Model), но НЕ в UI (View)
+            this.pollingCoordinator.contactListManager.addContactsToModel(formattedContacts);
+            
+            console.log(`✅ V3: Загружено ${formattedContacts.length} новых контактов в модель данных`);
         }
     }
 
     /**
-     * Обновление UI сообщений
+     * ПУНКТ 7: Сохранение новых сообщений в памяти (строго по алгоритму)
      */
-    updateMessagesUI(messagesByChat, chatFrontendStates) {
-        Object.keys(messagesByChat).forEach(chatID => {
-            const messages = messagesByChat[chatID];
-            const frontendState = chatFrontendStates[chatID];
+    async saveNewMessagesToModel(newMessages) {
+        console.log(`💾 V3: Сохраняем ${newMessages.length} сообщений в модель данных (алгоритм п.7)`);
+        
+        // 🆕 Добавляем новые сообщения в allUserMessages для корректной фильтрации
+        if (!this.pollingCoordinator.chatManager.allUserMessages) {
+            this.pollingCoordinator.chatManager.allUserMessages = [];
+        }
+        
+        // При сохранении каждого из сообщений, последовательно (по одному):
+        newMessages.forEach((message, index) => {
+            // Добавляем сообщение в allUserMessages для фильтрации по чатам
+            this.pollingCoordinator.chatManager.allUserMessages.push(message);
             
-            // Обновляем состояние чата в ContactListManager
-            this.contactListManager.setChatState(chatID, frontendState);
+            // 7.1. обновляем данные по контактам-чатам
+            const contactAddress = this.pollingCoordinator.contactListManager.getAddressByChatId(message.chatID);
             
-            // Если это текущий открытый чат, обновляем UI
-            if (this.chatUIManager && this.chatUIManager.currentChatID === chatID) {
-                messages.forEach(msg => {
-                    this.chatUIManager.addMessageToUI(msg);
-                });
-                this.chatUIManager.scrollToBottom();
-            }
-            
-            // Обновляем последнее сообщение в списке контактов
-            if (messages.length > 0) {
-                const lastMessage = messages[messages.length - 1];
-                const contactAddress = this.contactListManager.findContactByChatID(chatID);
-                
-                if (contactAddress) {
-                    let decryptedText = '';
-                    try {
-                        decryptedText = CryptoUtils.decryptMessage(lastMessage.encryptedMessage, this.userPrivateKey);
-                    } catch (error) {
-                        decryptedText = '[Не удалось расшифровать]';
-                    }
-                    
-                    this.contactListManager.updateLastMessage(
-                        contactAddress, // Передаем address (уже в правильном формате)
-                        parseInt(lastMessage.messIndex),
-                        decryptedText,
-                        parseInt(lastMessage.messageTimestamp) * 1000,
-                        frontendState,
-                        lastMessage.isFromMe
-                    );
+            if (contactAddress) {
+                // Расшифровываем сообщение
+                let decryptedText = '';
+                try {
+                    decryptedText = CryptoUtils.decryptMessage(message.encryptedMessage, this.userPrivateKey);
+                } catch (error) {
+                    decryptedText = '[Не удалось расшифровать]';
                 }
+                
+                // Определяем frontend состояние
+                const frontendState = this.pollingCoordinator.chatManager.determineFrontendChatStateFromMessage(message);
+                
+                // Обновляем данные контакта (поля: последнее сообщение, датавремя, статус)
+                this.pollingCoordinator.contactListManager.updateLastMessage(
+                    contactAddress,
+                    parseInt(message.messIndex),
+                    decryptedText,
+                    parseInt(message.messageTimestamp) * 1000,
+                    frontendState,
+                    message.isFromMe
+                );
+                
+                console.log(`📨 V3: Обновлены данные контакта ${contactAddress} (п.7.1)`);
+                
+                // ✅ Строго Model-View-Controller: только обновляем данные, НЕ отрисовываем UI
+                console.log(`📊 V3: Данные контакта обновлены, отрисовка UI будет выполнена отдельно`);
             }
+            
+            // Обновляем messLastIndex
+            this.pollingCoordinator.chatManager.messLastIndex = Math.max(this.pollingCoordinator.chatManager.messLastIndex, parseInt(message.messIndex));
         });
+        
+        console.log(`✅ V3: Все сообщения сохранены в модель, messLastIndex = ${this.pollingCoordinator.chatManager.messLastIndex}`);
     }
+
+    //================================================================================
+    // ✅ UI RENDERING ALGORITHM - Отдельный алгоритм отрисовки UI (пункты 10-12)
+    //================================================================================
+
+    /**
+     * ПУНКТЫ 10-12: Отдельный алгоритм отрисовки UI (Model-View-Controller)
+     * Выполняется ПОСЛЕ обновления данных, строго разделяя Model и View
+     */
+    renderUIUpdates() {
+        console.log(`🎨 V3: Запуск алгоритма отрисовки UI (пункты 10-12)`);
+        
+        try {
+            // ПУНКТ 10: отрисовка изменившихся контактов
+            this.renderUpdatedContacts();
+            
+            // ПУНКТ 11: отрисовка новых сообщений в чате выбранного контакта-чата
+            this.renderNewMessagesInCurrentChat();
+            
+            // ПУНКТ 12: обновление области чата в зависимости от состояния
+            this.updateChatAreaForCurrentState();
+            
+            console.log(`✅ V3: Алгоритм отрисовки UI завершен`);
+            
+        } catch (error) {
+            console.error(`❌ V3: Ошибка в алгоритме отрисовки UI:`, error);
+        }
+    }
+
+    /**
+     * ПУНКТ 10: Отрисовка изменившихся контактов
+     */
+    renderUpdatedContacts() {
+        console.log(`🎨 V3: Пункт 10 - Отрисовка изменившихся контактов`);
+        
+        // Отрисовываем все контакты из модели данных в UI
+        this.pollingCoordinator.contactListManager.renderContactsFromModel();
+    }
+
+    /**
+     * ПУНКТ 11: Отрисовка новых сообщений в чате выбранного контакта-чата
+     */
+    renderNewMessagesInCurrentChat() {
+        console.log(`🎨 V3: Пункт 11 - Отрисовка новых сообщений в текущем чате`);
+        
+        const currentContact = this.currentContact;
+        if (!currentContact) {
+            console.log(`ℹ️ V3: Нет выбранного контакта, пропускаем отрисовку сообщений`);
+            return;
+        }
+
+        // Получаем новые сообщения для текущего чата из allUserMessages
+        const chatManager = this.pollingCoordinator.chatManager;
+        if (chatManager.allUserMessages && chatManager.allUserMessages.length > 0) {
+            const currentChatID = CryptoUtils.generateChatId(this.currentUser, currentContact.address);
+            
+            // Фильтруем сообщения для текущего чата
+            const currentChatMessages = chatManager.allUserMessages.filter(msg => msg.chatID === currentChatID);
+            
+            // ✅ ИСПРАВЛЕНИЕ MVC: НЕ изменяем данные модели, только передаем в View
+            chatManager.renderMessagesForChat(currentChatMessages);
+        }
+    }
+
+    /**
+     * ПУНКТ 12: Обновление области чата в зависимости от состояния
+     */
+    updateChatAreaForCurrentState() {
+        console.log(`🎨 V3: Пункт 12 - Обновление области чата в зависимости от состояния`);
+        
+        const currentContact = this.currentContact;
+        if (!currentContact) {
+            console.log(`ℹ️ V3: Нет выбранного контакта, пропускаем обновление области чата`);
+            return;
+        }
+
+        // Определяем состояние чата и обновляем UI
+        const chatManager = this.pollingCoordinator.chatManager;
+        chatManager.updateChatState();
+    }
+
+
+
 }
 
 // Экспорт для использования в других модулях

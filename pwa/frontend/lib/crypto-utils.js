@@ -1,6 +1,23 @@
 /**
- * Утилиты для работы с криптографией в CryptoMessenger
- * Версия: 2.0.0
+ * CryptoUtils - Утилиты для работы с криптографией в CryptoMessenger
+ * 
+ * 🎯 ЗОНА ОТВЕТСТВЕННОСТИ:
+ * ✅ ECIES шифрование/дешифрование сообщений (encryptMessage, decryptMessage)
+ * ✅ Генерация ключей шифрования (generateEncryptionKeys)
+ * ✅ Генерация chatID (generateChatId)
+ * ✅ Универсальные функции шифрования (encryptForContact, encryptForSelf)
+ * ✅ Получение публичных ключей контактов (getContactPublicKey)
+ * ✅ Генерация аватаров (generateJazziconDataURL, generateInitialsAvatar)
+ * ✅ Конвертация hex ↔ Uint8Array (convertHexIntoUint8Array, convertUint8ArrayIntoHex)
+ * ✅ Криптографические утилиты (simpleHash, getAvatar)
+ * 
+ * ❌ НЕ ОТВЕЧАЕТ ЗА:
+ * ❌ Управление состоянием приложения (→ AppState)
+ * ❌ UI и DOM манипуляции (→ Utils, менеджеры)
+ * ❌ Работу с контрактами и блокчейном (→ менеджеры)
+ * ❌ Логику чатов и контактов (→ менеджеры)
+ * 
+ * CryptoMessenger v3.0.0
  */
 
 // Jazzicon будет загружен через script тег в HTML
@@ -432,8 +449,120 @@ class CryptoUtils {
             throw new Error(`Не удалось сгенерировать ключи: ${error.message}`);
         }
     }
+
+    //================================================================================
+    // 🆕 УНИВЕРСАЛЬНЫЕ ФУНКЦИИ ШИФРОВАНИЯ (перенесено из менеджеров)
+    //================================================================================
+
+    /**
+     * Получение публичного ключа контакта из контракта или кэша
+     * @param {string} contactAddress - Адрес контакта
+     * @param {Object} contract - Экземпляр контракта
+     * @param {Map} contactsCache - Кэш контактов (опционально)
+     * @returns {string} Публичный ключ контакта
+     */
+    static async getContactPublicKey(contactAddress, contract, contactsCache = null) {
+        try {
+            // 🛡️ ПРАВИЛО: Используем lowercase для получения данных
+            const addressLower = contactAddress.toLowerCase();
+            
+            // Сначала пытаемся найти в кэше (если передан)
+            if (contactsCache) {
+                const contactData = contactsCache.get(addressLower);
+                if (contactData && contactData.publicKeyForEncode) {
+                    console.log(`🔑 V3: Ключ для ${addressLower} найден в кэше`);
+                    return contactData.publicKeyForEncode;
+                }
+            }
+
+            // Если в кэше нет, запрашиваем у контракта
+            console.log(`🔍 V3: Ключ для ${addressLower} не найден в кэше, запрашиваем у контракта...`);
+            const userSettings = await contract.methods.userSettings(addressLower).call();
+            const contactPublicKey = userSettings.publicKeyForEncode;
+
+            if (!contactPublicKey || contactPublicKey === '0x' || contactPublicKey.length < 60) {
+                throw new Error(`Пользователь ${addressLower} не зарегистрирован или имеет неверный ключ.`);
+            }
+
+            // Сохраняем в кэш для будущего использования (если кэш передан)
+            if (contactsCache && contactsCache.has(addressLower)) {
+                const contactData = contactsCache.get(addressLower);
+                contactData.publicKeyForEncode = contactPublicKey;
+            }
+
+            console.log('🔑 V3: Публичный ключ для шифрования (publicKeyForEncode):', {
+                contactAddress: addressLower,
+                publicKey: contactPublicKey.substring(0, 20) + '...',
+                fullLength: contactPublicKey.length
+            });
+
+            return contactPublicKey;
+
+        } catch (error) {
+            console.error(`❌ V3: Не удалось получить публичный ключ для ${contactAddress}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Шифрование сообщения для контакта (универсальная функция)
+     * @param {string} message - Сообщение для шифрования
+     * @param {string} contactAddress - Адрес контакта
+     * @param {Object} contract - Экземпляр контракта
+     * @param {Map} contactsCache - Кэш контактов (опционально)
+     * @returns {string} Зашифрованное сообщение
+     */
+    static async encryptForContact(message, contactAddress, contract, contactsCache = null) {
+        try {
+            const addressLower = contactAddress.toLowerCase();
+            const contactPublicKey = await this.getContactPublicKey(addressLower, contract, contactsCache);
+            return this.encryptMessage(message, contactPublicKey);
+        } catch (error) {
+            console.error(`❌ V3: Ошибка шифрования для контакта ${contactAddress}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Шифрование сообщения для себя (универсальная функция)
+     * @param {string} message - Сообщение для шифрования
+     * @param {string} userPublicKey - Публичный ключ пользователя
+     * @param {string} userPrivateKey - Приватный ключ пользователя (для тестирования)
+     * @returns {string} Зашифрованное сообщение
+     */
+    static encryptForSelf(message, userPublicKey, userPrivateKey = null) {
+        try {
+            // Шифруем сообщение
+            const encryptedForSelf = this.encryptMessage(message, userPublicKey);
+            
+            // 🧪 ТЕСТ: Проверяем шифровку/расшифровку если передан приватный ключ
+            if (userPrivateKey) {
+                console.log('🧪 V3: ТЕСТ ШИФРОВКИ/РАСШИФРОВКИ:');
+                console.log('  📝 Исходное сообщение:', message);
+                console.log('  🔐 Зашифрованное сообщение:', encryptedForSelf);
+                
+                try {
+                    const decryptedBack = this.decryptMessage(encryptedForSelf, userPrivateKey);
+                    console.log('  🔓 Расшифрованное сообщение:', decryptedBack);
+                    
+                    if (decryptedBack === message) {
+                        console.log('  ✅ ТЕСТ ПРОШЕЛ: Шифровка/расшифровка работает!');
+                    } else {
+                        console.log('  ❌ ТЕСТ НЕ ПРОШЕЛ: Расшифрованное сообщение не совпадает!');
+                    }
+                } catch (testError) {
+                    console.log('  ❌ ТЕСТ НЕ ПРОШЕЛ: Ошибка расшифровки:', testError.message);
+                }
+            }
+            
+            return encryptedForSelf;
+        } catch (error) {
+            console.error('❌ V3: Ошибка шифрования для себя:', error);
+            throw error;
+        }
+    }
 }
 
 // Логируем загрузку модуля
-console.log('📦 CryptoUtils v3.0.0 - Real ECIES encryption implemented loaded');
+console.log('📦 CryptoUtils v3.0.0 - ECIES + универсальные функции шифрования загружены');
 console.log('🔧 File: crypto-utils.js');

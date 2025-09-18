@@ -32,6 +32,13 @@ window.CryptoMessengerConfig = {
         deactivate: 'I deactivate this chat'
     },
     
+    // Константы для polling алгоритма V3
+    pollingConfig: {
+        MESSAGES_BATCH_SIZE: 100,    // Размер пачки сообщений (пункт 2.6 в алгоритме)
+        CONTACTS_BATCH_SIZE: 100,    // Размер пачки контактов (пункт 6.4 в алгоритме)
+        POLLING_INTERVAL: 15000      // 15 секунд между проверками
+    },
+    
     // Таймаут для отзыва приглашений (загружается из контракта)
     INVITATION_TIMEOUT: null, // Будет загружен из contract.INVITATION_TIMEOUT()
     

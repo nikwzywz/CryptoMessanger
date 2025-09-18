@@ -1,6 +1,19 @@
 /**
  * Утилиты общего назначения для CryptoMessenger
- * v1.1.0 - Добавлена поддержка английского языка в formatTime
+ * 
+ * 🎯 ЗОНА ОТВЕТСТВЕННОСТИ:
+ * ✅ Форматирование времени и дат (formatTime)
+ * ✅ Работа с адресами (shortenAddress, getAvatarColor)
+ * ✅ Статусы и приоритеты чатов (getStatusText, getStatePriority)
+ * ✅ Временные вычисления (calculateDaysSince, checkTimeout)
+ * ✅ Создание UI элементов сообщений (createMessageElement)
+ * 
+ * ❌ НЕ ОТВЕЧАЕТ ЗА:
+ * ❌ Криптографию и шифрование (→ CryptoUtils)
+ * ❌ Работу с блокчейном (→ менеджеры)
+ * ❌ Управление состоянием (→ AppState, менеджеры)
+ * 
+ * v1.2.0 - Добавлены функции чатов и UI элементов
  */
 
 class Utils {
@@ -72,6 +85,116 @@ class Utils {
         return `${address.slice(0, startChars)}...${address.slice(-endChars)}`;
     }
 
+    //================================================================================
+    // 🆕 ФУНКЦИИ ЧАТОВ И СТАТУСОВ (перенесено из менеджеров)
+    //================================================================================
+
+    /**
+     * Получение текста статуса для отображения (перенесено из ContactListManagerV3)
+     * @param {string} frontendState - Состояние чата
+     * @returns {string} Текст статуса
+     */
+    static getStatusText(frontendState) {
+        switch (frontendState) {
+            case 'allowedWrite':
+                return 'Активный чат';
+            case 'notAllowedWrite':
+                return 'Чат заблокирован';
+            case 'waitingAcceptanceFromMe':
+                return 'Входящее приглашение';
+            case 'waitingAcceptanceFromOther':
+                return 'Ожидание ответа';
+            case 'unknown':
+            default:
+                return 'Новый контакт';
+        }
+    }
+
+    /**
+     * Определение приоритета состояния контакта для сортировки (перенесено из ContactListManagerV3)
+     * @param {string} frontendState - Состояние чата
+     * @returns {number} Приоритет (чем меньше, тем выше)
+     */
+    static getStatePriority(frontendState) {
+        const statePriority = {
+            'waitingAcceptanceFromMe': 1,    // Входящие приглашения - САМЫЙ ВЫСОКИЙ
+            'allowedWrite': 2,               // Активные чаты - высокий
+            'waitingAcceptanceFromOther': 3, // Исходящие приглашения - средний
+            'notAllowedWrite': 4,            // Заблокированные - САМЫЙ НИЗКИЙ
+            'unknown': 5                     // Неизвестное состояние - низший приоритет
+        };
+        return statePriority[frontendState] || 5;
+    }
+
+    //================================================================================
+    // 🆕 ВРЕМЕННЫЕ ВЫЧИСЛЕНИЯ (перенесено из ChatAreaManagerV3)
+    //================================================================================
+
+    /**
+     * Расчет количества дней между двумя временными метками
+     * @param {number} fromTimestamp - Начальная временная метка (миллисекунды)
+     * @param {number} toTimestamp - Конечная временная метка (миллисекунды, по умолчанию текущее время)
+     * @returns {number} Количество дней
+     */
+    static calculateDaysSince(fromTimestamp, toTimestamp = Date.now()) {
+        if (!fromTimestamp || fromTimestamp <= 0) {
+            return 0;
+        }
+        
+        const daysSince = Math.floor((toTimestamp - fromTimestamp) / (24 * 60 * 60 * 1000));
+        return Math.max(0, daysSince);
+    }
+
+    /**
+     * Проверка истечения таймаута
+     * @param {number} lastMessageTimestamp - Время последнего сообщения (миллисекунды)
+     * @param {number} timeoutThreshold - Порог таймаута (миллисекунды)
+     * @returns {boolean} true если таймаут истек
+     */
+    static checkTimeout(lastMessageTimestamp, timeoutThreshold) {
+        if (!lastMessageTimestamp || lastMessageTimestamp <= 0) {
+            return false;
+        }
+        
+        const now = Date.now();
+        const timeSinceLastMessage = now - lastMessageTimestamp;
+        
+        return timeSinceLastMessage > timeoutThreshold;
+    }
+
+    //================================================================================
+    // 🆕 UI ЭЛЕМЕНТЫ (перенесено из ChatAreaManagerV3)
+    //================================================================================
+
+    /**
+     * Создание DOM элемента сообщения (перенесено из ChatAreaManagerV3)
+     * @param {string} text - Текст сообщения
+     * @param {boolean} isFromMe - Исходящее ли сообщение
+     * @param {Date} timestamp - Время сообщения
+     * @param {number} messIndex - Индекс сообщения
+     * @returns {HTMLElement} DOM элемент сообщения
+     */
+    static createMessageElement(text, isFromMe, timestamp, messIndex) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${isFromMe ? 'outgoing' : 'incoming'}`;
+        messageDiv.setAttribute('data-mess-index', messIndex);
+        
+        const messageContent = document.createElement('div');
+        messageContent.className = 'message-content';
+        messageContent.textContent = text;
+        
+        const messageTime = document.createElement('div');
+        messageTime.className = 'message-time';
+        messageTime.textContent = timestamp.toLocaleTimeString('ru-RU', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        
+        messageDiv.appendChild(messageContent);
+        messageDiv.appendChild(messageTime);
+        
+        return messageDiv;
+    }
 
 }
 
@@ -85,4 +208,4 @@ if (typeof window !== 'undefined') {
     window.Utils = Utils;
 }
 
-console.log('📦 Utils v1.1.0 - Утилиты общего назначения загружены (English/Русский)');
+console.log('📦 Utils v1.2.0 - Утилиты общего назначения загружены (English/Русский + чаты/UI)');
