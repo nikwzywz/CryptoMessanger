@@ -510,20 +510,16 @@ class ContactListManagerV3 {
         // Обновляем последнее сообщение
         const lastMessageElement = contactElement.querySelector('.contact-last-message');
         if (lastMessageElement) {
-            if (contactData.lastMessageText) {
-                // Ограничиваем длину текста сообщения для основного отображения
-                const shortText = contactData.lastMessageText.length > 40 ? 
-                    contactData.lastMessageText.substring(0, 40) + '...' : 
-                    contactData.lastMessageText;
-                
-                lastMessageElement.textContent = shortText;
-                lastMessageElement.title = contactData.lastMessageText; // Полный текст в tooltip
-            } else {
-                // Показываем статус если нет сообщений
-                const statusText = Utils.getStatusText(contactData.frontendState);
-                lastMessageElement.textContent = statusText;
-                lastMessageElement.title = statusText;
-            }
+            // Показываем текст последнего сообщения (если есть)
+            const displayText = contactData.lastMessageText || '';
+            
+            // Ограничиваем длину текста для отображения
+            const shortText = displayText.length > 40 ? 
+                displayText.substring(0, 40) + '...' : 
+                displayText;
+            
+            lastMessageElement.textContent = shortText;
+            lastMessageElement.title = displayText; // Полный текст в tooltip
         }
 
         // Обновляем отладочную информацию если включен debugMode
@@ -585,22 +581,17 @@ class ContactListManagerV3 {
                 frontendState: contactData.frontendState
             });
             
-            if (contactData.lastMessageText) {
-                // Ограничиваем длину текста сообщения для основного отображения
-                const shortText = contactData.lastMessageText.length > 40 ? 
-                    contactData.lastMessageText.substring(0, 40) + '...' : 
-                    contactData.lastMessageText;
-                
-                lastMessageElement.textContent = shortText;
-                lastMessageElement.title = contactData.lastMessageText; // Полный текст в tooltip
-                console.log(`✅ V3: UI обновлен для ${address}: "${shortText}"`);
-            } else {
-                // Показываем статус если нет сообщений
-                const statusText = Utils.getStatusText(contactData.frontendState);
-                lastMessageElement.textContent = statusText;
-                lastMessageElement.title = statusText;
-                console.log(`ℹ️ V3: Показан статус для ${address}: "${statusText}"`);
-            }
+            // Показываем текст последнего сообщения (если есть)
+            const displayText = contactData.lastMessageText || '';
+            
+            // Ограничиваем длину текста для отображения
+            const shortText = displayText.length > 40 ? 
+                displayText.substring(0, 40) + '...' : 
+                displayText;
+            
+            lastMessageElement.textContent = shortText;
+            lastMessageElement.title = displayText; // Полный текст в tooltip
+            console.log(`✅ V3: UI обновлен для ${address}: "${shortText}"`);
         }
 
         // 🆕 Обновляем отладочную информацию если включен debugMode
