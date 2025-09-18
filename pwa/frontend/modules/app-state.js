@@ -225,7 +225,7 @@ class AppState {
             checkInterval: 1000,
             isActive: false,
             intervalId: null,
-            lastUpdateTime: 0
+            lastUpdateTime: new Date('2000-01-01').getTime()
         };
         
         console.log('🔄 V3: PollingCoordinator инициализирован');
@@ -237,11 +237,8 @@ class AppState {
     startPolling() {
         if (!this.pollingCoordinator || this.pollingCoordinator.isActive) {
             return;
-        }
-        
-        this.pollingCoordinator.isActive = true;
-        this.pollingCoordinator.lastUpdateTime = Date.now();
-        
+        }        
+        this.pollingCoordinator.isActive = true;        
         this.pollingCoordinator.intervalId = setInterval(() => {
             this.checkForUpdates();
         }, this.pollingCoordinator.checkInterval);
@@ -268,7 +265,10 @@ class AppState {
         if (!this.pollingCoordinator) return;
         
         const now = Date.now();
-        if (now - this.pollingCoordinator.lastUpdateTime < this.pollingCoordinator.pollingInterval) {
+        const timeSinceLastUpdate = now - this.pollingCoordinator.lastUpdateTime;
+        const pollingIntervalMs = this.pollingCoordinator.pollingInterval; // Уже в миллисекундах!
+        
+        if (timeSinceLastUpdate < pollingIntervalMs) {
             return;
         }
         
