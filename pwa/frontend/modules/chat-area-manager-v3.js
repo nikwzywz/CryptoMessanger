@@ -63,6 +63,11 @@ class ChatAreaManagerV3 {
             console.log(`📬 V3: Открываем чат с ${addressLower}`);
             
             this.currentContactAddress = addressLower;
+            
+            // 🛠️ ИСПРАВЛЕНИЕ: Генерируем chatID для текущего чата
+            this.currentChatID = CryptoUtils.generateChatId(this.appState.currentUser, addressLower);
+            console.log(`🔑 V3: Сгенерирован chatID: ${this.currentChatID}`);
+            
             document.getElementById('chat-messages').innerHTML = ''; // Очищаем предыдущие сообщения
 
             // Загружаем все сообщения пользователя один раз при первом открытии любого чата
