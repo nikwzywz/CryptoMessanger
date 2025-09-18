@@ -53,38 +53,32 @@ class ChatAreaManagerV3 {
     }
 
     /**
-     * Открытие чата с контактом
+     * Открывает чат с указанным контактом
+     * @param {string} contactAddress Адрес контакта
      */
     async openChat(contactAddress) {
-        console.log(`💬 V3: Открываем чат с ${contactAddress}`);
-        
-        this.currentContact = contactAddress;
-        this.currentChatID = CryptoUtils.generateChatId(this.appState.currentUser, contactAddress);
-        this.currentChatMessages = [];
-        
-        console.log(`🔍 V3: Генерируем chatID:`, {
-            currentUser: this.appState.currentUser,
-            contactAddress: contactAddress,
-            generatedChatID: this.currentChatID
-        });
-        
         try {
-            // 1. Загружаем все сообщения для текущего пользователя
-            await this.loadAllUserMessages();
+            // 🛡️ ПРАВИЛО: Убеждаемся, что адрес в lowerCase
+            const addressLower = contactAddress.toLowerCase();
+            console.log(`📬 V3: Открываем чат с ${addressLower}`);
             
-            // 2. Фильтруем сообщения для текущего чата
+            this.currentContactAddress = addressLower;
+            document.getElementById('chat-messages').innerHTML = ''; // Очищаем предыдущие сообщения
+
+            // Загружаем все сообщения пользователя один раз при первом открытии любого чата
+            if (!this.allUserMessagesLoaded) {
+                await this.loadAllUserMessages();
+            }
+
+            // Фильтруем и отображаем сообщения для текущего чата
             this.filterMessagesForCurrentChat();
-            
-            // 3. Отображаем сообщения
-            this.renderMessages();
-            
-            // 4. Определяем состояние чата и обновляем UI
-            await this.updateChatState();
-            
-            console.log(`✅ V3: Чат открыт, сообщений: ${this.currentChatMessages.length}`);
-            
+
+            // Определяем и применяем состояние чата
+            this.updateChatState();
+
         } catch (error) {
             console.error('❌ V3: Ошибка открытия чата:', error);
+            this.appState.showNotification('Ошибка открытия чата: ' + error.message, 'error');
         }
     }
 
@@ -283,7 +277,7 @@ class ChatAreaManagerV3 {
             encryptedMessage: lastMessage.encryptedMessage.substring(0, 20) + '...'
         });
         
-        const frontendState = this.determineFrontendChatState(lastMessage);
+        const frontendState = this.determineFrontendChatState();
         
         console.log(`🎯 V3: Определено frontend состояние:`, frontendState);
         
@@ -323,32 +317,19 @@ class ChatAreaManagerV3 {
     /**
      * Определение frontend состояния из TypeMessage
      */
-    determineFrontendChatState(message) {
-        const contractState = parseInt(message.newChatState);
-        
-        console.log(`🔍 V3: determineFrontendChatState:`, {
-            contractState: contractState,
-            isFromMe: message.isFromMe,
-            rawNewChatState: message.newChatState
-        });
-        
-        if (contractState === 0) {
-            console.log('✅ V3: Состояние = allowedWrite');
-            return 'allowedWrite';
-        }
-        if (contractState === 1) {
-            console.log('✅ V3: Состояние = notAllowedWrite');
-            return 'notAllowedWrite';
+    determineFrontendChatState() {
+        if (!this.currentContactAddress) return null;
+
+        // 🛡️ ПРАВИЛО: Работаем с lowerCase
+        const contactAddressLower = this.currentContactAddress.toLowerCase();
+        const contactData = this.contactListManager.contactsCache.get(contactAddressLower);
+
+        if (!contactData || !contactData.frontendState || contactData.frontendState === 'unknown') {
+            console.warn(`⚠️ V3: Не удалось определить frontendState для ${contactAddressLower} из кэша.`);
+            return 'notAllowedWrite'; // Безопасное значение по умолчанию
         }
         
-        if (contractState === 2) { // waitingAcceptance
-            const result = message.isFromMe ? 'waitingAcceptanceFromOther' : 'waitingAcceptanceFromMe';
-            console.log(`✅ V3: Состояние = ${result} (isFromMe: ${message.isFromMe})`);
-            return result;
-        }
-        
-        console.warn('⚠️ V3: Неизвестное состояние:', contractState);
-        return 'unknown';
+        return contactData.frontendState;
     }
 
     /**
@@ -543,98 +524,92 @@ class ChatAreaManagerV3 {
     // Заменен компонентной функцией setVisiblePanelWaitingAcceptanceFromOther() в main.html
 
     /**
-     * Принятие приглашения
+     * Отправляет стандартное сообщение для принятия приглашения
      */
     async acceptInvitation() {
-        const currentContact = this.appState.currentContact;
-        if (!currentContact) return;
-        
+        const currentContactAddress = this.appState.currentContact?.address;
+        if (!currentContactAddress) {
+            this.appState.showNotification('Ошибка: контакт не выбран', 'error');
+            return;
+        }
+        console.log(`✅ V3: Принимаем приглашение от ${currentContactAddress}`);
         try {
-            console.log('✅ V3: Принимаем приглашение от:', currentContact.address);
-            
-            // Используем стандартную фразу из конфигурации
             const acceptMessage = window.CryptoMessengerConfig.invitationMessages.accept;
-            console.log('📝 V3: Сообщение принятия:', acceptMessage);
-            
-            // Шифруем сообщения для обеих сторон
-            const encryptedForRecipient = await this.encryptForContact(acceptMessage, currentContact.address);
+            // 🛡️ ПРАВИЛО: Адрес уже должен быть в lowerCase из appState
+            const encryptedForRecipient = await this.encryptForContact(acceptMessage, currentContactAddress);
             const encryptedForSender = await this.encryptForSelf(acceptMessage);
-            
-            // Вызываем функцию контракта V3
+
             await this.contract.methods.invitationAccept(
-                currentContact.address,
-                encryptedForRecipient,
+                currentContactAddress, 
+                encryptedForRecipient, 
                 encryptedForSender
             ).send({ from: this.appState.currentUser });
             
-            console.log('✅ V3: Приглашение принято');
-            
+            this.appState.showNotification('Приглашение принято!', 'success');
+
         } catch (error) {
             console.error('❌ V3: Ошибка принятия приглашения:', error);
+            this.appState.showNotification(`Ошибка: ${error.message}`, 'error');
         }
     }
 
     /**
-     * Отклонение приглашения
+     * Отправляет стандартное сообщение для отклонения приглашения
      */
     async rejectInvitation() {
-        const currentContact = this.appState.currentContact;
-        if (!currentContact) return;
-        
+        const currentContactAddress = this.appState.currentContact?.address;
+        if (!currentContactAddress) {
+            this.appState.showNotification('Ошибка: контакт не выбран', 'error');
+            return;
+        }
+        console.log(`❌ V3: Отклоняем приглашение от ${currentContactAddress}`);
         try {
-            console.log('❌ V3: Отклоняем приглашение от:', currentContact.address);
-            
-            // Используем стандартную фразу из конфигурации
             const rejectMessage = window.CryptoMessengerConfig.invitationMessages.reject;
-            console.log('📝 V3: Сообщение отклонения:', rejectMessage);
-            
-            // Шифруем сообщения для обеих сторон
-            const encryptedForRecipient = await this.encryptForContact(rejectMessage, currentContact.address);
+            // 🛡️ ПРАВИЛО: Адрес уже должен быть в lowerCase из appState
+            const encryptedForRecipient = await this.encryptForContact(rejectMessage, currentContactAddress);
             const encryptedForSender = await this.encryptForSelf(rejectMessage);
-            
-            // Вызываем функцию контракта V3
+
             await this.contract.methods.invitationReject(
-                currentContact.address,
-                encryptedForRecipient,
+                currentContactAddress, 
+                encryptedForRecipient, 
                 encryptedForSender
             ).send({ from: this.appState.currentUser });
-            
-            console.log('✅ V3: Приглашение отклонено');
-            
+
+            this.appState.showNotification('Приглашение отклонено', 'info');
+
         } catch (error) {
             console.error('❌ V3: Ошибка отклонения приглашения:', error);
+            this.appState.showNotification(`Ошибка: ${error.message}`, 'error');
         }
     }
 
     /**
-     * Отзыв приглашения
+     * Отправляет стандартное сообщение для отмены ранее отправленного приглашения
      */
     async cancelInvitation() {
-        const currentContact = this.appState.currentContact;
-        if (!currentContact) return;
-        
+        const currentContactAddress = this.appState.currentContact?.address;
+        if (!currentContactAddress) {
+            this.appState.showNotification('Ошибка: контакт не выбран', 'error');
+            return;
+        }
+        console.log(`🔄 V3: Отменяем приглашение для ${currentContactAddress}`);
         try {
-            console.log('🔄 V3: Отзываем приглашение для:', currentContact.address);
-            
-            // Используем стандартную фразу из конфигурации
             const cancelMessage = window.CryptoMessengerConfig.invitationMessages.cancel;
-            console.log('📝 V3: Сообщение отзыва:', cancelMessage);
-            
-            // Шифруем сообщения для обеих сторон
-            const encryptedForRecipient = await this.encryptForContact(cancelMessage, currentContact.address);
+            // 🛡️ ПРАВИЛО: Адрес уже должен быть в lowerCase из appState
+            const encryptedForRecipient = await this.encryptForContact(cancelMessage, currentContactAddress);
             const encryptedForSender = await this.encryptForSelf(cancelMessage);
-            
-            // Вызываем функцию контракта V3
+
             await this.contract.methods.invitationCancel(
-                currentContact.address,
-                encryptedForRecipient,
+                currentContactAddress, 
+                encryptedForRecipient, 
                 encryptedForSender
             ).send({ from: this.appState.currentUser });
-            
-            console.log('✅ V3: Приглашение отозвано');
-            
+
+            this.appState.showNotification('Приглашение отменено', 'info');
+
         } catch (error) {
-            console.error('❌ V3: Ошибка отзыва приглашения:', error);
+            console.error('❌ V3: Ошибка отмены приглашения:', error);
+            this.appState.showNotification(`Ошибка: ${error.message}`, 'error');
         }
     }
 
@@ -672,31 +647,29 @@ class ChatAreaManagerV3 {
      * Деактивация чата
      */
     async deactivateChat() {
-        const currentContact = this.appState.currentContact;
-        if (!currentContact) return;
-        
+        const currentContactAddress = this.appState.currentContact?.address;
+        if (!currentContactAddress) {
+            this.appState.showNotification('Ошибка: контакт не выбран', 'error');
+            return;
+        }
+        console.log(`🚫 V3: Деактивируем чат с ${currentContactAddress}`);
         try {
-            console.log('🚫 V3: Деактивируем чат с:', currentContact.address);
-            
-            // Используем стандартную фразу из конфигурации
             const deactivateMessage = window.CryptoMessengerConfig.invitationMessages.deactivate;
-            console.log('📝 V3: Сообщение деактивации:', deactivateMessage);
-            
-            // Шифруем сообщения для обеих сторон
-            const encryptedForRecipient = await this.encryptForContact(deactivateMessage, currentContact.address);
+            // 🛡️ ПРАВИЛО: Адрес уже должен быть в lowerCase из appState
+            const encryptedForRecipient = await this.encryptForContact(deactivateMessage, currentContactAddress);
             const encryptedForSender = await this.encryptForSelf(deactivateMessage);
-            
-            // Вызываем функцию контракта V3
+
             await this.contract.methods.deactivateChat(
-                currentContact.address,
-                encryptedForRecipient,
+                currentContactAddress, 
+                encryptedForRecipient, 
                 encryptedForSender
             ).send({ from: this.appState.currentUser });
-            
-            console.log('✅ V3: Чат деактивирован');
-            
+
+            this.appState.showNotification('Чат деактивирован', 'info');
+
         } catch (error) {
             console.error('❌ V3: Ошибка деактивации чата:', error);
+            this.appState.showNotification(`Ошибка: ${error.message}`, 'error');
         }
     }
 
@@ -704,8 +677,15 @@ class ChatAreaManagerV3 {
      * Шифрование сообщения для контакта
      */
     async encryptForContact(message, contactAddress) {
-        const contactPublicKey = await this.getContactPublicKey(contactAddress);
-        return CryptoUtils.encryptMessage(message, contactPublicKey);
+        try {
+            // 🛡️ ПРАВИЛО: Убеждаемся, что адрес в lowerCase
+            const addressLower = contactAddress.toLowerCase();
+            const contactPublicKey = await this.getContactPublicKey(addressLower);
+            return CryptoUtils.encryptMessage(message, contactPublicKey);
+        } catch (error) {
+            console.error(`❌ V3: Ошибка шифрования для контакта ${contactAddress}:`, error);
+            throw error;
+        }
     }
 
     /**
@@ -749,18 +729,43 @@ class ChatAreaManagerV3 {
      */
     async getContactPublicKey(contactAddress) {
         try {
-            const userSettings = await this.contract.methods.userSettings(contactAddress).call();
-            const contactPublicKey = userSettings.publicKeyForEncode;
+            // 🛡️ ПРАВИЛО: Используем lowercase для получения данных из кэша
+            const addressLower = contactAddress.toLowerCase();
+            const contactData = this.contactListManager.contactsCache.get(addressLower);
             
-            console.log('🔑 V3: Публичный ключ для шифрования контакта:', {
-                contactAddress: contactAddress,
-                publicKeyForEncode: contactPublicKey.substring(0, 20) + '...',
+            if (contactData && contactData.publicKeyForEncode) {
+                console.log(`🔑 V3: Ключ для ${addressLower} найден в кэше`);
+                return contactData.publicKeyForEncode;
+            }
+
+            // Если в кэше нет, запрашиваем у контракта
+            console.log(`🔍 V3: Ключ для ${addressLower} не найден в кэше, запрашиваем у контракта...`);
+            const userSettings = await this.contract.methods.userSettings(addressLower).call();
+            const contactPublicKey = userSettings.publicKeyForEncode;
+
+            if (!contactPublicKey || contactPublicKey === '0x' || contactPublicKey.length < 60) {
+                throw new Error(`Пользователь ${addressLower} не зарегистрирован или имеет неверный ключ.`);
+            }
+
+            // Сохраняем в кэш для будущего использования
+            if (contactData) {
+                contactData.publicKeyForEncode = contactPublicKey;
+            } else {
+                // Этого быть не должно, если контакт есть в списке, но на всякий случай
+                console.warn(`⚠️ V3: Контакт ${addressLower} не был в кэше, но для него запрошен ключ.`);
+            }
+
+            console.log('🔑 V3: Публичный ключ для шифрования (publicKeyForEncode):', {
+                contactAddress: addressLower,
+                publicKey: contactPublicKey.substring(0, 20) + '...',
                 fullLength: contactPublicKey.length
             });
-            
+
             return contactPublicKey;
+
         } catch (error) {
-            console.error('❌ V3: Ошибка получения публичного ключа:', error);
+            console.error(`❌ V3: Не удалось получить публичный ключ для ${contactAddress}:`, error);
+            this.appState.showNotification(`Не удалось получить ключ для ${contactAddress.slice(0, 8)}...`, 'error');
             throw error;
         }
     }

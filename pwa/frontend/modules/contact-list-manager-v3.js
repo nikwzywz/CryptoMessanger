@@ -26,47 +26,51 @@ class ContactListManagerV3 {
     /**
      * Добавление новых контактов в UI (вызывается из polling callback)
      */
-    addContactsToUI(contactsData) {
-        console.log('👥 V3: Добавляем контакты в UI:', {
-            count: contactsData.contacts.length
-        });
-        
-        const contactsList = document.getElementById('contactsList');
-        if (!contactsList) {
-            console.error('❌ V3: Список контактов не найден в DOM');
-            return;
-        }
-        
-        // Добавляем каждый контакт
-        for (let i = 0; i < contactsData.contacts.length; i++) {
-            const address = contactsData.contacts[i];
-            const name = contactsData.names[i];
-            const publicKey = contactsData.publicKeys[i];
+    addContactsToUI(contacts) {
+        console.log(`👥 V3: Добавляем контакты в UI:`, { count: contacts.length });
+        if (contacts.length === 0) return;
+
+        let newContactsAdded = false;
+        for (const contact of contacts) {
+            let { address, name, publicKeyForEncode, lastMessageTimestamp } = contact;
             
-            // Генерируем chatID для контакта
-            const chatID = CryptoUtils.generateChatId(this.appState.currentUser, address);
-            
-            // Сохраняем в расширенный кэш
-            this.contactsCache.set(address.toLowerCase(), {
+            // 🛡️ ПРАВИЛО: Все адреса храним и используем в lowerCase
+            const addressLower = address.toLowerCase();
+
+            // Проверяем наличие в кэше по lowercase адресу
+            if (this.contactsCache.has(addressLower)) {
+                console.log(`🔍 V3: Контакт ${addressLower} уже в кэше, пропускаем добавление в UI`);
+                continue;
+            }
+
+            // Передаем в DOM lowercase адрес
+            this.createContactElement(addressLower, name, lastMessageTimestamp);
+            newContactsAdded = true;
+
+            // Определяем orderIndex до добавления в кэш
+            const currentContactsCount = this.contactsCache.size;
+
+            // Сохраняем в кэш с lowercase адресом
+            this.contactsCache.set(addressLower, {
                 name: name,
-                publicKeyForEncode: publicKey, // Специальный ключ для шифрования (не кошелек!)
-                lastMessageTime: null,         // Будет обновлено при получении сообщений
-                lastMessageIndex: -1,          // -1 означает отсутствие сообщений
-                lastMessageText: '',           // Пустая строка по умолчанию
+                publicKeyForEncode: publicKeyForEncode,
+                lastMessageTime: parseInt(lastMessageTimestamp) * 1000,
+                lastMessageIndex: -1,
+                lastMessageText: '',
                 frontendState: 'unknown',      // Будет определено при анализе сообщений
-                chatID: chatID,                // Предвычисленный chatID для оптимизации
+                chatID: CryptoUtils.generateChatId(this.appState.currentUser, addressLower), // Предвычисленный chatID для оптимизации
                 unreadCount: 0,                // Количество непрочитанных сообщений
-                orderIndex: -1                 // Позиция в отсортированном списке (-1 = не определена)
+                orderIndex: currentContactsCount // Начальная позиция в конце списка
             });
-            
-            // Создаем элемент контакта
-            this.createContactElement(address, name);
+            console.log(`✅ V3: Контакт ${name} (${addressLower}) добавлен в кэш с orderIndex: ${currentContactsCount}`);
         }
-        
-        console.log(`✅ V3: Добавлено ${contactsData.contacts.length} контактов в UI`);
-        
-        // Применяем полную сортировку только при инициальной загрузке
-        this.performInitialSort();
+
+        if (newContactsAdded) {
+            console.log(`✅ V3: Добавлено ${newContactsAdded} контактов в UI`);
+            
+            // Применяем полную сортировку только при инициальной загрузке
+            this.performInitialSort();
+        }
     }
 
     /**
@@ -84,7 +88,7 @@ class ContactListManagerV3 {
         
         const contactDiv = document.createElement('div');
         contactDiv.className = 'contact-item';
-        contactDiv.setAttribute('data-address', address);
+        contactDiv.setAttribute('data-address', address.toLowerCase()); // Консистентный lowercase
         contactDiv.setAttribute('data-name', name);
         
         contactDiv.innerHTML = `
@@ -113,26 +117,34 @@ class ContactListManagerV3 {
     /**
      * Выбор контакта (клик по элементу списка)
      */
-    selectContact(address, name) {
-        console.log(`👆 V3: Выбран контакт:`, { address, name });
-        
-        // Убираем активность с других контактов
-        document.querySelectorAll('.contact-item').forEach(item => {
-            item.classList.remove('active');
-        });
-        
-        // Добавляем активность к выбранному
-        const contactElement = document.querySelector(`[data-address="${address}"]`);
-        if (contactElement) {
-            contactElement.classList.add('active');
+    async selectContact(address, name) {
+        try {
+            const addressLower = address.toLowerCase();
+            console.log('💬 V3: Выбираем контакт:', addressLower);
+
+            // Обновляем активный контакт в UI
+            document.querySelectorAll('.contact-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            const contactElement = document.querySelector(`[data-address="${addressLower}"]`);
+            if (contactElement) {
+                contactElement.classList.add('active');
+            }
+
+            // V3: Открываем чат через AppState, передавая lowercase адрес
+            const contactData = this.contactsCache.get(addressLower);
+            if (contactData) {
+                this.appState.setCurrentContact({ address: addressLower, name: contactData.name });
+            } else {
+                console.error(`❌ V3: Не удалось найти данные для контакта ${addressLower} в кэше`);
+                // Временное решение, чтобы избежать полной поломки
+                this.appState.setCurrentContact({ address: addressLower, name: `User ${addressLower.slice(0, 6)}` });
+            }
+            
+        } catch (error) {
+            console.error('❌ Ошибка выбора контакта:', error);
+            this.appState.showNotification('Ошибка открытия чата: ' + error.message, 'error');
         }
-        
-        // Обновляем состояние приложения
-        this.appState.setCurrentContact({
-            address: address,
-            name: name,
-            publicKeyForEncode: this.contactsCache.get(address.toLowerCase())?.publicKeyForEncode
-        });
     }
 
     /**
@@ -241,9 +253,9 @@ class ContactListManagerV3 {
             console.log('👤 V3: Выбран контакт:', contact.name);
             
             // Сбрасываем счетчик непрочитанных сообщений для выбранного контакта
-            const wasReset = this.resetUnreadCount(contact.address);
+            this.resetUnreadCount(contact.address);
             
-            if (wasReset) {
+            if (this.resetUnreadCount(contact.address)) {
                 console.log('📖 V3: Счетчик непрочитанных сброшен для активного контакта');
             }
             
@@ -279,6 +291,11 @@ class ContactListManagerV3 {
      * Обновление данных контакта в кэше
      */
     updateContactData(address, updates) {
+        console.log(`📊 V3: updateContactData НАЧАТ для ${address}:`, {
+            updates: updates,
+            caller: new Error().stack.split('\n')[2].trim() // Показываем кто вызвал
+        });
+        
         const existingData = this.contactsCache.get(address.toLowerCase());
         if (existingData) {
             // Обновляем только переданные поля
@@ -291,6 +308,7 @@ class ContactListManagerV3 {
             });
             
             // Обновляем UI элемент контакта если нужно
+            console.log(`🎨 V3: Вызываем updateContactElementUI для ${address}`);
             this.updateContactElementUI(address, updatedData);
         } else {
             console.warn(`⚠️ V3: Попытка обновить несуществующий контакт:`, address);
@@ -301,8 +319,24 @@ class ContactListManagerV3 {
      * Обновление UI элемента контакта
      */
     updateContactElementUI(address, contactData) {
-        const contactElement = document.querySelector(`[data-address="${address}"]`);
-        if (!contactElement) return;
+        console.log(`🎨 V3: updateContactElementUI начат для ${address}:`, {
+            frontendState: contactData.frontendState,
+            orderIndex: contactData.orderIndex,
+            lastMessageText: contactData.lastMessageText?.substring(0, 30)
+        });
+        
+        // Ищем элемент по lowercase адресу (консистентно с data-address)
+        const contactElement = document.querySelector(`[data-address="${address.toLowerCase()}"]`);
+        if (!contactElement) {
+            // Диагностика: показываем все существующие data-address
+            const allElements = document.querySelectorAll('[data-address]');
+            const existingAddresses = Array.from(allElements).map(el => el.getAttribute('data-address'));
+            
+            console.warn(`⚠️ V3: DOM элемент для ${address} не найден в updateContactElementUI`);
+            console.warn(`🔍 V3: Существующие data-address в DOM:`, existingAddresses);
+            console.warn(`🔍 V3: Искали адрес (lower):`, address.toLowerCase());
+            return;
+        }
 
         // Обновляем последнее сообщение
         const lastMessageElement = contactElement.querySelector('.contact-last-message');
@@ -333,8 +367,10 @@ class ContactListManagerV3 {
         // Обновляем бейдж с количеством непрочитанных сообщений
         this.updateUnreadBadge(address, contactData.unreadCount);
         
-        // Оптимизированное перемещение: находим новую позицию для обновленного контакта
-        this.repositionContactInList(address);
+        // Двухэтапное обновление позиций: сначала модель, потом DOM
+        console.log(`🔄 V3: Запускаем двухэтапное обновление позиций для ${address}`);
+        this.recalculateContactOrder(address);
+        this.syncDOMWithModel();
     }
 
     /**
@@ -403,11 +439,24 @@ class ContactListManagerV3 {
      * Установка состояния чата
      */
     setChatState(chatID, frontendState) {
+        console.log(`🔄 V3: setChatState вызван:`, {
+            chatID: chatID.substring(0, 8),
+            frontendState: frontendState
+        });
+        
         // Находим контакт по chatID и обновляем его состояние
         for (const [address, contactData] of this.contactsCache.entries()) {
             if (contactData.chatID === chatID) {
+                console.log(`📍 V3: Найден контакт для обновления состояния:`, {
+                    address: address,
+                    oldState: contactData.frontendState,
+                    newState: frontendState,
+                    currentOrderIndex: contactData.orderIndex
+                });
+                
+                console.log(`🔄 V3: setChatState → updateContactData для ${address}`);
                 this.updateContactData(address, { frontendState: frontendState });
-                console.log(`🔄 V3: Состояние чата ${chatID.substring(0, 8)} установлено: ${frontendState}`);
+                console.log(`✅ V3: Состояние чата ${chatID.substring(0, 8)} установлено: ${frontendState}`);
                 return;
             }
         }
@@ -472,6 +521,7 @@ class ContactListManagerV3 {
                         console.log(`🔔 V3: Увеличен счетчик непрочитанных для ${address}: ${updates.unreadCount}`);
                     }
                     
+                    console.log(`📨 V3: updateLastMessage → updateContactData для ${address} с обновлениями:`, updates);
                     this.updateContactData(address, updates);
                     
                     console.log(`📨 V3: Обновлено последнее сообщение для ${address}:`, {
@@ -491,13 +541,14 @@ class ContactListManagerV3 {
      * Сброс счетчика непрочитанных сообщений для контакта
      */
     resetUnreadCount(address) {
-        const contactData = this.contactsCache.get(address.toLowerCase());
+        // 🛡️ ПРАВИЛО: Используем lowercase для поиска
+        const addressLower = address.toLowerCase();
+        const contactData = this.contactsCache.get(addressLower);
         if (contactData && contactData.unreadCount > 0) {
-            this.updateContactData(address, { unreadCount: 0 });
-            console.log(`📖 V3: Сброшен счетчик непрочитанных для ${address}`);
-            return true;
+            console.log(`💬 V3: Сбрасываем счетчик непрочитанных для ${addressLower}`);
+            contactData.unreadCount = 0;
+            this.updateUnreadBadge(addressLower, 0);
         }
-        return false;
     }
 
     /**
@@ -548,7 +599,105 @@ class ContactListManagerV3 {
     }
 
     /**
-     * Оптимизированное перемещение контакта в правильную позицию в списке
+     * Этап 1: Перерасчет orderIndex в модели данных (без изменения DOM)
+     */
+    recalculateContactOrder(address) {
+        console.log(`📊 V3: Перерасчет orderIndex для ${address}`);
+        
+        const contactData = this.contactsCache.get(address.toLowerCase());
+        if (!contactData) {
+            console.warn(`⚠️ V3: Контакт ${address} не найден для перерасчета`);
+            return;
+        }
+
+        // 1.1. Определяем новую позицию без изменения модели
+        const updatedContact = { address, ...contactData };
+        const sortedContacts = this.sortAllContacts();
+        
+        let orderIndexNew = 0;
+        for (let i = 0; i < sortedContacts.length; i++) {
+            if (this.compareContacts(updatedContact, sortedContacts[i]) < 0) {
+                orderIndexNew = i;
+                break;
+            }
+            orderIndexNew = i + 1;
+        }
+
+        const oldOrderIndex = contactData.orderIndex;
+        
+        console.log(`📊 V3: Рассчитана новая позиция:`, {
+            address: address,
+            oldOrderIndex: oldOrderIndex,
+            orderIndexNew: orderIndexNew,
+            priority: this.getStatePriority(contactData.frontendState)
+        });
+
+        // Если позиция не изменилась, ничего не делаем
+        if (oldOrderIndex === orderIndexNew) {
+            console.log(`📋 V3: Позиция ${address} не изменилась (${orderIndexNew}), перерасчет не нужен`);
+            return;
+        }
+
+        // 1.2. Устанавливаем новый orderIndex обновляемому контакту
+        contactData.orderIndex = orderIndexNew;
+
+        // 1.3. Инкрементируем orderIndex всем контактам, которые сдвигаются
+        for (const [otherAddress, otherData] of this.contactsCache.entries()) {
+            if (otherAddress.toLowerCase() !== address.toLowerCase()) {
+                if (orderIndexNew < oldOrderIndex) {
+                    // Контакт поднимается вверх - сдвигаем вниз тех, кто был выше новой позиции
+                    if (otherData.orderIndex >= orderIndexNew && otherData.orderIndex < oldOrderIndex) {
+                        otherData.orderIndex++;
+                    }
+                } else {
+                    // Контакт опускается вниз - сдвигаем вверх тех, кто был ниже старой позиции
+                    if (otherData.orderIndex > oldOrderIndex && otherData.orderIndex <= orderIndexNew) {
+                        otherData.orderIndex--;
+                    }
+                }
+            }
+        }
+
+        console.log(`✅ V3: Перерасчет orderIndex завершен для ${address}: ${oldOrderIndex} → ${orderIndexNew}`);
+    }
+
+    /**
+     * Этап 2: Синхронизация DOM с моделью данных
+     */
+    syncDOMWithModel() {
+        console.log(`🔄 V3: Синхронизация DOM с моделью данных`);
+        
+        const contactsList = document.getElementById('contactsList');
+        if (!contactsList) {
+            console.warn(`⚠️ V3: Контейнер contactsList не найден`);
+            return;
+        }
+
+        // Получаем все контакты отсортированные по orderIndex
+        const contactsArray = Array.from(this.contactsCache.entries())
+            .map(([address, data]) => ({ address, ...data }))
+            .sort((a, b) => a.orderIndex - b.orderIndex);
+
+        // Перестраиваем DOM в соответствии с orderIndex
+        const contactElements = [];
+        contactsArray.forEach(contact => {
+            const element = document.querySelector(`[data-address="${contact.address}"]`);
+            if (element) {
+                contactElements.push(element);
+                element.remove(); // Временно удаляем
+            }
+        });
+
+        // Добавляем в правильном порядке
+        contactElements.forEach(element => {
+            contactsList.appendChild(element);
+        });
+
+        console.log(`✅ V3: DOM синхронизирован с моделью (${contactElements.length} контактов)`);
+    }
+
+    /**
+     * Устаревший метод - заменен на recalculateContactOrder + syncDOMWithModel
      * Находит новую позицию для обновленного контакта без полной пересортировки
      * 
      * Примеры:
@@ -556,21 +705,52 @@ class ContactListManagerV3 {
      * - Контакт №12 деактивировал чат → перемещается на позицию №974 (в конец)
      */
     repositionContactInList(address) {
+        console.log(`🔄 V3: repositionContactInList вызван для:`, {
+            address: address,
+            contactExists: this.contactsCache.has(address.toLowerCase())
+        });
+        
         const contactData = this.contactsCache.get(address.toLowerCase());
-        if (!contactData) return;
+        if (!contactData) {
+            console.warn(`⚠️ V3: Контакт ${address} не найден в кэше`);
+            return;
+        }
 
         const contactElement = document.querySelector(`[data-address="${address}"]`);
-        if (!contactElement) return;
+        if (!contactElement) {
+            console.warn(`⚠️ V3: DOM элемент для ${address} не найден`);
+            return;
+        }
 
         const contactsList = document.getElementById('contactsList');
-        if (!contactsList) return;
+        if (!contactsList) {
+            console.warn(`⚠️ V3: Контейнер contactsList не найден`);
+            return;
+        }
+
+        console.log(`📊 V3: Данные контакта для сортировки:`, {
+            address: address,
+            frontendState: contactData.frontendState,
+            lastMessageTime: contactData.lastMessageTime,
+            orderIndex: contactData.orderIndex,
+            priority: this.getStatePriority(contactData.frontendState)
+        });
 
         try {
             // 1️⃣ Получаем текущую позицию контакта из модели данных (Model-View принцип)
             const currentPosition = contactData.orderIndex;
 
             if (currentPosition === -1) {
-                console.warn(`⚠️ V3: Контакт ${address} не имеет orderIndex в модели данных`);
+                console.warn(`⚠️ V3: Контакт ${address} не имеет orderIndex в модели данных - принудительно обновляем индексы`);
+                this.updateAllContactIndices();
+                
+                // После обновления индексов получаем новую позицию
+                const updatedContactData = this.contactsCache.get(address.toLowerCase());
+                if (updatedContactData && updatedContactData.orderIndex !== -1) {
+                    console.log(`✅ V3: orderIndex обновлен до ${updatedContactData.orderIndex}, продолжаем сортировку`);
+                    // Рекурсивно вызываем себя с обновленными данными
+                    this.repositionContactInList(address);
+                }
                 return;
             }
 
@@ -674,31 +854,16 @@ class ContactListManagerV3 {
     }
 
     /**
-     * Выполнение начальной сортировки всех контактов в DOM
+     * Выполнение начальной сортировки всех контактов (двухэтапная)
      */
     performInitialSort() {
-        const contactsList = document.getElementById('contactsList');
-        if (!contactsList) return;
-
-        // Обновляем индексы в модели данных и получаем отсортированный массив
-        const sortedContacts = this.updateAllContactIndices();
+        console.log(`🚀 V3: Начальная сортировка контактов`);
         
-        // Перестраиваем DOM в правильном порядке (View следует за Model)
-        const contactElements = [];
-        sortedContacts.forEach(contact => {
-            const element = document.querySelector(`[data-address="${contact.address}"]`);
-            if (element) {
-                contactElements.push(element);
-                element.remove(); // Временно удаляем из DOM
-            }
-        });
+        // Этап 1: Обновляем orderIndex для всех контактов в модели
+        this.updateAllContactIndices();
         
-        // Добавляем элементы в правильном порядке
-        contactElements.forEach(element => {
-            contactsList.appendChild(element);
-        });
-        
-        console.log(`📋 V3: DOM синхронизирован с моделью данных (${sortedContacts.length} контактов)`);
+        // Этап 2: Синхронизируем DOM с моделью
+        this.syncDOMWithModel();
     }
 
     /**
@@ -757,38 +922,37 @@ class ContactListManagerV3 {
      */
     async sendInvitation(recipientAddress, message, fee) {
         try {
+            // 🛡️ ПРАВИЛО: Всегда приводим адрес к lowercase
+            const recipientAddressLower = recipientAddress.toLowerCase();
+
             console.log('📤 V3: Отправляем приглашение:', {
-                recipient: recipientAddress,
+                recipient: recipientAddressLower,
                 message: message,
                 fee: fee
             });
             
-            // Проверяем валидность адреса
-            if (!recipientAddress || !recipientAddress.startsWith('0x') || recipientAddress.length !== 42) {
+            // Валидация
+            if (!recipientAddressLower || !recipientAddressLower.startsWith('0x') || recipientAddressLower.length !== 42) {
                 throw new Error('Неверный формат адреса получателя');
             }
-            
-            // Проверяем, что не пытаемся добавить самого себя
-            if (recipientAddress.toLowerCase() === this.appState.currentUser.toLowerCase()) {
+            if (recipientAddressLower === this.appState.currentUser.toLowerCase()) {
                 throw new Error('Нельзя отправить приглашение самому себе');
             }
-            
-            // Проверяем, что контакт не добавлен уже
-            if (this.contactsCache.has(recipientAddress.toLowerCase())) {
-                const contactData = this.contactsCache.get(recipientAddress.toLowerCase());
-                throw new Error(`Контакт "${contactData.name || recipientAddress}" уже есть в вашем списке`);
+            if (this.contactsCache.has(recipientAddressLower)) {
+                const contactData = this.contactsCache.get(recipientAddressLower);
+                throw new Error(`Контакт "${contactData.name || recipientAddressLower}" уже есть в вашем списке`);
             }
+
+            console.log('🔍 V3: Получаем публичный ключ для', recipientAddressLower);
+            const recipientPublicKey = await this.getContactPublicKey(recipientAddressLower);
             
-            // Получаем публичный ключ получателя
-            const recipientPublicKey = await this.getContactPublicKey(recipientAddress);
-            
-            // Шифруем сообщение для обеих сторон
+            console.log('✅ V3: Публичный ключ получен, начинаем шифрование...');
             const encryptedForRecipient = CryptoUtils.encryptMessage(message, recipientPublicKey);
             const encryptedForSender = CryptoUtils.encryptMessage(message, this.appState.userPublicKey);
-            
-            // Отправляем приглашение через контракт
+
+            console.log('⛓️ V3: Отправляем транзакцию `invitationSend`...');
             await this.contract.methods.invitationSend(
-                recipientAddress,
+                recipientAddressLower,
                 encryptedForRecipient,
                 encryptedForSender
             ).send({ 
@@ -867,26 +1031,25 @@ class ContactListManagerV3 {
     /**
      * Фильтрация контактов по поисковому запросу
      */
-    filterContacts(searchTerm) {
-        const term = searchTerm.toLowerCase();
-        const contacts = document.querySelectorAll('.contact-item');
-        
-        contacts.forEach(contact => {
-            const nameElement = contact.querySelector('.contact-name');
-            const messageElement = contact.querySelector('.contact-last-message');
-            
-            if (nameElement) {
-                const name = nameElement.textContent.toLowerCase();
-                const message = messageElement ? messageElement.textContent.toLowerCase() : '';
-                
-                if (name.includes(term) || message.includes(term)) {
-                    contact.style.display = 'flex';
+    filterContacts(filterText) {
+        const lowerCaseFilter = filterText.toLowerCase();
+        const contactsList = document.getElementById('contactsList');
+        if (!contactsList) return;
+
+        // 🛡️ ПРАВИЛО: Итерируемся по кэшу, где адреса уже в lowercase
+        this.contactsCache.forEach((contactData, address) => {
+            const contactElement = contactsList.querySelector(`[data-address="${address}"]`);
+            if (contactElement) {
+                const name = contactData.name || '';
+                // Сравниваем с lowercase адресом и именем
+                if (name.toLowerCase().includes(lowerCaseFilter) || address.includes(lowerCaseFilter)) {
+                    contactElement.style.display = '';
                 } else {
-                    contact.style.display = 'none';
+                    contactElement.style.display = 'none';
                 }
             }
         });
         
-        console.log(`🔍 V3: Фильтрация контактов по запросу: "${searchTerm}"`);
+        console.log(`🔍 V3: Фильтрация контактов по запросу: "${filterText}"`);
     }
 }

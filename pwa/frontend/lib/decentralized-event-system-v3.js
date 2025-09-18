@@ -80,56 +80,43 @@ class DecentralizedEventSystemV3 {
      * Загрузка всех контактов пагинацией
      */
     async loadInitialContacts() {
-        console.log('📇 Загружаем контакты пользователя...');
-        
-        let hasMoreContacts = true;
-        let totalContacts = 0;
-        
-        while (hasMoreContacts) {
-            try {
-                const startIndex = this.lastContactIndex;
+        console.log('📇 V3: Загружаем контакты постранично...');
+        try {
+            let hasMoreContacts = true;
+            while (hasMoreContacts) {
+                const startIndex = this.contactListManager.contactsCache.size;
                 const endIndex = startIndex + this.CONTACTS_BATCH_SIZE - 1;
                 
-                // Проверяем, есть ли контакты для загрузки
-                const contactsCount = await this.contract.methods.getContactsCount().call({ 
-                    from: this.userAddress 
-                });
-                
-                if (startIndex >= parseInt(contactsCount)) {
-                    console.log('📇 Загрузка контактов завершена (startIndex >= contactsCount)');
+                console.log(`📥 V3: Запрашиваем страницу контактов: ${startIndex} - ${endIndex}`);
+
+                const rawData = await this.contract.methods.getContactsPaginated(startIndex, endIndex).call({ from: this.userAddress });
+
+                if (!rawData || !rawData.contacts || rawData.contacts.length === 0) {
                     hasMoreContacts = false;
-                    break;
-                }
-                
-                const result = await this.contract.methods.getContactsPaginated(
-                    startIndex, 
-                    endIndex
-                ).call({ from: this.userAddress });
-                
-                if (result.contacts.length === 0) {
-                    hasMoreContacts = false;
-                    console.log('📇 Загрузка контактов завершена (пустой результат)');
+                    console.log('✅ V3: Все страницы контактов загружены.');
                 } else {
-                    // Контакты добавляются в contactsCache через callback onNewContacts
-                    
-                    // Уведомляем UI о новых контактах
-                    if (this.onNewContacts) {
-                        this.onNewContacts(result);
+                    const formattedContacts = [];
+                    for (let i = 0; i < rawData.contacts.length; i++) {
+                        formattedContacts.push({
+                            address: rawData.contacts[i],
+                            name: rawData.names[i],
+                            publicKeyForEncode: rawData.publicKeys[i],
+                            lastMessageTimestamp: 0 // 🛠️ ИСПРАВЛЕНИЕ: Устанавливаем значение по умолчанию
+                        });
                     }
-                    
-                    totalContacts += result.contacts.length;
-                    this.lastContactIndex += result.contacts.length;
-                    
-                    console.log(`📇 Загружено ${result.contacts.length} контактов (всего: ${totalContacts})`);
+                    this.onNewContacts(formattedContacts);
+
+                    // Если получили меньше, чем размер страницы, это последняя страница
+                    if (rawData.contacts.length < this.CONTACTS_BATCH_SIZE) {
+                        hasMoreContacts = false;
+                        console.log('✅ V3: Загружена последняя страница контактов.');
+                    }
                 }
-                
-            } catch (error) {
-                console.error('❌ Ошибка загрузки контактов:', error);
-                hasMoreContacts = false;
             }
+        } catch (error) {
+            console.error('❌ V3: Критическая ошибка при постраничной загрузке контактов:', error);
+            this.onNewContacts([]); // Отправляем пустой массив в случае ошибки
         }
-        
-        console.log(`✅ Загружено ${totalContacts} контактов`);
     }
 
     /**
@@ -137,8 +124,8 @@ class DecentralizedEventSystemV3 {
      */
     async initializeMessageIndex() {
         try {
-            // Получаем количество сообщений для текущего пользователя
-            const messagesCount = await this.contract.methods.getMessagesCount().call();
+            // 🛡️ ПРАВИЛО: Явно указываем отправителя для .call()
+            const messagesCount = await this.contract.methods.getMessagesCount().call({ from: this.userAddress });
             
             this.lastMessageIndex = parseInt(messagesCount) - 1; // Последний существующий индекс
             
@@ -252,16 +239,19 @@ class DecentralizedEventSystemV3 {
             });
             
             // 3. 🆕 ПРОВЕРЯЕМ НОВЫЕ КОНТАКТЫ
-            const unknownChatIDs = Array.from(newChatIDs).filter(chatID => {
-                // Проверяем, знаем ли мы уже этот chatID среди известных контактов
-                const currentUserLower = this.userAddress.toLowerCase();
+            // Получаем chatID для каждого нового сообщения
+            const newChatIDsSet = new Set(newMessages.map(msg => msg.chatID));
+            console.log(`💬 V3: Обнаружены сообщения в ${newChatIDsSet.size} чатах`);
+
+            // Сравниваем с известными контактами, чтобы найти чаты с новыми собеседниками
+            const unknownChatIDs = Array.from(newChatIDsSet).filter(chatID => {
+                // 🛡️ ПРАВИЛО: currentUser уже в lowerCase
+                const currentUserLower = this.userAddress; 
                 
-                if (!this.contactListManager) {
-                    return true; // Если нет ContactListManager, считаем все чаты неизвестными
-                }
-                
+                // contactListManager.contactsCache.keys() уже содержит адреса в lowerCase
                 for (const contactAddress of this.contactListManager.contactsCache.keys()) {
-                    const testChatID = this.generateChatId(currentUserLower, contactAddress);
+                    // generateChatId также внутри использует lowerCase
+                    const testChatID = CryptoUtils.generateChatId(currentUserLower, contactAddress);
                     if (testChatID === chatID) {
                         return false; // Контакт известен
                     }
@@ -290,60 +280,40 @@ class DecentralizedEventSystemV3 {
     }
 
     /**
-     * Загрузка новых контактов при обнаружении неизвестных чатов
+     * Загружает следующую страницу контактов. Вызывается при обнаружении неизвестного chatID.
+     * Работает без getContactsCount.
      */
     async loadNewContacts() {
-        console.log(`📇 Загружаем новые контакты начиная с индекса ${this.lastContactIndex}...`);
-        
-        let hasMoreContacts = true;
-        let currentIndex = this.lastContactIndex;
-        let newContactsCount = 0;
-        
-        while (hasMoreContacts) {
-            try {
-                const startIndex = currentIndex;
-                const endIndex = startIndex + this.CONTACTS_BATCH_SIZE - 1;
-                
-                // Проверяем, есть ли новые контакты для загрузки
-                const contactsCount = await this.contract.methods.getContactsCount().call({ 
-                    from: this.userAddress 
-                });
-                
-                if (startIndex >= parseInt(contactsCount)) {
-                console.log(`📇 Загрузка новых контактов завершена (startIndex ${startIndex} >= contactsCount ${contactsCount})`);
-                hasMoreContacts = false;
-                break;
-                }
-                
-                const result = await this.contract.methods.getContactsPaginated(
-                    startIndex,
-                    endIndex
-                ).call({ from: this.userAddress });
-                
-                if (result.contacts.length === 0) {
-                    hasMoreContacts = false;
-                } else {
-                    // Контакты добавляются в contactsCache через callback onNewContacts
-                    
-                    // Уведомляем UI о новых контактах
-                    if (this.onNewContacts) {
-                        this.onNewContacts(result);
-                    }
-                    
-                    newContactsCount += result.contacts.length;
-                    currentIndex += result.contacts.length;
-                    
-                    console.log(`📇 Загружено ${result.contacts.length} новых контактов (всего новых: ${newContactsCount})`);
-                }
-                
-            } catch (error) {
-                console.error('❌ Ошибка загрузки новых контактов:', error);
-                hasMoreContacts = false;
+        console.log('📇 V3: Обнаружен неизвестный chatID, загружаем следующую страницу контактов...');
+        try {
+            const startIndex = this.contactListManager.contactsCache.size;
+            const endIndex = startIndex + this.CONTACTS_BATCH_SIZE - 1;
+            
+            console.log(`📥 V3: Запрашиваем страницу новых контактов: ${startIndex} - ${endIndex}`);
+
+            const rawData = await this.contract.methods.getContactsPaginated(startIndex, endIndex).call({ from: this.userAddress });
+
+            if (!rawData || !rawData.contacts || rawData.contacts.length === 0) {
+                console.log('ℹ️ V3: Новых контактов на следующей странице не найдено.');
+                return;
             }
+                
+            const formattedContacts = [];
+            for (let i = 0; i < rawData.contacts.length; i++) {
+                formattedContacts.push({
+                    address: rawData.contacts[i],
+                    name: rawData.names[i],
+                    publicKeyForEncode: rawData.publicKeys[i],
+                    lastMessageTimestamp: 0 // 🛠️ ИСПРАВЛЕНИЕ: Устанавливаем значение по умолчанию
+                });
+            }
+
+            this.onNewContacts(formattedContacts);
+            console.log(`✅ V3: Загружено ${formattedContacts.length} новых контактов со страницы.`);
+
+        } catch (error) {
+            console.error('❌ V3: Ошибка при загрузке новых контактов:', error);
         }
-        
-        this.lastContactIndex = currentIndex;
-        console.log(`✅ Загрузка новых контактов завершена: ${newContactsCount} новых контактов, lastContactIndex обновлен до ${currentIndex}`);
     }
 
     /**

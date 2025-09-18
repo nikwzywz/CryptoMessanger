@@ -188,7 +188,7 @@
                 </div>
                 <div class="modal-actions">
                     <button class="btn btn-primary" id="confirmInvitationBtn">Отправить приглашение</button>
-                    <button class="btn btn-secondary" id="cancelInvitationBtn">Отмена</button>
+                    <button class="btn btn-secondary" id="cancelInvitationModalBtn">Отмена</button>
                 </div>
             </div>
         </div>
@@ -344,17 +344,19 @@
             });
             
             // Если это текущий открытый чат, обновляем UI
-            const currentChatId = chatUIManager ? chatUIManager.currentChatID : null;
-            if (currentChatId === chatID) {
-                console.log('🎯 Обновляем текущий открытый чат');
-                
-                // Добавляем новые сообщения в UI
-                messages.forEach(msg => {
-                    chatUIManager.addMessageToUI(msg);
-                });
-                
-                // Прокручиваем вниз
-                chatUIManager.scrollToBottom();
+            if (chatUIManager && chatUIManager.currentContactAddress) {
+                const currentChatId = CryptoUtils.generateChatId(currentUser, chatUIManager.currentContactAddress);
+                if (currentChatId === chatID) {
+                    console.log('🎯 Обновляем текущий открытый чат');
+                    
+                    // Добавляем новые сообщения в UI
+                    messages.forEach(msg => {
+                        chatUIManager.addMessageToUI(msg);
+                    });
+                    
+                    // Прокручиваем вниз
+                    chatUIManager.scrollToBottom();
+                }
             }
             
             // Обновляем данные последнего сообщения для каждого нового сообщения
@@ -365,39 +367,45 @@
                 let decryptedText = '';
                 try {
                     decryptedText = CryptoUtils.decryptMessage(lastMessage.encryptedMessage, userPrivateKey);
-            } catch (error) {
+                } catch (error) {
                     decryptedText = '[Не удалось расшифровать]';
                 }
-                
-                // Обновляем данные контакта (включая счетчик непрочитанных)
-                contactListManager.updateLastMessage(
-                    chatID,
-                    parseInt(lastMessage.messIndex),
-                    decryptedText,
-                    parseInt(lastMessage.messageTimestamp) * 1000,
-                    lastMessage.newChatState,
-                    lastMessage.isFromMe // Передаем информацию о том, от кого сообщение
-                );
+
+                // 🛠️ ИСПРАВЛЕНИЕ: Находим адрес контакта по chatID
+                const contactAddress = contactListManager.findContactByChatID(chatID);
+                if (contactAddress) {
+                    // Обновляем данные контакта (включая счетчик непрочитанных)
+                    contactListManager.updateLastMessage(
+                        contactAddress, // Передаем найденный адрес
+                        parseInt(lastMessage.messIndex),
+                        decryptedText,
+                        parseInt(lastMessage.messageTimestamp) * 1000,
+                        lastMessage.newChatState,
+                        lastMessage.isFromMe // Передаем информацию о том, от кого сообщение
+                    );
+                } else {
+                    console.warn(`⚠️ V3: Не удалось найти контакт для chatID ${chatID} в handleNewMessagesV3`);
+                }
             }
         }
         
         /**
          * Обработка новых контактов из polling V3
          */
-        function handleNewContactsV3(contactsData) {
+        function handleNewContactsV3(contacts) { // 🛠️ ИСПРАВЛЕНИЕ: Принимаем массив
             console.log('👥 V3: Получены новые контакты:', {
-                count: contactsData.contacts.length,
-                contacts: contactsData.contacts
+                count: contacts.length, // 🛠️ ИСПРАВЛЕНИЕ: Используем .length напрямую
+                contacts: contacts
             });
             
             // Обновляем список контактов в UI
             if (contactListManager) {
-                contactListManager.addContactsToUI(contactsData);
+                contactListManager.addContactsToUI(contacts); // 🛠️ ИСПРАВЛЕНИЕ: Передаем массив
             }
             
             // Скрываем индикатор загрузки при появлении контактов
             const loadingPlaceholder = document.getElementById('loadingContactsPlaceholder');
-            if (loadingPlaceholder && contactsData.contacts.length > 0) {
+            if (loadingPlaceholder && contacts.length > 0) { // 🛠️ ИСПРАВЛЕНИЕ: Используем .length напрямую
                 loadingPlaceholder.style.display = 'none';
                 console.log('✅ V3: Индикатор загрузки скрыт при добавлении контактов');
             }
@@ -411,15 +419,18 @@
                 newState: frontendState
             });
             
-            // Обновляем иконки в списке контактов
+            // 🛠️ ИСПРАВЛЕНИЕ: Обновляем состояние в модели ContactListManager
             if (contactListManager) {
-                contactListManager.updateChatStateIcon(chatID, frontendState);
+                contactListManager.setChatState(chatID, frontendState);
             }
             
-            // Если это текущий открытый чат, обновляем его UI
-            const currentChatId = chatUIManager ? chatUIManager.currentChatID : null;
-            if (currentChatId === chatID) {
-                chatUIManager.updateChatAreaForState(frontendState);
+            // 🛠️ ИСПРАВЛЕНИЕ: Если это текущий открытый чат, обновляем его UI
+            if (chatUIManager && chatUIManager.currentContactAddress) {
+                const currentChatId = CryptoUtils.generateChatId(currentUser, chatUIManager.currentContactAddress);
+                if (currentChatId === chatID) {
+                    // Эта функция перечитает состояние из кэша и обновит панели
+                    chatUIManager.updateChatState();
+                }
             }
         }
         
@@ -992,7 +1003,7 @@
 
             // Закрытие модального окна отправки приглашения
             document.getElementById('closeModal').addEventListener('click', () => contactListManager.closeInvitationModal());
-            document.getElementById('cancelInvitationBtn').addEventListener('click', () => contactListManager.closeInvitationModal());
+            document.getElementById('cancelInvitationModalBtn').addEventListener('click', () => contactListManager.closeInvitationModal());
 
             // Подтверждение отправки приглашения
             document.getElementById('confirmInvitationBtn').addEventListener('click', async () => {
@@ -1049,6 +1060,20 @@
                     contactListManager.closeInvitationModal();
                 }
             });
+
+            // Закрытие модального окна по клавише Esc
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    const invitationModal = document.getElementById('invitationModal');
+                    
+                    // Проверяем, открыто ли модальное окно
+                    if (invitationModal && invitationModal.style.display !== 'none') {
+                        e.preventDefault();
+                        contactListManager.closeInvitationModal();
+                        console.log('⌨️ V3: Модальное окно закрыто по клавише Esc');
+                    }
+                }
+            });
         }
         
         // V3: Функция checkUserRegistrationAndRedirect объединена с checkRegistrationAndRedirect
@@ -1094,15 +1119,21 @@
         }
 
         // Выбор контакта
+        /**
+         * Выбирает контакт из списка контактов.
+         * @param {string} contactAddress Адрес контакта для выбора
+         */
         async function selectContact(contactAddress) {
             try {
-                console.log('💬 Выбираем контакт:', contactAddress);
+                // 🛡️ ПРАВИЛО: Убеждаемся, что адрес в lowerCase
+                const addressLower = contactAddress.toLowerCase();
+                console.log('💬 Выбираем контакт:', addressLower);
                 
                 // Обновляем активный контакт
                 document.querySelectorAll('.contact-item').forEach(item => {
                     item.classList.remove('active');
                 });
-                const contactElement = document.querySelector(`[data-address="${contactAddress}"]`);
+                const contactElement = document.querySelector(`[data-address="${addressLower}"]`);
                 if (contactElement) {
                     contactElement.classList.add('active');
                 }
@@ -1119,32 +1150,31 @@
                     
                 // V3: Получаем имя контакта из DOM элемента (используем уже найденный contactElement)
                 const contactName = contactElement ? 
-                    contactElement.querySelector('.contact-name')?.textContent || `User ${contactAddress.slice(0, 6)}` :
-                    `User ${contactAddress.slice(0, 6)}`;
+                    contactElement.querySelector('.contact-name')?.textContent || `User ${addressLower.slice(0, 6)}` :
+                    `User ${addressLower.slice(0, 6)}`;
                 
                 if (chatTitle) chatTitle.textContent = contactName;
                 
                 // Показываем адрес только если имя не является адресом
                 if (chatSubtitle) {
-                    const isNameAnAddress = contactName.toLowerCase().includes(contactAddress.toLowerCase().slice(2, 8));
-                    const addressToShow = isNameAnAddress ? '' : contactAddress;
-                    chatSubtitle.textContent = addressToShow;
+                    const isNameAnAddress = contactName.toLowerCase().includes(addressLower.slice(2, 8));
+                    chatSubtitle.textContent = isNameAnAddress ? '' : addressLower;
                     
                     console.log(`🏷️ V3: Установлен chatSubtitle:`, {
                         contactName: contactName,
-                        contactAddress: contactAddress,
+                        contactAddress: addressLower,
                         isNameAnAddress: isNameAnAddress,
-                        displayedText: addressToShow
+                        displayedText: addressLower
                     });
                 }
                 
                 // V3: Открываем чат через AppState
-                appState.setCurrentContact({ address: contactAddress, name: contactName });
+                appState.setCurrentContact({ address: addressLower, name: contactName });
                 if (chatUIManager) {
-                    await chatUIManager.openChat(contactAddress);
+                    await chatUIManager.openChat(addressLower);
                 }
 
-                console.log('✅ Чат открыт с контактом:', contactAddress);
+                console.log('✅ Чат открыт с контактом:', addressLower);
 
             } catch (error) {
                 console.error('❌ Ошибка выбора контакта:', error);
