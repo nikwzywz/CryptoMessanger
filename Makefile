@@ -40,6 +40,11 @@ deploy-sepolia:
 	@echo "Deploying to Base Sepolia..."
 	@source .env && forge script contracts/script/Deploy.s.sol --rpc-url baseSepolia --broadcast --verify --etherscan-api-key $$ETHERSCAN_API_KEY --chain 84532
 
+.PHONY: deploy-polygon
+deploy-polygon:
+	@echo "Deploying to Polygon Mainnet..."
+	@source .env && forge script contracts/script/Deploy.s.sol --rpc-url polygon --broadcast --verify --etherscan-api-key $$POLYGONSCAN_API_KEY --chain 137
+
 .PHONY: deploy-local
 deploy-local:
 	@echo "Deploying to local network..."
@@ -99,6 +104,7 @@ help:
 	@echo "  lint           - Проверка форматирования"
 	@echo "  deploy-base    - Развертывание в Base mainnet"
 	@echo "  deploy-sepolia - Развертывание в Base Sepolia"
+	@echo "  deploy-polygon - Развертывание в Polygon Mainnet"
 	@echo "  deploy-local   - Развертывание в локальную сеть"
 	@echo "  install        - Установка зависимостей"
 	@echo "  clean          - Очистка артефактов"

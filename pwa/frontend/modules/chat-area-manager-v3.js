@@ -359,25 +359,9 @@ class ChatAreaManagerV3 {
         
         const chatSubtitle = document.getElementById('chatSubtitle');
         
-        // Обновляем подзаголовок чата
-        if (chatSubtitle) {
-            switch (frontendState) {
-                case 'allowedWrite':
-                    // Не затираем адрес - он уже установлен в selectContact
-                    break;
-                case 'notAllowedWrite':
-                    chatSubtitle.textContent = '🚫 Чат заблокирован';
-                    break;
-                case 'waitingAcceptanceFromMe':
-                    chatSubtitle.textContent = '📥 Входящее приглашение';
-                    break;
-                case 'waitingAcceptanceFromOther':
-                    chatSubtitle.textContent = '⏳ Ожидание принятия приглашения';
-                    break;
-                default:
-                    chatSubtitle.textContent = '';
-            }
-        }
+        // НЕ затираем chatSubtitle - там должен оставаться адрес контакта
+        // Статус чата отображается через панели, а не в заголовке
+        console.log(`🎨 V3: Обновляем UI для состояния ${frontendState}, chatSubtitle остается с адресом контакта`);
         
         // Управляем панелями напрямую
         this.updateChatAreaForState(frontendState);
@@ -431,7 +415,11 @@ class ChatAreaManagerV3 {
                     const fromContactAddress = document.getElementById('fromContactAddress');
                     
                     if (fromContactName) fromContactName.textContent = currentContact.name;
-                    if (fromContactAddress) fromContactAddress.textContent = `${currentContact.address.slice(0, 6)}...${currentContact.address.slice(-4)}`;
+                    if (fromContactAddress) {
+                        // Показываем полный адрес для максимальной безопасности
+                        fromContactAddress.textContent = currentContact.address;
+                        fromContactAddress.title = currentContact.address; // Полный адрес в tooltip
+                    }
                     
                     // Настраиваем обработчики кнопок
                     const acceptBtn = document.getElementById('acceptInvitationBtn');
@@ -462,7 +450,11 @@ class ChatAreaManagerV3 {
                     const toContactAddress = document.getElementById('toContactAddress');
                     
                     if (toContactName) toContactName.textContent = currentContact.name;
-                    if (toContactAddress) toContactAddress.textContent = `${currentContact.address.slice(0, 6)}...${currentContact.address.slice(-4)}`;
+                    if (toContactAddress) {
+                        // Показываем полный адрес для максимальной безопасности
+                        toContactAddress.textContent = currentContact.address;
+                        toContactAddress.title = currentContact.address; // Полный адрес в tooltip
+                    }
                     
                     // Настраиваем обработчик кнопки отзыва
                     const cancelBtn = document.getElementById('cancelInvitationBtn');
@@ -760,9 +752,9 @@ class ChatAreaManagerV3 {
             const userSettings = await this.contract.methods.userSettings(contactAddress).call();
             const contactPublicKey = userSettings.publicKeyForEncode;
             
-            console.log('🔑 V3: Публичный ключ контакта:', {
+            console.log('🔑 V3: Публичный ключ для шифрования контакта:', {
                 contactAddress: contactAddress,
-                publicKey: contactPublicKey.substring(0, 20) + '...',
+                publicKeyForEncode: contactPublicKey.substring(0, 20) + '...',
                 fullLength: contactPublicKey.length
             });
             

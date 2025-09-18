@@ -16,7 +16,7 @@ window.CryptoMessengerConfig = {
     },
     
     // Адрес развернутого контракта 
-    contractAddress: '0xd539c944f7F0e9A7Ae749E6bD5F646C65B816C5D',
+    contractAddress: '0x4Bd5e407f3570A403023D2986815c047f91BD958',
     
     // Подписываемая фраза для генерации ключей шифрования
     signaturePhrase: 'By signing this message, I authorize CryptoMessenger to decrypt and read my messages.',
@@ -38,6 +38,96 @@ window.CryptoMessengerConfig = {
         "inputs": [],
         "stateMutability": "nonpayable",
         "type": "constructor"
+    },
+    {
+        "inputs": [],
+        "name": "CannotInteractWithSelf",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "ChatAlreadyActive",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "ChatNotActive",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "ContactNameEmpty",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "ContactNameTooLong",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "FeeTooHigh",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "InsufficientPayment",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "InvalidAddress",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "InvalidInviter",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "InvitationAlreadyPending",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "InvitationFeeTooHigh",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "NoInvitationFound",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "OnlyOwner",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "PublicKeyEmpty",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "RecipientNotRegistered",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "StartIndexOutOfBounds",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "UserAlreadyRegistered",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "UserNotRegistered",
+        "type": "error"
     },
     {
         "anonymous": false,
@@ -73,7 +163,46 @@ window.CryptoMessengerConfig = {
     },
     {
         "inputs": [],
+        "name": "FEE_UNIT",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
         "name": "INVITATION_TIMEOUT",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "MAX_CONTACT_REQUEST_FEE",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "MAX_INVITATION_FEE",
         "outputs": [
             {
                 "internalType": "uint256",
@@ -95,24 +224,24 @@ window.CryptoMessengerConfig = {
         "name": "chats",
         "outputs": [
             {
-                "internalType": "uint256",
-                "name": "createdAt",
-                "type": "uint256"
-            },
-            {
-                "internalType": "enum CryptoMessenger.enumChatState",
-                "name": "state",
-                "type": "uint8"
-            },
-            {
                 "internalType": "address",
                 "name": "inviter",
                 "type": "address"
             },
             {
-                "internalType": "uint256",
+                "internalType": "uint56",
                 "name": "invitationFee",
-                "type": "uint256"
+                "type": "uint56"
+            },
+            {
+                "internalType": "uint32",
+                "name": "createdAt",
+                "type": "uint32"
+            },
+            {
+                "internalType": "enum CryptoMessenger.enumChatState",
+                "name": "state",
+                "type": "uint8"
             }
         ],
         "stateMutability": "view",
@@ -180,24 +309,24 @@ window.CryptoMessengerConfig = {
             {
                 "components": [
                     {
-                        "internalType": "uint256",
-                        "name": "createdAt",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "enum CryptoMessenger.enumChatState",
-                        "name": "state",
-                        "type": "uint8"
-                    },
-                    {
                         "internalType": "address",
                         "name": "inviter",
                         "type": "address"
                     },
                     {
-                        "internalType": "uint256",
+                        "internalType": "uint56",
                         "name": "invitationFee",
-                        "type": "uint256"
+                        "type": "uint56"
+                    },
+                    {
+                        "internalType": "uint32",
+                        "name": "createdAt",
+                        "type": "uint32"
+                    },
+                    {
+                        "internalType": "enum CryptoMessenger.enumChatState",
+                        "name": "state",
+                        "type": "uint8"
                     }
                 ],
                 "internalType": "struct CryptoMessenger.ChatSettings",
@@ -291,24 +420,24 @@ window.CryptoMessengerConfig = {
                         "type": "bytes32"
                     },
                     {
-                        "internalType": "uint256",
-                        "name": "messIndex",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "messageTimestamp",
-                        "type": "uint256"
-                    },
-                    {
                         "internalType": "bytes",
                         "name": "encryptedMessage",
                         "type": "bytes"
                     },
                     {
+                        "internalType": "uint248",
+                        "name": "messIndex",
+                        "type": "uint248"
+                    },
+                    {
                         "internalType": "bool",
                         "name": "isFromMe",
                         "type": "bool"
+                    },
+                    {
+                        "internalType": "uint32",
+                        "name": "messageTimestamp",
+                        "type": "uint32"
                     },
                     {
                         "internalType": "enum CryptoMessenger.enumChatState",
@@ -441,6 +570,25 @@ window.CryptoMessengerConfig = {
                 "internalType": "address",
                 "name": "",
                 "type": "address"
+            }
+        ],
+        "name": "messageCounters",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "",
+                "type": "address"
             },
             {
                 "internalType": "uint256",
@@ -456,24 +604,24 @@ window.CryptoMessengerConfig = {
                 "type": "bytes32"
             },
             {
-                "internalType": "uint256",
-                "name": "messIndex",
-                "type": "uint256"
-            },
-            {
-                "internalType": "uint256",
-                "name": "messageTimestamp",
-                "type": "uint256"
-            },
-            {
                 "internalType": "bytes",
                 "name": "encryptedMessage",
                 "type": "bytes"
             },
             {
+                "internalType": "uint248",
+                "name": "messIndex",
+                "type": "uint248"
+            },
+            {
                 "internalType": "bool",
                 "name": "isFromMe",
                 "type": "bool"
+            },
+            {
+                "internalType": "uint32",
+                "name": "messageTimestamp",
+                "type": "uint32"
             },
             {
                 "internalType": "enum CryptoMessenger.enumChatState",
@@ -645,6 +793,6 @@ window.CryptoMessengerConfig = {
 ]
 };
 
-console.log('📦 Конфигурация CryptoMessenger загружена v1.0.0 - 2025-09-18 00:15 (полный ABI)');
+console.log('📦 Конфигурация CryptoMessenger загружена v1.0.0 - 2025-09-18 19:58 (полный ABI)');
 console.log('🌐 Сеть:', window.CryptoMessengerConfig.network.chainName);
 console.log('📄 Контракт:', window.CryptoMessengerConfig.contractAddress);

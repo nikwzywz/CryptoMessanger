@@ -66,14 +66,14 @@ contract CryptoMessengerTest is Test {
         vm.startPrank(alice);
         cryptoMessenger.registerUser(aliceName, alicePublicKey);
         
-        vm.expectRevert("User already registered");
+        vm.expectRevert(CryptoMessenger.UserAlreadyRegistered.selector);
         cryptoMessenger.registerUser("Alice2", "different_key");
         vm.stopPrank();
     }
     
     function testCannotRegisterWithEmptyName() public {
         vm.startPrank(alice);
-        vm.expectRevert("Contact name cannot be empty");
+        vm.expectRevert(CryptoMessenger.ContactNameEmpty.selector);
         cryptoMessenger.registerUser("", alicePublicKey);
         vm.stopPrank();
     }
@@ -97,7 +97,7 @@ contract CryptoMessengerTest is Test {
         
         assertEq(uint256(chat.state), uint256(CryptoMessenger.enumChatState.waitingAcceptance));
         assertEq(chat.inviter, alice);
-        assertEq(chat.invitationFee, fee);
+        assertEq(uint256(chat.invitationFee) * 256, fee); // invitationFee хранится в единицах 256wei
         
         // 🆕 ПРОВЕРЯЕМ ПЕРСОНАЛЬНЫЕ МАССИВЫ СООБЩЕНИЙ
         vm.startPrank(alice);
@@ -397,7 +397,7 @@ contract CryptoMessengerTest is Test {
         
         vm.startPrank(alice);
         // Тест на граничные значения пагинации
-        vm.expectRevert("Start index out of bounds");
+        vm.expectRevert(CryptoMessenger.StartIndexOutOfBounds.selector);
         cryptoMessenger.getMessagesPaginated(10, 15); // startIndex > length
         
         // Тест корректного поведения при endIndex > length
@@ -407,6 +407,158 @@ contract CryptoMessengerTest is Test {
         vm.stopPrank();
     }
     
+    // ========================================
+    // 🆕 ТЕСТЫ СЧЕТЧИКОВ СООБЩЕНИЙ (messageCounters)
+    // ========================================
+    
+    function testMessageCountersAccuracy() public {
+        _registerUsers();
+        _sendInvitation(alice, bob);
+        _acceptInvitation(alice, bob);
+        
+        // Проверяем начальное состояние счетчиков
+        assertEq(cryptoMessenger.messageCounters(alice), 2); // Приглашение + принятие
+        assertEq(cryptoMessenger.messageCounters(bob), 2);   // Приглашение + принятие
+        
+        // Отправляем несколько сообщений от Alice к Bob
+        vm.startPrank(alice);
+        for (uint i = 0; i < 3; i++) {
+            cryptoMessenger.sendMessage(bob, encryptedForRecipient, encryptedForSender);
+        }
+        vm.stopPrank();
+        
+        // Проверяем что счетчики корректно увеличились
+        assertEq(cryptoMessenger.messageCounters(alice), 5); // 2 + 3 новых сообщения
+        assertEq(cryptoMessenger.messageCounters(bob), 5);   // 2 + 3 новых сообщения
+        
+        // 🎯 КРИТИЧЕСКИЙ ТЕСТ: Счетчики должны совпадать с реальной длиной массивов
+        vm.startPrank(alice);
+        uint256 aliceMessagesCount = cryptoMessenger.getMessagesCount();
+        assertEq(cryptoMessenger.messageCounters(alice), aliceMessagesCount);
+        vm.stopPrank();
+        
+        vm.startPrank(bob);
+        uint256 bobMessagesCount = cryptoMessenger.getMessagesCount();
+        assertEq(cryptoMessenger.messageCounters(bob), bobMessagesCount);
+        vm.stopPrank();
+    }
+    
+    function testMessageCountersIndependence() public {
+        _registerUsers();
+        
+        // Alice отправляет приглашение Bob'у
+        _sendInvitation(alice, bob);
+        
+        // Charlie отправляет приглашение Dave'у (независимый чат)
+        _sendInvitation(charlie, dave);
+        
+        // Проверяем что счетчики независимы для разных пользователей
+        assertEq(cryptoMessenger.messageCounters(alice), 1);   // Только приглашение
+        assertEq(cryptoMessenger.messageCounters(bob), 1);     // Только приглашение
+        assertEq(cryptoMessenger.messageCounters(charlie), 1); // Только приглашение
+        assertEq(cryptoMessenger.messageCounters(dave), 1);    // Только приглашение
+        
+        // Bob принимает приглашение от Alice
+        _acceptInvitation(alice, bob);
+        
+        // Проверяем что изменились только счетчики Alice и Bob
+        assertEq(cryptoMessenger.messageCounters(alice), 2);   // Приглашение + принятие
+        assertEq(cryptoMessenger.messageCounters(bob), 2);     // Приглашение + принятие
+        assertEq(cryptoMessenger.messageCounters(charlie), 1); // Без изменений
+        assertEq(cryptoMessenger.messageCounters(dave), 1);    // Без изменений
+    }
+    
+    function testMessageIndexConsistency() public {
+        _registerUsers();
+        _sendInvitation(alice, bob);
+        _acceptInvitation(alice, bob);
+        
+        // Отправляем сообщения и проверяем что messIndex соответствует счетчику
+        vm.startPrank(alice);
+        for (uint i = 0; i < 3; i++) {
+            uint256 expectedIndex = cryptoMessenger.messageCounters(alice);
+            cryptoMessenger.sendMessage(bob, encryptedForRecipient, encryptedForSender);
+            
+            // Получаем последнее сообщение и проверяем его индекс
+            CryptoMessenger.TypeMessage[] memory messages = 
+                cryptoMessenger.getMessagesPaginated(expectedIndex, expectedIndex);
+            assertEq(messages[0].messIndex, expectedIndex);
+        }
+        vm.stopPrank();
+    }
+    
+    function testCounterZeroState() public {
+        _registerUsers();
+        
+        // Новые пользователи должны иметь нулевые счетчики
+        assertEq(cryptoMessenger.messageCounters(alice), 0);
+        assertEq(cryptoMessenger.messageCounters(bob), 0);
+        assertEq(cryptoMessenger.messageCounters(charlie), 0);
+        assertEq(cryptoMessenger.messageCounters(dave), 0);
+    }
+    
+    function testInvitationFeeValidation() public {
+        _registerUsers();
+        
+        // Даем Alice достаточно ETH для тестирования больших сумм
+        vm.deal(alice, 1000 ether);
+        
+        vm.startPrank(alice);
+        // Тестируем с разумной большой суммой (например, 100 ETH > MAX_INVITATION_FEE ≈ 18.4 ETH)
+        uint256 tooHighFee = 100 ether;
+        
+        vm.expectRevert(CryptoMessenger.InvitationFeeTooHigh.selector);
+        cryptoMessenger.invitationSend{value: tooHighFee}(bob, encryptedForRecipient, encryptedForSender);
+        
+        // Проверяем что разумная комиссия работает (например, 1 ETH)
+        uint256 reasonableFee = 1 ether;
+        cryptoMessenger.invitationSend{value: reasonableFee}(charlie, encryptedForRecipient, encryptedForSender);
+        
+        // Проверяем что invitationFee корректно сохранилась
+        bytes32 chatId = _generateChatId(alice, charlie);
+        CryptoMessenger.ChatSettings memory chat = cryptoMessenger.getChat(chatId);
+        assertEq(uint256(chat.invitationFee) * 256, reasonableFee);
+        
+        vm.stopPrank();
+    }
+
+    function testCounterIncrementOnAllOperations() public {
+        _registerUsers();
+        
+        // 1. Приглашение увеличивает счетчики
+        vm.startPrank(alice);
+        uint256 fee = cryptoMessenger.defaultContactRequestFee();
+        cryptoMessenger.invitationSend{value: fee}(bob, encryptedForRecipient, encryptedForSender);
+        vm.stopPrank();
+        
+        assertEq(cryptoMessenger.messageCounters(alice), 1);
+        assertEq(cryptoMessenger.messageCounters(bob), 1);
+        
+        // 2. Принятие приглашения увеличивает счетчики
+        vm.startPrank(bob);
+        cryptoMessenger.invitationAccept(alice, encryptedForRecipient, encryptedForSender);
+        vm.stopPrank();
+        
+        assertEq(cryptoMessenger.messageCounters(alice), 2);
+        assertEq(cryptoMessenger.messageCounters(bob), 2);
+        
+        // 3. Обычное сообщение увеличивает счетчики
+        vm.startPrank(alice);
+        cryptoMessenger.sendMessage(bob, encryptedForRecipient, encryptedForSender);
+        vm.stopPrank();
+        
+        assertEq(cryptoMessenger.messageCounters(alice), 3);
+        assertEq(cryptoMessenger.messageCounters(bob), 3);
+        
+        // 4. Деактивация чата увеличивает счетчики
+        vm.startPrank(bob);
+        cryptoMessenger.deactivateChat(alice, encryptedForRecipient, encryptedForSender);
+        vm.stopPrank();
+        
+        assertEq(cryptoMessenger.messageCounters(alice), 4);
+        assertEq(cryptoMessenger.messageCounters(bob), 4);
+    }
+
     // ========================================
     // 🆕 ТЕСТЫ ENUM СОСТОЯНИЙ
     // ========================================

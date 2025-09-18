@@ -42,6 +42,11 @@
     border: 1px solid #444;
     color: #ccc;
     font-size: 14px;
+    word-break: break-all;    /* Разрешаем перенос длинных адресов */
+    overflow-wrap: break-word; /* Для совместимости */
+    max-height: 60px;         /* Максимальная высота для адресов */
+    overflow: hidden;         /* Скрываем лишнее */
+    text-overflow: ellipsis;  /* Многоточие если не помещается */
 }
 
 .invitation-field strong {
@@ -148,6 +153,26 @@ body {
     border-color: #007bff;
 }
 
+/* Бейдж непрочитанных сообщений */
+.unread-count {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    background: #ff4444;
+    color: white;
+    border-radius: 12px;
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: bold;
+    min-width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    z-index: 10;
+}
+
 /* Список контактов */
 .contacts-list {
     flex: 1;
@@ -162,6 +187,7 @@ body {
     cursor: pointer;
     transition: background-color 0.2s;
     border-bottom: 1px solid #222;
+    position: relative; /* Для позиционирования бейджа */
 }
 
 .contact-item:hover {

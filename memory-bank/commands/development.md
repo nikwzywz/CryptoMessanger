@@ -11,6 +11,7 @@ make clean                  # Очистка артефактов
 ```bash
 make deploy-base            # Развертывание в Base Mainnet
 make deploy-sepolia         # Развертывание в Base Sepolia  
+make deploy-polygon         # Развертывание в Polygon Mainnet
 make deploy-local           # Локальное развертывание
 ```
 

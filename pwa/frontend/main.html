@@ -145,7 +145,7 @@
                 <div class="invitation-panel-content">
                     <div class="panel-header">
                         <h3 id="invitationTimeoutTitle">Пользователь не дал ответ на ваше приглашение более <span id="daysSinceInvitation">-</span> суток.</h3>
-                    </div>
+                </div>
                     <div class="panel-body">
                         <div class="invitation-info">
                             <div class="invitation-message">
@@ -155,7 +155,7 @@
                         <div class="invitation-actions">
                             <button id="cancelInvitationTimeoutBtn" class="btn btn-secondary">
                                 🔄 Отозвать приглашение
-                            </button>
+                    </button>
                         </div>
                         <div class="invitation-note">
                             и вернуть себе комиссию
@@ -357,9 +357,27 @@
                 chatUIManager.scrollToBottom();
             }
             
-            // Обновляем счетчики непрочитанных сообщений
-            if (contactListManager) {
-                contactListManager.updateUnreadCount(chatID, messages.length);
+            // Обновляем данные последнего сообщения для каждого нового сообщения
+            if (contactListManager && messages.length > 0) {
+                const lastMessage = messages[messages.length - 1];
+                
+                // Расшифровываем сообщение для отображения в списке контактов
+                let decryptedText = '';
+                try {
+                    decryptedText = CryptoUtils.decryptMessage(lastMessage.encryptedMessage, userPrivateKey);
+            } catch (error) {
+                    decryptedText = '[Не удалось расшифровать]';
+                }
+                
+                // Обновляем данные контакта (включая счетчик непрочитанных)
+                contactListManager.updateLastMessage(
+                    chatID,
+                    parseInt(lastMessage.messIndex),
+                    decryptedText,
+                    parseInt(lastMessage.messageTimestamp) * 1000,
+                    lastMessage.newChatState,
+                    lastMessage.isFromMe // Передаем информацию о том, от кого сообщение
+                );
             }
         }
         
@@ -409,15 +427,86 @@
         
         // setVisiblePanel* функции перенесены в ChatAreaManagerV3
         
+        // Проверка регистрации и редирект при необходимости
+        async function checkRegistrationAndRedirect() {
+            try {
+                console.log('🔍 V3: Проверяем необходимость редиректа на auth.html...');
+                
+                // 1. Проверяем наличие MetaMask
+                if (typeof window.ethereum === 'undefined') {
+                    console.log('❌ V3: MetaMask не найден → редирект на auth.html');
+                    showNotification('MetaMask не найден! Перенаправляем на страницу авторизации...', 'error');
+                    setTimeout(() => window.location.href = 'auth.html', 2000);
+                    return false;
+                }
+
+                // 2. Проверяем подключение аккаунтов
+                const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                if (accounts.length === 0) {
+                    console.log('❌ V3: Аккаунты не подключены → редирект на auth.html');
+                    showNotification('Кошелек не подключен! Перенаправляем на страницу авторизации...', 'warning');
+                    setTimeout(() => window.location.href = 'auth.html', 2000);
+                    return false;
+                }
+
+                // 3. Проверяем правильность сети
+                const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                const expectedChainId = window.CryptoMessengerConfig.network.chainId;
+                
+                if (chainId !== expectedChainId) {
+                    console.log(`❌ V3: Неправильная сеть ${chainId}, ожидается ${expectedChainId} → редирект на auth.html`);
+                    showNotification('Неправильная сеть! Перенаправляем на страницу авторизации...', 'warning');
+                    setTimeout(() => window.location.href = 'auth.html', 2000);
+                    return false;
+                }
+
+                // 4. Инициализируем контракт для проверки регистрации
+                const web3 = new Web3(window.ethereum);
+                const contract = new web3.eth.Contract(
+                    window.CryptoMessengerConfig.contractABI,
+                    window.CryptoMessengerConfig.contractAddress
+                );
+
+                // 5. Проверяем регистрацию пользователя
+                const currentUser = accounts[0];
+                const isRegistered = await contract.methods.isUserRegistered(currentUser).call();
+                
+                if (!isRegistered) {
+                    console.log(`❌ V3: Пользователь ${currentUser} не зарегистрирован → редирект на auth.html`);
+                    showNotification('Пользователь не зарегистрирован! Перенаправляем на страницу авторизации...', 'warning');
+                    setTimeout(() => window.location.href = 'auth.html', 2000);
+                    return false;
+                }
+
+                // 6. Проверяем наличие ключей в localStorage
+                const savedKeys = localStorage.getItem('cryptoMessengerKeys');
+                if (!savedKeys) {
+                    console.log('❌ V3: Ключи не найдены в localStorage → редирект на auth.html');
+                    showNotification('Ключи шифрования не найдены! Перенаправляем на страницу авторизации...', 'warning');
+                    setTimeout(() => window.location.href = 'auth.html', 2000);
+                    return false;
+                }
+
+                console.log('✅ V3: Все проверки пройдены, можно инициализировать приложение');
+                return true;
+
+            } catch (error) {
+                console.error('❌ V3: Ошибка проверки регистрации:', error);
+                showNotification('Ошибка проверки! Перенаправляем на страницу авторизации...', 'error');
+                setTimeout(() => window.location.href = 'auth.html', 2000);
+                return false;
+            }
+        }
+
         // Основная функция инициализации
         async function initializeApp() {
             try {
                 console.log('🚀 Инициализация CryptoMessenger...');
                 
-                // Проверяем наличие MetaMask
-                if (typeof window.ethereum === 'undefined') {
-                    showNotification('MetaMask не найден! Установите MetaMask для продолжения.', 'error');
-                    return;
+                // Сначала проверяем, можно ли вообще запускать приложение
+                const canInitialize = await checkRegistrationAndRedirect();
+                if (!canInitialize) {
+                    return; // Редирект уже запущен
                 }
 
                 // Инициализируем Web3
@@ -475,9 +564,9 @@
                     '0x' + keys.publicKeyForEncode;
                 userPrivateKey = keys.privateKeyForEncode;
                 
-                console.log('🔑 V3: Ключи загружены из localStorage:', {
-                    publicKey: userPublicKey.substring(0, 20) + '...',
-                    privateKey: userPrivateKey.substring(0, 20) + '...'
+                console.log('🔑 V3: Ключи для шифрования загружены из localStorage:', {
+                    publicKeyForEncode: userPublicKey.substring(0, 20) + '...',
+                    privateKeyForEncode: userPrivateKey.substring(0, 20) + '...'
                 });
                 
                 // 🔍 Проверяем совпадение ключей в localStorage и контракте
@@ -485,9 +574,9 @@
                     const userSettings = await contract.methods.userSettings(currentUser).call();
                     const contractPublicKey = userSettings.publicKeyForEncode;
                     
-                    console.log('🔍 V3: Сравнение ключей пользователя:', {
-                        localStorageKey: userPublicKey,
-                        contractKey: contractPublicKey,
+                    console.log('🔍 V3: Сравнение ключей шифрования пользователя:', {
+                        localStorageKeyForEncode: userPublicKey,
+                        contractKeyForEncode: contractPublicKey,
                         keysMatch: userPublicKey === contractPublicKey,
                         localLength: userPublicKey.length,
                         contractLength: contractPublicKey.length
@@ -546,6 +635,9 @@
                 setupSendMessageHandler();
                 setupMessageInputHandlers();
                 
+                // 🆕 Восстанавливаем неотправленное сообщение если есть
+                restoreUnsentMessage();
+                
                 // Настраиваем обработчик системной кнопки "назад"
                 setupBackButtonHandler();
                 
@@ -555,8 +647,8 @@
                 showNotification('CryptoMessenger успешно инициализирован!', 'success');
                 console.log('✅ V3: Инициализация завершена');
                 console.log('👤 V3: Информация о пользователе:');
-                console.log('   📍 Адрес:', currentUser);
-                console.log('   🔑 Публичный ключ:', userPublicKey);
+                console.log('   📍 Адрес кошелька:', currentUser);
+                console.log('   🔑 Публичный ключ для шифрования:', userPublicKey);
                 
                 // 🆕 В V3 контакты загружаются через eventSystem.initialize()
                 // Статистика будет доступна через eventSystem.getStats()
@@ -674,18 +766,50 @@
                             // 🆕 Отправка через ChatAreaManager V3
                             await chatUIManager.sendMessage(message);
                             
-                    showNotification('Сообщение отправлено!', 'success');
-                    
-                    // Очищаем поле ввода
+                    // ✅ Сообщение успешно отправлено - очищаем поле ввода
                     input.value = '';
                     input.style.height = 'auto';
+                    
+                    // Очищаем сохраненное сообщение из sessionStorage
+                    sessionStorage.removeItem('unsent_message');
+                    
+                    showNotification('Сообщение отправлено!', 'success');
+                    console.log('✅ V3: Поле ввода и sessionStorage очищены после успешной отправки');
                     
             } catch (error) {
                             console.error('❌ V3: Ошибка отправки сообщения:', error);
                     showNotification('Ошибка отправки сообщения: ' + error.message, 'error');
+                    
+                    // ❌ При ошибке поле ввода НЕ очищаем - пользователь может исправить и повторить
+                    console.log('⚠️ V3: Поле ввода сохранено для повторной попытки');
+                    console.log('📝 V3: Сохраненный текст:', `"${message}"`);
+                    
+                    // Дополнительно: сохраняем в sessionStorage на случай перезагрузки
+                    sessionStorage.setItem('unsent_message', message);
+                    console.log('💾 V3: Текст сообщения сохранен в sessionStorage');
             }
         }
         });
+            }
+        }
+
+        // Восстановление неотправленного сообщения
+        function restoreUnsentMessage() {
+            const unsentMessage = sessionStorage.getItem('unsent_message');
+            if (unsentMessage) {
+                const messageInput = document.querySelector('.message-input');
+                if (messageInput) {
+                    messageInput.value = unsentMessage;
+                    // Автоматически подстраиваем высоту поля
+                    messageInput.style.height = 'auto';
+                    messageInput.style.height = Math.min(messageInput.scrollHeight, 120) + 'px';
+                    
+                    console.log('🔄 V3: Восстановлено неотправленное сообщение:', `"${unsentMessage}"`);
+                    showNotification('Восстановлен текст неотправленного сообщения', 'info');
+                    
+                    // Удаляем из sessionStorage после восстановления
+                    sessionStorage.removeItem('unsent_message');
+                }
             }
         }
 
@@ -892,18 +1016,20 @@
 
                     await contactListManager.sendInvitation(recipientAddress, message, fee);
 
-                    // Обновляем панель для текущего контакта, если он совпадает с получателем приглашения
-                    // V3: Панели обновятся автоматически через polling после отправки приглашения
-
-                    // Очищаем форму
+                    // ✅ Приглашение успешно отправлено - очищаем форму
                     document.getElementById('recipientAddress').value = '';
                     document.getElementById('invitationMessage').value = '';
                     document.getElementById('invitationFee').value = '0.00000217';
+                    
+                    console.log('✅ V3: Форма приглашения очищена после успешной отправки');
 
                     // Модальное окно закроется автоматически в contactListManager.sendInvitation()
 
                 } catch (error) {
-                    console.error('Ошибка отправки приглашения:', error);
+                    console.error('❌ V3: Ошибка отправки приглашения:', error);
+                    // ❌ При ошибке форму НЕ очищаем - пользователь может исправить и повторить
+                    showNotification('Ошибка отправки приглашения: ' + error.message, 'error');
+                    console.log('⚠️ V3: Форма приглашения сохранена для повторной попытки');
                 } finally {
                     document.getElementById('confirmInvitationBtn').disabled = false;
                     document.getElementById('confirmInvitationBtn').textContent = 'Отправить приглашение';
@@ -925,78 +1051,45 @@
             });
         }
         
-        // Проверка регистрации пользователя и редирект при необходимости
-        async function checkUserRegistrationAndRedirect(userAddress) {
-            try {
-                console.log('🔍 Проверяем регистрацию пользователя:', userAddress);
-                
-                // Проверяем регистрацию в контракте
-                const isRegistered = await contract.methods.isUserRegistered(userAddress).call();
-                console.log('📋 Результат проверки регистрации:', isRegistered);
-                
-                if (isRegistered) {
-                    // Пользователь зарегистрирован - обновляем текущего пользователя и перезагружаем
-                    console.log('✅ Пользователь зарегистрирован - перезагружаем приложение');
-                    currentUser = userAddress;
-                    showNotification('Аккаунт изменён. Перезагружаем приложение...', 'info');
-                    
-                    setTimeout(() => {
-                        location.reload();
-                    }, 1500);
-                } else {
-                    // Пользователь НЕ зарегистрирован - редирект на регистрацию
-                    console.log('❌ Пользователь не зарегистрирован - редирект на регистрацию');
-                    showNotification('Новый аккаунт не зарегистрирован! Перенаправляем на страницу регистрации...', 'warning');
-                    
-                    setTimeout(() => {
-                        window.location.href = 'auth.html';
-                    }, 2500);
-                }
-                
-            } catch (error) {
-                console.error('❌ Ошибка проверки регистрации:', error);
-                showNotification('Ошибка проверки регистрации. Перенаправляем на страницу авторизации...', 'error');
-                
-                setTimeout(() => {
-                    window.location.href = 'auth.html';
-                }, 2000);
-            }
-        }
+        // V3: Функция checkUserRegistrationAndRedirect объединена с checkRegistrationAndRedirect
 
         // Обработка отключения кошелька
         function setupWalletDisconnectHandler() {
             // Слушаем изменения аккаунтов
-            window.ethereum.on('accountsChanged', (accounts) => {
+            window.ethereum.on('accountsChanged', async (accounts) => {
                 if (accounts.length === 0) {
-                    console.log('🔌 Кошелек отключен');
+                    console.log('🔌 V3: Кошелек отключен → редирект на auth.html');
                     showNotification('Кошелек отключен! Перенаправляем на страницу авторизации...', 'warning');
-                    
-                    // Перенаправляем на страницу авторизации
-                    setTimeout(() => {
-                        window.location.href = 'auth.html';
-                    }, 2000);
-                } else 
-                {
-                    if (accounts[0] !== currentUser) 
-                    {
-                        console.log('🔄 Аккаунт изменен с', currentUser, 'на', accounts[0]);
-                        const newUser = accounts[0];
-                        // Проверяем регистрацию нового пользователя
-                        checkUserRegistrationAndRedirect(newUser);
-                    }
-                    else
-                    {
-                    currentUser = accounts[0];
-                        console.log('🔄 Аккаунт изменен' + currentUser);
-                    location.reload(); // Перезагружаем страницу
+                    setTimeout(() => window.location.href = 'auth.html', 2000);
+                } else {
+                    if (accounts[0] !== currentUser) {
+                        console.log('🔄 V3: Аккаунт изменен с', currentUser, 'на', accounts[0]);
+                        
+                        // Проверяем регистрацию нового пользователя через общую функцию
+                        const canContinue = await checkRegistrationAndRedirect();
+                        if (canContinue) {
+                            // Если новый пользователь зарегистрирован, перезагружаем приложение
+                            console.log('✅ V3: Новый пользователь зарегистрирован - перезагружаем приложение');
+                            showNotification('Аккаунт изменён на зарегистрированного пользователя. Перезагружаем...', 'info');
+                            setTimeout(() => location.reload(), 1500);
+                        }
+                        // Если не зарегистрирован, редирект уже запущен в checkRegistrationAndRedirect
                     }
                 }
             });
 
             // Слушаем изменения сети
-            window.ethereum.on('chainChanged', (chainId) => {
-                console.log('🔄 Сеть изменена:', chainId);
-                location.reload(); // Перезагружаем страницу
+            window.ethereum.on('chainChanged', async (chainId) => {
+                console.log('🔄 V3: Сеть изменена:', chainId);
+                
+                // Проверяем новую сеть и регистрацию
+                const canContinue = await checkRegistrationAndRedirect();
+                if (canContinue) {
+                    // Если все в порядке, перезагружаем приложение
+                    console.log('✅ V3: Правильная сеть и зарегистрированный пользователь - перезагружаем');
+                    location.reload();
+                }
+                // Если сеть неправильная или пользователь не зарегистрирован, редирект уже запущен
             });
         }
 
@@ -1034,7 +1127,15 @@
                 // Показываем адрес только если имя не является адресом
                 if (chatSubtitle) {
                     const isNameAnAddress = contactName.toLowerCase().includes(contactAddress.toLowerCase().slice(2, 8));
-                    chatSubtitle.textContent = isNameAnAddress ? '' : contactAddress;
+                    const addressToShow = isNameAnAddress ? '' : contactAddress;
+                    chatSubtitle.textContent = addressToShow;
+                    
+                    console.log(`🏷️ V3: Установлен chatSubtitle:`, {
+                        contactName: contactName,
+                        contactAddress: contactAddress,
+                        isNameAnAddress: isNameAnAddress,
+                        displayedText: addressToShow
+                    });
                 }
                 
                 // V3: Открываем чат через AppState

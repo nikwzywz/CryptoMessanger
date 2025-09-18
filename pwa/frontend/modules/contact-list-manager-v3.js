@@ -9,9 +9,9 @@ class ContactListManagerV3 {
         this.contract = contract;
         this.eventSystem = eventSystem;
         
-        // Кэш контактов и их состояний
-        this.contactsCache = new Map(); // address -> {name, publicKey}
-        this.chatStatesCache = new Map(); // chatID -> frontendState
+        // Расширенный кэш контактов со всей необходимой информацией
+        this.contactsCache = new Map(); // address -> {name, publicKeyForEncode, lastMessageTime, lastMessageIndex, lastMessageText, frontendState, chatID, unreadCount, orderIndex}
+        // chatStatesCache удален - состояния теперь хранятся в contactsCache.frontendState
         
         // Подписываемся на изменения состояния
         this.appState.subscribe('currentContact', this.onCurrentContactChanged.bind(this));
@@ -43,10 +43,20 @@ class ContactListManagerV3 {
             const name = contactsData.names[i];
             const publicKey = contactsData.publicKeys[i];
             
-            // Сохраняем в кэш
+            // Генерируем chatID для контакта
+            const chatID = CryptoUtils.generateChatId(this.appState.currentUser, address);
+            
+            // Сохраняем в расширенный кэш
             this.contactsCache.set(address.toLowerCase(), {
                 name: name,
-                publicKey: publicKey
+                publicKeyForEncode: publicKey, // Специальный ключ для шифрования (не кошелек!)
+                lastMessageTime: null,         // Будет обновлено при получении сообщений
+                lastMessageIndex: -1,          // -1 означает отсутствие сообщений
+                lastMessageText: '',           // Пустая строка по умолчанию
+                frontendState: 'unknown',      // Будет определено при анализе сообщений
+                chatID: chatID,                // Предвычисленный chatID для оптимизации
+                unreadCount: 0,                // Количество непрочитанных сообщений
+                orderIndex: -1                 // Позиция в отсортированном списке (-1 = не определена)
             });
             
             // Создаем элемент контакта
@@ -54,6 +64,9 @@ class ContactListManagerV3 {
         }
         
         console.log(`✅ V3: Добавлено ${contactsData.contacts.length} контактов в UI`);
+        
+        // Применяем полную сортировку только при инициальной загрузке
+        this.performInitialSort();
     }
 
     /**
@@ -118,7 +131,7 @@ class ContactListManagerV3 {
         this.appState.setCurrentContact({
             address: address,
             name: name,
-            publicKey: this.contactsCache.get(address.toLowerCase())?.publicKey
+            publicKeyForEncode: this.contactsCache.get(address.toLowerCase())?.publicKeyForEncode
         });
     }
 
@@ -131,8 +144,8 @@ class ContactListManagerV3 {
             frontendState: frontendState
         });
         
-        // Сохраняем состояние в кэш
-        this.chatStatesCache.set(chatID, frontendState);
+        // Обновляем состояние в contactsCache
+        this.setChatState(chatID, frontendState);
         
         // Находим соответствующий элемент контакта
         const contactAddress = this.findContactByChartID(chatID);
@@ -224,17 +237,34 @@ class ContactListManagerV3 {
      * Обработчик изменения текущего контакта
      */
     onCurrentContactChanged(contact) {
-        if (contact) {
+        if (contact && contact.address) {
             console.log('👤 V3: Выбран контакт:', contact.name);
             
-            // Сбрасываем счетчик непрочитанных для выбранного контакта
-            const contactElement = document.querySelector(`[data-address="${contact.address}"]`);
-            if (contactElement) {
-                const unreadBadge = contactElement.querySelector('.unread-count');
-                if (unreadBadge) {
-                    unreadBadge.style.display = 'none';
-                }
+            // Сбрасываем счетчик непрочитанных сообщений для выбранного контакта
+            const wasReset = this.resetUnreadCount(contact.address);
+            
+            if (wasReset) {
+                console.log('📖 V3: Счетчик непрочитанных сброшен для активного контакта');
             }
+            
+            // Обновляем подсветку активного контакта
+            this.updateActiveContactHighlight(contact.address);
+        }
+    }
+
+    /**
+     * Обновление подсветки активного контакта
+     */
+    updateActiveContactHighlight(activeAddress) {
+        // Убираем активный класс у всех контактов
+        document.querySelectorAll('.contact-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        
+        // Добавляем активный класс к выбранному контакту
+        const activeElement = document.querySelector(`[data-address="${activeAddress}"]`);
+        if (activeElement) {
+            activeElement.classList.add('active');
         }
     }
 
@@ -246,10 +276,142 @@ class ContactListManagerV3 {
     }
 
     /**
-     * Получение состояния чата
+     * Обновление данных контакта в кэше
+     */
+    updateContactData(address, updates) {
+        const existingData = this.contactsCache.get(address.toLowerCase());
+        if (existingData) {
+            // Обновляем только переданные поля
+            const updatedData = { ...existingData, ...updates };
+            this.contactsCache.set(address.toLowerCase(), updatedData);
+            
+            console.log(`📋 V3: Обновлены данные контакта ${address}:`, {
+                updates: updates,
+                newData: updatedData
+            });
+            
+            // Обновляем UI элемент контакта если нужно
+            this.updateContactElementUI(address, updatedData);
+        } else {
+            console.warn(`⚠️ V3: Попытка обновить несуществующий контакт:`, address);
+        }
+    }
+
+    /**
+     * Обновление UI элемента контакта
+     */
+    updateContactElementUI(address, contactData) {
+        const contactElement = document.querySelector(`[data-address="${address}"]`);
+        if (!contactElement) return;
+
+        // Обновляем последнее сообщение
+        const lastMessageElement = contactElement.querySelector('.contact-last-message');
+        if (lastMessageElement) {
+            if (contactData.lastMessageText) {
+                // Показываем время и текст последнего сообщения
+                const timeStr = contactData.lastMessageTime ? 
+                    Utils.formatTime(new Date(contactData.lastMessageTime)) : '';
+                
+                // Ограничиваем длину текста сообщения
+                const shortText = contactData.lastMessageText.length > 50 ? 
+                    contactData.lastMessageText.substring(0, 50) + '...' : 
+                    contactData.lastMessageText;
+                
+                lastMessageElement.textContent = `${timeStr}: ${shortText}`;
+                lastMessageElement.title = `${timeStr} - ${contactData.lastMessageText}`;
+            } else {
+                // Показываем статус если нет сообщений
+                const statusText = this.getStatusText(contactData.frontendState);
+                lastMessageElement.textContent = statusText;
+                lastMessageElement.title = statusText;
+            }
+        }
+
+        // Обновляем иконку состояния
+        this.updateChatStateIcon(contactData.chatID, contactData.frontendState);
+        
+        // Обновляем бейдж с количеством непрочитанных сообщений
+        this.updateUnreadBadge(address, contactData.unreadCount);
+        
+        // Оптимизированное перемещение: находим новую позицию для обновленного контакта
+        this.repositionContactInList(address);
+    }
+
+    /**
+     * Обновление бейджа с количеством непрочитанных сообщений
+     */
+    updateUnreadBadge(address, unreadCount) {
+        const contactElement = document.querySelector(`[data-address="${address}"]`);
+        if (!contactElement) return;
+
+        let unreadBadge = contactElement.querySelector('.unread-count');
+        
+        if (unreadCount > 0) {
+            // Создаем бейдж если его нет
+            if (!unreadBadge) {
+                unreadBadge = document.createElement('div');
+                unreadBadge.className = 'unread-count';
+                contactElement.appendChild(unreadBadge);
+            }
+            
+            // Обновляем текст и показываем
+            unreadBadge.textContent = unreadCount > 99 ? '99+' : unreadCount.toString();
+            unreadBadge.style.display = 'block';
+            
+            console.log(`🔔 V3: Показан бейдж непрочитанных для ${address}: ${unreadCount}`);
+        } else {
+            // Скрываем бейдж если нет непрочитанных
+            if (unreadBadge) {
+                unreadBadge.style.display = 'none';
+            }
+        }
+    }
+
+    /**
+     * Получение текста статуса для отображения
+     */
+    getStatusText(frontendState) {
+        switch (frontendState) {
+            case 'allowedWrite':
+                return 'Активный чат';
+            case 'notAllowedWrite':
+                return 'Чат заблокирован';
+            case 'waitingAcceptanceFromMe':
+                return 'Входящее приглашение';
+            case 'waitingAcceptanceFromOther':
+                return 'Ожидание ответа';
+            case 'unknown':
+            default:
+                return 'Новый контакт';
+        }
+    }
+
+    /**
+     * Получение состояния чата по chatID
      */
     getChatState(chatID) {
-        return this.chatStatesCache.get(chatID) || 'unknown';
+        // Ищем контакт с данным chatID
+        for (const contactData of this.contactsCache.values()) {
+            if (contactData.chatID === chatID) {
+                return contactData.frontendState || 'unknown';
+            }
+        }
+        return 'unknown';
+    }
+
+    /**
+     * Установка состояния чата
+     */
+    setChatState(chatID, frontendState) {
+        // Находим контакт по chatID и обновляем его состояние
+        for (const [address, contactData] of this.contactsCache.entries()) {
+            if (contactData.chatID === chatID) {
+                this.updateContactData(address, { frontendState: frontendState });
+                console.log(`🔄 V3: Состояние чата ${chatID.substring(0, 8)} установлено: ${frontendState}`);
+                return;
+            }
+        }
+        console.warn(`⚠️ V3: Не найден контакт для chatID: ${chatID.substring(0, 8)}`);
     }
 
     /**
@@ -257,7 +419,7 @@ class ContactListManagerV3 {
      */
     clearCache() {
         this.contactsCache.clear();
-        this.chatStatesCache.clear();
+        // chatStatesCache удален - состояния хранятся в contactsCache
         
         // Очищаем UI
         const contactsList = document.getElementById('contactsList');
@@ -274,9 +436,269 @@ class ContactListManagerV3 {
     getStats() {
         return {
             contactsCount: this.contactsCache.size,
-            chatStatesCount: this.chatStatesCache.size,
-            knownContacts: Array.from(this.contactsCache.keys())
+            // chatStatesCount удален - состояния хранятся в contactsCache
+            knownContacts: Array.from(this.contactsCache.keys()),
+            contactsWithStates: Array.from(this.contactsCache.values()).map(c => ({
+                address: Object.keys(this.contactsCache).find(addr => this.contactsCache.get(addr) === c),
+                frontendState: c.frontendState,
+                lastMessageTime: c.lastMessageTime
+            }))
         };
+    }
+
+    /**
+     * Обновление данных последнего сообщения для контакта
+     */
+    updateLastMessage(chatID, messageIndex, messageText, messageTime, frontendState, isFromCurrentUser = false) {
+        // Находим контакт по chatID
+        for (const [address, contactData] of this.contactsCache.entries()) {
+            if (contactData.chatID === chatID) {
+                // Обновляем только если это более новое сообщение
+                if (messageIndex > contactData.lastMessageIndex) {
+                    const updates = {
+                        lastMessageIndex: messageIndex,
+                        lastMessageText: messageText,
+                        lastMessageTime: messageTime,
+                        frontendState: frontendState
+                    };
+                    
+                    // Увеличиваем счетчик непрочитанных, если это НЕ текущий активный контакт
+                    // и сообщение НЕ от текущего пользователя
+                    const currentContact = this.appState.currentContact;
+                    const isCurrentActiveContact = currentContact && currentContact.address.toLowerCase() === address.toLowerCase();
+                    
+                    if (!isFromCurrentUser && !isCurrentActiveContact) {
+                        updates.unreadCount = contactData.unreadCount + 1;
+                        console.log(`🔔 V3: Увеличен счетчик непрочитанных для ${address}: ${updates.unreadCount}`);
+                    }
+                    
+                    this.updateContactData(address, updates);
+                    
+                    console.log(`📨 V3: Обновлено последнее сообщение для ${address}:`, {
+                        messageIndex: messageIndex,
+                        messageText: messageText.substring(0, 50) + '...',
+                        frontendState: frontendState,
+                        unreadCount: updates.unreadCount || contactData.unreadCount
+                    });
+                }
+                return;
+            }
+        }
+        console.warn(`⚠️ V3: Не найден контакт для обновления сообщения chatID: ${chatID.substring(0, 8)}`);
+    }
+
+    /**
+     * Сброс счетчика непрочитанных сообщений для контакта
+     */
+    resetUnreadCount(address) {
+        const contactData = this.contactsCache.get(address.toLowerCase());
+        if (contactData && contactData.unreadCount > 0) {
+            this.updateContactData(address, { unreadCount: 0 });
+            console.log(`📖 V3: Сброшен счетчик непрочитанных для ${address}`);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Инкремент счетчика непрочитанных сообщений для контакта
+     */
+    incrementUnreadCount(address, increment = 1) {
+        const contactData = this.contactsCache.get(address.toLowerCase());
+        if (contactData) {
+            const newCount = contactData.unreadCount + increment;
+            this.updateContactData(address, { unreadCount: newCount });
+            console.log(`🔔 V3: Увеличен счетчик непрочитанных для ${address}: ${newCount}`);
+            return newCount;
+        }
+        return 0;
+    }
+
+    /**
+     * Определение приоритета состояния контакта для сортировки
+     */
+    getStatePriority(frontendState) {
+        const statePriority = {
+            'waitingAcceptanceFromMe': 1,    // Входящие приглашения - высший приоритет
+            'waitingAcceptanceFromOther': 2, // Исходящие приглашения
+            'allowedWrite': 3,               // Активные чаты
+            'notAllowedWrite': 4,            // Заблокированные чаты
+            'unknown': 5                     // Неизвестное состояние - низший приоритет
+        };
+        return statePriority[frontendState] || 5;
+    }
+
+    /**
+     * Сравнение двух контактов для определения порядка
+     */
+    compareContacts(contactA, contactB) {
+        // Сначала по приоритету состояния
+        const priorityA = this.getStatePriority(contactA.frontendState);
+        const priorityB = this.getStatePriority(contactB.frontendState);
+        
+        if (priorityA !== priorityB) {
+            return priorityA - priorityB;
+        }
+        
+        // Затем по времени последнего сообщения (новые сначала)
+        const timeA = contactA.lastMessageTime || 0;
+        const timeB = contactB.lastMessageTime || 0;
+        
+        return timeB - timeA;
+    }
+
+    /**
+     * Оптимизированное перемещение контакта в правильную позицию в списке
+     * Находит новую позицию для обновленного контакта без полной пересортировки
+     * 
+     * Примеры:
+     * - Контакт №537 получил сообщение → перемещается на позицию №3 (после приглашений)
+     * - Контакт №12 деактивировал чат → перемещается на позицию №974 (в конец)
+     */
+    repositionContactInList(address) {
+        const contactData = this.contactsCache.get(address.toLowerCase());
+        if (!contactData) return;
+
+        const contactElement = document.querySelector(`[data-address="${address}"]`);
+        if (!contactElement) return;
+
+        const contactsList = document.getElementById('contactsList');
+        if (!contactsList) return;
+
+        try {
+            // 1️⃣ Получаем текущую позицию контакта из модели данных (Model-View принцип)
+            const currentPosition = contactData.orderIndex;
+
+            if (currentPosition === -1) {
+                console.warn(`⚠️ V3: Контакт ${address} не имеет orderIndex в модели данных`);
+                return;
+            }
+
+            // 2️⃣ Создаем объект контакта для сравнения с обновленными данными
+            const updatedContact = { address, ...contactData };
+
+            // 3️⃣ СНАЧАЛА определяем новую позицию используя модель данных (Model-View принцип)
+            let newPosition = 0;
+            let targetElement = null;
+
+            // Получаем все контакты отсортированные по приоритету
+            const sortedContacts = this.sortAllContacts();
+            
+            // Находим позицию обновленного контакта в отсортированном списке
+            for (let i = 0; i < sortedContacts.length; i++) {
+                if (this.compareContacts(updatedContact, sortedContacts[i]) < 0) {
+                    newPosition = i;
+                    break;
+                }
+                newPosition = i + 1;
+            }
+
+            // Находим целевой элемент в DOM по новой позиции
+            const allContactElements = Array.from(contactsList.querySelectorAll('.contact-item'));
+            if (newPosition < allContactElements.length) {
+                // Если новая позиция до текущей, целевой элемент остается на месте
+                if (newPosition <= currentPosition) {
+                    targetElement = allContactElements[newPosition];
+                } else {
+                    // Если новая позиция после текущей, учитываем что текущий элемент удалится
+                    targetElement = allContactElements[newPosition] || null;
+                }
+            } else {
+                targetElement = null; // appendChild в конец
+            }
+
+            // 4️⃣ Проверяем, нужно ли вообще перемещать
+            if (newPosition === currentPosition) {
+                console.log(`📋 V3: Контакт ${address} остается на позиции ${currentPosition + 1} (перемещение не требуется)`);
+                return;
+            }
+
+            // 5️⃣ ТРАНЗАКЦИОННОЕ перемещение: удаляем и сразу вставляем
+            contactElement.remove();
+            
+            if (targetElement) {
+                contactsList.insertBefore(contactElement, targetElement);
+            } else {
+                contactsList.appendChild(contactElement);
+            }
+
+            // 6️⃣ Обновляем orderIndex в модели данных после успешного перемещения
+            contactData.orderIndex = newPosition;
+            
+            // Обновляем индексы всех контактов для синхронизации модели с DOM
+            this.updateAllContactIndices();
+
+            console.log(`📋 V3: Контакт ${address} успешно перемещен с позиции ${currentPosition + 1} на позицию ${newPosition + 1} (Model-View синхронизирован)`);
+
+        } catch (error) {
+            console.error(`❌ V3: Ошибка при перемещении контакта ${address}:`, error);
+            
+            // Восстанавливаем элемент в DOM если что-то пошло не так
+            if (!document.querySelector(`[data-address="${address}"]`)) {
+                console.log(`🔄 V3: Восстанавливаем контакт ${address} в конец списка`);
+                contactsList.appendChild(contactElement);
+            }
+        }
+    }
+
+    /**
+     * Полная сортировка контактов (используется только при инициализации)
+     */
+    sortAllContacts() {
+        const contactsArray = Array.from(this.contactsCache.entries()).map(([address, data]) => ({
+            address,
+            ...data
+        }));
+
+        contactsArray.sort((a, b) => this.compareContacts(a, b));
+        return contactsArray;
+    }
+
+    /**
+     * Обновление индексов всех контактов в модели данных
+     */
+    updateAllContactIndices() {
+        // Получаем отсортированный массив контактов
+        const sortedContacts = this.sortAllContacts();
+        
+        // Обновляем orderIndex для каждого контакта в кэше
+        sortedContacts.forEach((contact, index) => {
+            const contactData = this.contactsCache.get(contact.address.toLowerCase());
+            if (contactData) {
+                contactData.orderIndex = index;
+            }
+        });
+        
+        console.log(`📊 V3: Обновлены orderIndex для ${sortedContacts.length} контактов в модели данных`);
+        return sortedContacts;
+    }
+
+    /**
+     * Выполнение начальной сортировки всех контактов в DOM
+     */
+    performInitialSort() {
+        const contactsList = document.getElementById('contactsList');
+        if (!contactsList) return;
+
+        // Обновляем индексы в модели данных и получаем отсортированный массив
+        const sortedContacts = this.updateAllContactIndices();
+        
+        // Перестраиваем DOM в правильном порядке (View следует за Model)
+        const contactElements = [];
+        sortedContacts.forEach(contact => {
+            const element = document.querySelector(`[data-address="${contact.address}"]`);
+            if (element) {
+                contactElements.push(element);
+                element.remove(); // Временно удаляем из DOM
+            }
+        });
+        
+        // Добавляем элементы в правильном порядке
+        contactElements.forEach(element => {
+            contactsList.appendChild(element);
+        });
+        
+        console.log(`📋 V3: DOM синхронизирован с моделью данных (${sortedContacts.length} контактов)`);
     }
 
     /**
@@ -409,9 +831,9 @@ class ContactListManagerV3 {
             const userSettings = await this.contract.methods.userSettings(contactAddress).call();
             const contactPublicKey = userSettings.publicKeyForEncode;
             
-            console.log('🔑 V3: Публичный ключ контакта:', {
+            console.log('🔑 V3: Публичный ключ для шифрования контакта:', {
                 contactAddress: contactAddress,
-                publicKey: contactPublicKey.substring(0, 20) + '...',
+                publicKeyForEncode: contactPublicKey.substring(0, 20) + '...',
                 fullLength: contactPublicKey.length
             });
             
