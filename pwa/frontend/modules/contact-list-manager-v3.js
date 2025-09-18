@@ -13,6 +13,9 @@ class ContactListManagerV3 {
         this.contactsCache = new Map(); // address -> {name, publicKeyForEncode, lastMessageTime, lastMessageIndex, lastMessageText, frontendState, chatID, unreadCount, orderIndex}
         // chatStatesCache удален - состояния теперь хранятся в contactsCache.frontendState
         
+        // 🆕 Polling состояние для контактов
+        this.contactsBatchSize = 100;
+        
         // Подписываемся на изменения состояния
         this.appState.subscribe('currentContact', this.onCurrentContactChanged.bind(this));
         
@@ -1051,5 +1054,100 @@ class ContactListManagerV3 {
         });
         
         console.log(`🔍 V3: Фильтрация контактов по запросу: "${filterText}"`);
+    }
+
+    //================================================================================
+    // 🆕 POLLING МЕТОДЫ ДЛЯ КОНТАКТОВ (перенесено из DecentralizedEventSystemV3)
+    //================================================================================
+
+    /**
+     * Загрузка всех контактов постранично при инициализации
+     */
+    async loadInitialContacts() {
+        console.log('📇 V3: Загружаем контакты постранично...');
+        try {
+            let hasMoreContacts = true;
+            while (hasMoreContacts) {
+                const startIndex = this.contactsCache.size;
+                const endIndex = startIndex + this.contactsBatchSize - 1;
+                
+                console.log(`📥 V3: Запрашиваем страницу контактов: ${startIndex} - ${endIndex}`);
+
+                const rawData = await this.contract.methods.getContactsPaginated(startIndex, endIndex).call({ from: this.appState.currentUser });
+
+                if (!rawData || !rawData.contacts || rawData.contacts.length === 0) {
+                    hasMoreContacts = false;
+                    console.log('✅ V3: Все страницы контактов загружены.');
+                } else {
+                    const formattedContacts = [];
+                    for (let i = 0; i < rawData.contacts.length; i++) {
+                        formattedContacts.push({
+                            address: rawData.contacts[i],
+                            name: rawData.names[i],
+                            publicKeyForEncode: rawData.publicKeys[i],
+                            lastMessageTimestamp: 0
+                        });
+                    }
+                    this.addContactsToUI(formattedContacts);
+
+                    // Если получили меньше, чем размер страницы, это последняя страница
+                    if (rawData.contacts.length < this.contactsBatchSize) {
+                        hasMoreContacts = false;
+                        console.log('✅ V3: Загружена последняя страница контактов.');
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('❌ V3: Критическая ошибка при постраничной загрузке контактов:', error);
+        }
+    }
+
+    /**
+     * Загрузка новых контактов при обнаружении неизвестного chatID
+     */
+    async loadNewContacts() {
+        console.log('📇 V3: Обнаружен неизвестный chatID, загружаем следующую страницу контактов...');
+        try {
+            const startIndex = this.contactsCache.size;
+            const endIndex = startIndex + this.contactsBatchSize - 1;
+            
+            console.log(`📥 V3: Запрашиваем страницу новых контактов: ${startIndex} - ${endIndex}`);
+
+            const rawData = await this.contract.methods.getContactsPaginated(startIndex, endIndex).call({ from: this.appState.currentUser });
+
+            if (!rawData || !rawData.contacts || rawData.contacts.length === 0) {
+                console.log('ℹ️ V3: Новых контактов на следующей странице не найдено.');
+                return;
+            }
+                
+            const formattedContacts = [];
+            for (let i = 0; i < rawData.contacts.length; i++) {
+                formattedContacts.push({
+                    address: rawData.contacts[i],
+                    name: rawData.names[i],
+                    publicKeyForEncode: rawData.publicKeys[i],
+                    lastMessageTimestamp: 0
+                });
+            }
+
+            this.addContactsToUI(formattedContacts);
+            console.log(`✅ V3: Загружено ${formattedContacts.length} новых контактов со страницы.`);
+
+        } catch (error) {
+            console.error('❌ V3: Ошибка при загрузке новых контактов:', error);
+        }
+    }
+
+    /**
+     * Поиск контакта по chatID
+     */
+    findContactByChatID(chatID) {
+        // 🛡️ ПРАВИЛО: Итерируемся по кэшу, где адреса уже в lowercase
+        for (const [address, contactData] of this.contactsCache.entries()) {
+            if (contactData.chatID === chatID) {
+                return address; // Возвращаем уже готовый lowercase адрес
+            }
+        }
+        return null;
     }
 }

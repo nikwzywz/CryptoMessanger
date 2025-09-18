@@ -201,7 +201,6 @@
     <script src="lib/crypto-js.min.js"></script>
     <script src="config_v2.js"></script>
     <script src="lib/crypto-utils.js"></script>
-    <script src="lib/decentralized-event-system-v3.js"></script>
     <script src="lib/utils.js"></script>
     <script src="modules/app-state.js"></script>
     <script src="modules/contact-list-manager-v3.js"></script>
@@ -218,7 +217,6 @@
         let userPrivateKey;
         let userPublicKey;
         let chatUIManager;
-        let eventSystem;
         
         // V3 модули
         let appState;
@@ -331,108 +329,9 @@
 
 
         // ========================================
-        // 🆕 CALLBACK ФУНКЦИИ ДЛЯ V3 POLLING
+        // V3 CALLBACK ФУНКЦИИ УДАЛЕНЫ
+        // Логика перенесена в AppState.PollingManager
         // ========================================
-        
-        /**
-         * Обработка новых сообщений из polling V3
-         */
-        function handleNewMessagesV3(chatID, messages) {
-            console.log(`📨 V3: Получены новые сообщения для чата ${chatID.substring(0, 8)}...`, {
-                count: messages.length,
-                messages: messages
-            });
-            
-            // Если это текущий открытый чат, обновляем UI
-            if (chatUIManager && chatUIManager.currentContactAddress) {
-                const currentChatId = CryptoUtils.generateChatId(currentUser, chatUIManager.currentContactAddress);
-                if (currentChatId === chatID) {
-                    console.log('🎯 Обновляем текущий открытый чат');
-                    
-                    // Добавляем новые сообщения в UI
-                    messages.forEach(msg => {
-                        chatUIManager.addMessageToUI(msg);
-                    });
-                    
-                    // Прокручиваем вниз
-                    chatUIManager.scrollToBottom();
-                }
-            }
-            
-            // Обновляем данные последнего сообщения для каждого нового сообщения
-            if (contactListManager && messages.length > 0) {
-                const lastMessage = messages[messages.length - 1];
-                
-                // Расшифровываем сообщение для отображения в списке контактов
-                let decryptedText = '';
-                try {
-                    decryptedText = CryptoUtils.decryptMessage(lastMessage.encryptedMessage, userPrivateKey);
-                } catch (error) {
-                    decryptedText = '[Не удалось расшифровать]';
-                }
-
-                // 🛠️ ИСПРАВЛЕНИЕ: Находим адрес контакта по chatID
-                const contactAddress = contactListManager.findContactByChatID(chatID);
-                if (contactAddress) {
-                    // Обновляем данные контакта (включая счетчик непрочитанных)
-                    contactListManager.updateLastMessage(
-                        contactAddress, // Передаем найденный адрес
-                        parseInt(lastMessage.messIndex),
-                        decryptedText,
-                        parseInt(lastMessage.messageTimestamp) * 1000,
-                        lastMessage.newChatState,
-                        lastMessage.isFromMe // Передаем информацию о том, от кого сообщение
-                    );
-                } else {
-                    console.warn(`⚠️ V3: Не удалось найти контакт для chatID ${chatID} в handleNewMessagesV3`);
-                }
-            }
-        }
-        
-        /**
-         * Обработка новых контактов из polling V3
-         */
-        function handleNewContactsV3(contacts) { // 🛠️ ИСПРАВЛЕНИЕ: Принимаем массив
-            console.log('👥 V3: Получены новые контакты:', {
-                count: contacts.length, // 🛠️ ИСПРАВЛЕНИЕ: Используем .length напрямую
-                contacts: contacts
-            });
-            
-            // Обновляем список контактов в UI
-            if (contactListManager) {
-                contactListManager.addContactsToUI(contacts); // 🛠️ ИСПРАВЛЕНИЕ: Передаем массив
-            }
-            
-            // Скрываем индикатор загрузки при появлении контактов
-            const loadingPlaceholder = document.getElementById('loadingContactsPlaceholder');
-            if (loadingPlaceholder && contacts.length > 0) { // 🛠️ ИСПРАВЛЕНИЕ: Используем .length напрямую
-                loadingPlaceholder.style.display = 'none';
-                console.log('✅ V3: Индикатор загрузки скрыт при добавлении контактов');
-            }
-        }
-        
-        /**
-         * Обработка изменения состояния чата из polling V3
-         */
-        function handleChatStateChangeV3(chatID, frontendState) {
-            console.log(`🔄 V3: Изменение состояния чата ${chatID.substring(0, 8)}...`, {
-                newState: frontendState
-            });
-            
-            // 🛠️ ИСПРАВЛЕНИЕ: Обновляем состояние в модели ContactListManager
-            if (contactListManager) {
-                contactListManager.setChatState(chatID, frontendState);
-            }
-            
-            // 🛠️ ИСПРАВЛЕНИЕ: Если это текущий открытый чат, обновляем его UI
-            if (chatUIManager && chatUIManager.currentContactAddress) {
-                const currentChatId = CryptoUtils.generateChatId(currentUser, chatUIManager.currentContactAddress);
-                if (currentChatId === chatID) {
-                    // Эта функция перечитает состояние из кэша и обновит панели
-                    chatUIManager.updateChatState();
-                }
-            }
-        }
         
         // updateChatAreaForState перенесена в ChatAreaManagerV3
         
@@ -607,21 +506,16 @@
                 appState.setUserPrivateKey(userPrivateKey);
                 
                 // 🆕 Инициализация модулей V3 в правильном порядке
-                contactListManager = new ContactListManagerV3(appState, contract, null); // eventSystem добавим позже
+                contactListManager = new ContactListManagerV3(appState, contract, null);
                 chatUIManager = new ChatAreaManagerV3(appState, contract, web3);
                 
-                // 🆕 Инициализация DecentralizedEventSystem V3 с ссылкой на ContactListManager
-                eventSystem = new DecentralizedEventSystemV3(contract, currentUser, contactListManager);
+                // Устанавливаем ссылки между модулями
+                appState.contactListManager = contactListManager;
+                appState.chatUIManager = chatUIManager;
+                chatUIManager.contactListManager = contactListManager;
                 
-                // Настраиваем callbacks для V3
-                eventSystem.setCallbacks({
-                    onNewMessages: handleNewMessagesV3,
-                    onNewContacts: handleNewContactsV3,
-                    onChatStateChange: handleChatStateChangeV3
-                });
-                
-                // Обновляем ссылку на eventSystem в contactListManager
-                contactListManager.eventSystem = eventSystem;
+                // 🆕 Инициализация PollingManager в AppState
+                appState.initializePollingManager(chatUIManager, contactListManager);
 
                 // UI обновится автоматически через V3 модули
                 
@@ -629,8 +523,16 @@
                 chatUIManager.updateChatAreaForState('allowedWrite'); // Показываем приветствие
                 
                 // 🆕 Инициализируем V3 систему (загрузка контактов + запуск polling)
-                console.log('🚀 Инициализируем DecentralizedEventSystem V3...');
-                await eventSystem.initialize();
+                console.log('🚀 V3: Инициализируем новую архитектуру...');
+                
+                // Инициализируем индекс сообщений
+                await chatUIManager.initializeMessageIndex();
+                
+                // Загружаем контакты
+                await contactListManager.loadInitialContacts();
+                
+                // Запускаем polling
+                appState.startPolling();
                 
                 // 🆕 Скрываем индикатор загрузки после инициализации
                 const loadingPlaceholder = document.getElementById('loadingContactsPlaceholder');
@@ -661,10 +563,14 @@
                 console.log('   📍 Адрес кошелька:', currentUser);
                 console.log('   🔑 Публичный ключ для шифрования:', userPublicKey);
                 
-                // 🆕 В V3 контакты загружаются через eventSystem.initialize()
-                // Статистика будет доступна через eventSystem.getStats()
-                const stats = eventSystem.getStats();
-                console.log('📊 V3: Статистика polling системы:', stats);
+                // 🆕 В V3 контакты загружаются через contactListManager.loadInitialContacts()
+                // Статистика доступна через отдельные модули
+                const stats = {
+                    contactsCount: contactListManager.contactsCache.size,
+                    lastMessageIndex: chatUIManager.lastMessageIndex,
+                    isPollingActive: appState.pollingManager?.isActive || false
+                };
+                console.log('📊 V3: Статистика новой архитектуры:', stats);
                 
                 // Обновляем интерфейс
                 console.log('🎨 Обновляем интерфейс...');
@@ -961,10 +867,10 @@
                             chatUIManager.updateChatAreaForState('allowedWrite');
                         }
                         
-                        // Очищаем кэш систем V2
-                        if (eventSystem) {
-                            eventSystem.clearChatCache(); // Очищаем весь кэш чатов
-                            console.log('🧹 Очищен кэш eventSystem');
+                        // Очищаем кэш систем V3
+                        if (contactListManager) {
+                            contactListManager.clearCache();
+                            console.log('🧹 Очищен кэш contactListManager');
                         }
                         
                         if (chatUIManager) {

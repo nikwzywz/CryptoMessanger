@@ -23,6 +23,10 @@ class AppState {
         // Системы
         this.eventSystem = null;
         this.chatUIManager = null;
+        this.contactListManager = null;
+        
+        // 🆕 PollingManager для координации между модулями
+        this.pollingManager = null;
         
         // Подписчики на изменения состояния
         this.subscribers = new Map();
@@ -305,6 +309,171 @@ class AppState {
             warning: '#ffc107'
         };
         return colors[type] || colors.info;
+    }
+
+    //================================================================================
+    // 🆕 POLLING MANAGER (перенесено из DecentralizedEventSystemV3)
+    //================================================================================
+
+    /**
+     * Инициализация PollingManager
+     */
+    initializePollingManager(chatManager, contactManager) {
+        this.pollingManager = {
+            chatManager: chatManager,
+            contactManager: contactManager,
+            pollingInterval: 15000,
+            checkInterval: 1000,
+            isActive: false,
+            intervalId: null,
+            lastUpdateTime: 0
+        };
+        
+        console.log('🔄 V3: PollingManager инициализирован');
+    }
+
+    /**
+     * Запуск polling
+     */
+    startPolling() {
+        if (!this.pollingManager || this.pollingManager.isActive) {
+            return;
+        }
+        
+        this.pollingManager.isActive = true;
+        this.pollingManager.lastUpdateTime = Date.now();
+        
+        this.pollingManager.intervalId = setInterval(() => {
+            this.checkForUpdates();
+        }, this.pollingManager.checkInterval);
+        
+        console.log('🔄 V3: Polling запущен через AppState');
+    }
+
+    /**
+     * Остановка polling
+     */
+    stopPolling() {
+        if (this.pollingManager && this.pollingManager.intervalId) {
+            clearInterval(this.pollingManager.intervalId);
+            this.pollingManager.intervalId = null;
+            this.pollingManager.isActive = false;
+            console.log('⏹️ V3: Polling остановлен');
+        }
+    }
+
+    /**
+     * Проверка обновлений
+     */
+    async checkForUpdates() {
+        if (!this.pollingManager) return;
+        
+        const now = Date.now();
+        if (now - this.pollingManager.lastUpdateTime < this.pollingManager.pollingInterval) {
+            return;
+        }
+        
+        this.pollingManager.lastUpdateTime = now;
+        
+        try {
+            // Polling сообщений через ChatManager
+            const newMessages = await this.pollingManager.chatManager.pollForNewMessages();
+            
+            if (newMessages.length > 0) {
+                // Обработка новых сообщений
+                await this.processNewMessages(newMessages);
+            }
+            
+        } catch (error) {
+            // Подавляем ошибки сети
+        }
+    }
+
+    /**
+     * Обработка новых сообщений
+     */
+    async processNewMessages(newMessages) {
+        // Группируем по чатам
+        const messagesByChat = {};
+        const chatFrontendStates = {};
+        const newChatIDs = new Set();
+        
+        newMessages.forEach(msg => {
+            if (!messagesByChat[msg.chatID]) {
+                messagesByChat[msg.chatID] = [];
+            }
+            messagesByChat[msg.chatID].push(msg);
+            
+            // Определяем frontend состояние
+            chatFrontendStates[msg.chatID] = this.chatUIManager.determineFrontendChatStateFromMessage(msg);
+            newChatIDs.add(msg.chatID);
+        });
+        
+        // Проверяем новые контакты
+        await this.checkForNewContacts(Array.from(newChatIDs));
+        
+        // Обновляем UI
+        this.updateMessagesUI(messagesByChat, chatFrontendStates);
+    }
+
+    /**
+     * Проверка новых контактов
+     */
+    async checkForNewContacts(chatIDs) {
+        const unknownChatIDs = chatIDs.filter(chatID => {
+            const contactAddress = this.contactListManager.findContactByChatID(chatID);
+            return !contactAddress;
+        });
+        
+        if (unknownChatIDs.length > 0) {
+            console.log(`🚨 V3: Обнаружены новые контакты в ${unknownChatIDs.length} чатах`);
+            await this.contactListManager.loadNewContacts();
+        }
+    }
+
+    /**
+     * Обновление UI сообщений
+     */
+    updateMessagesUI(messagesByChat, chatFrontendStates) {
+        Object.keys(messagesByChat).forEach(chatID => {
+            const messages = messagesByChat[chatID];
+            const frontendState = chatFrontendStates[chatID];
+            
+            // Обновляем состояние чата в ContactListManager
+            this.contactListManager.setChatState(chatID, frontendState);
+            
+            // Если это текущий открытый чат, обновляем UI
+            if (this.chatUIManager && this.chatUIManager.currentChatID === chatID) {
+                messages.forEach(msg => {
+                    this.chatUIManager.addMessageToUI(msg);
+                });
+                this.chatUIManager.scrollToBottom();
+            }
+            
+            // Обновляем последнее сообщение в списке контактов
+            if (messages.length > 0) {
+                const lastMessage = messages[messages.length - 1];
+                const contactAddress = this.contactListManager.findContactByChatID(chatID);
+                
+                if (contactAddress) {
+                    let decryptedText = '';
+                    try {
+                        decryptedText = CryptoUtils.decryptMessage(lastMessage.encryptedMessage, this.userPrivateKey);
+                    } catch (error) {
+                        decryptedText = '[Не удалось расшифровать]';
+                    }
+                    
+                    this.contactListManager.updateLastMessage(
+                        contactAddress,
+                        parseInt(lastMessage.messIndex),
+                        decryptedText,
+                        parseInt(lastMessage.messageTimestamp) * 1000,
+                        frontendState,
+                        lastMessage.isFromMe
+                    );
+                }
+            }
+        });
     }
 }
 

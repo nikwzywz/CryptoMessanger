@@ -17,6 +17,10 @@ class ChatAreaManagerV3 {
         // Кэш сообщений для текущего чата
         this.currentChatMessages = [];
         
+        // 🆕 Polling состояние для сообщений
+        this.lastMessageIndex = -1;
+        this.messagesBatchSize = 100;
+        
         // Подписываемся на изменения текущего контакта
         this.appState.subscribe('currentContact', this.onContactChanged.bind(this));
     }
@@ -77,6 +81,9 @@ class ChatAreaManagerV3 {
 
             // Фильтруем и отображаем сообщения для текущего чата
             this.filterMessagesForCurrentChat();
+            
+            // 🛠️ ИСПРАВЛЕНИЕ: Отображаем отфильтрованные сообщения
+            this.renderMessages();
 
             // Определяем и применяем состояние чата
             this.updateChatState();
@@ -323,18 +330,13 @@ class ChatAreaManagerV3 {
      * Определение frontend состояния из TypeMessage
      */
     determineFrontendChatState() {
-        if (!this.currentContactAddress) return null;
-
-        // 🛡️ ПРАВИЛО: Работаем с lowerCase
-        const contactAddressLower = this.currentContactAddress.toLowerCase();
-        const contactData = this.contactListManager.contactsCache.get(contactAddressLower);
-
-        if (!contactData || !contactData.frontendState || contactData.frontendState === 'unknown') {
-            console.warn(`⚠️ V3: Не удалось определить frontendState для ${contactAddressLower} из кэша.`);
-            return 'notAllowedWrite'; // Безопасное значение по умолчанию
+        if (!this.currentChatMessages || this.currentChatMessages.length === 0) {
+            return 'notAllowedWrite'; // Безопасное значение по умолчанию для чатов без сообщений
         }
-        
-        return contactData.frontendState;
+
+        // Берем последнее сообщение для определения актуального состояния
+        const lastMessage = this.currentChatMessages[this.currentChatMessages.length - 1];
+        return this.determineFrontendChatStateFromMessage(lastMessage);
     }
 
     /**
@@ -826,6 +828,90 @@ class ChatAreaManagerV3 {
             currentChatID: this.currentChatID,
             frontendState: this.currentFrontendState
         };
+    }
+
+    //================================================================================
+    // 🆕 POLLING МЕТОДЫ ДЛЯ СООБЩЕНИЙ (перенесено из DecentralizedEventSystemV3)
+    //================================================================================
+
+    /**
+     * Инициализация индекса последнего сообщения
+     */
+    async initializeMessageIndex() {
+        try {
+            const messagesCount = await this.contract.methods.getMessagesCount().call({ from: this.appState.currentUser });
+            this.lastMessageIndex = parseInt(messagesCount) - 1;
+            console.log(`📊 V3: Найдено сообщений: ${parseInt(messagesCount)}, последний индекс: ${this.lastMessageIndex}`);
+        } catch (error) {
+            console.error('❌ V3: Ошибка получения количества сообщений:', error);
+            this.lastMessageIndex = -1;
+        }
+    }
+
+    /**
+     * Polling новых сообщений
+     */
+    async pollForNewMessages() {
+        try {
+            const startIndex = this.lastMessageIndex + 1;
+            const endIndex = startIndex + this.messagesBatchSize - 1;
+            
+            // Проверяем, есть ли новые сообщения
+            const messagesCount = await this.contract.methods.getMessagesCount().call({ 
+                from: this.appState.currentUser 
+            });
+            
+            if (startIndex >= parseInt(messagesCount)) {
+                return []; // Новых сообщений нет
+            }
+            
+            const newMessages = await this.contract.methods.getMessagesPaginated(
+                startIndex,
+                endIndex
+            ).call({ from: this.appState.currentUser });
+            
+            if (newMessages.length === 0) {
+                return [];
+            }
+            
+            console.log(`📨 V3: Получено ${newMessages.length} новых сообщений`);
+            
+            // Обновляем lastMessageIndex
+            const maxIndex = Math.max(...newMessages.map(msg => parseInt(msg.messIndex)));
+            this.lastMessageIndex = maxIndex;
+            
+            return newMessages;
+            
+        } catch (error) {
+            console.error('❌ V3: Ошибка polling сообщений:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Определение frontend состояния чата из TypeMessage
+     */
+    determineFrontendChatStateFromMessage(message) {
+        const contractState = parseInt(message.newChatState);
+        
+        // 0 = allowedWrite, 1 = notAllowedWrite, 2 = waitingAcceptance
+        if (contractState === 0) {
+            return 'allowedWrite';
+        }
+        
+        if (contractState === 1) {
+            return 'notAllowedWrite';
+        }
+        
+        if (contractState === 2) { // waitingAcceptance
+            if (message.isFromMe) {
+                return 'waitingAcceptanceFromOther'; // Жду принятия от собеседника
+            } else {
+                return 'waitingAcceptanceFromMe'; // Нужно принять или отклонить
+            }
+        }
+        
+        return 'unknown';
     }
 
     /**
