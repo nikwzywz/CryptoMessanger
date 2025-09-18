@@ -303,6 +303,10 @@ class AppState {
             const isExistsNewChatIDs = unknownChatIDs.length > 0;
             console.log(`🔍 V3: isExistsNewChatIDs = ${isExistsNewChatIDs} (неизвестных чатов: ${unknownChatIDs.length})`);
             
+            if (!isExistsNewChatIDs) {
+                console.log(`✅ V3: Все чаты известны, переходим к пункту 7 - обработке сообщений`);
+            }
+            
             // 🆕 ПУНКТ 5: Если isExistsNewChatIDs==false, то переходим к пункту 7, иначе к пункту 6
             if (isExistsNewChatIDs) {
                 // 🆕 ПУНКТ 6: Пытаемся загрузить очередные контакты
