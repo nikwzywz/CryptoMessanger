@@ -43,7 +43,7 @@
             <!-- Кнопка отправки приглашения под списком контактов -->
             <div style="padding: 15px 20px; border-top: 1px solid #333;">
                 <button class="btn btn-primary" id="sendInvitationBtn" style="width: 100%;">
-                    📤 Отправить приглашение
+                    📤 Добавить новый контакт
                 </button>
             </div>
         </div>
@@ -114,15 +114,15 @@
             <div class="panel-component" id="panelWaitingAcceptanceFromOther" style="display: none;">
                 <div class="invitation-panel-content">
                     <div class="panel-header">
-                        <h3>⏳ Ожидание принятия приглашения</h3>
-                </div>
+                        <h3>⏳ Ожидание принятия приглашения от</h3>
+                    </div>
                     <div class="panel-body">
                         <div class="invitation-info">
                             <div class="invitation-field">
-                                <strong>📍 Кому:</strong> <span id="toContactName">-</span>
+                                <strong>Имя:</strong> <span id="toContactName">-</span>
                             </div>
                             <div class="invitation-field">
-                                <strong>📧 Адрес:</strong> <span id="toContactAddress">-</span>
+                                <strong>Адрес:</strong> <span id="toContactAddress">-</span>
                             </div>
                             <div class="invitation-message">
                                 💬 Пользователь ещё не ответил на ваше приглашение
@@ -131,10 +131,34 @@
                         <div class="invitation-actions">
                             <button id="cancelInvitationBtn" class="btn btn-secondary">
                                 🔄 Отозвать приглашение
-                    </button>
-                            <div class="invitation-note">
-                                и вернуть себе комиссию
+                            </button>
+                        </div>
+                        <div class="invitation-note">
+                            и вернуть себе комиссию
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Панель 4: ОТЗЫВ ПРИГЛАШЕНИЯ (после таймаута) -->
+            <div class="panel-component" id="panelInvitationCancel" style="display: none;">
+                <div class="invitation-panel-content">
+                    <div class="panel-header">
+                        <h3 id="invitationTimeoutTitle">Пользователь не дал ответ на ваше приглашение более <span id="daysSinceInvitation">-</span> суток.</h3>
+                    </div>
+                    <div class="panel-body">
+                        <div class="invitation-info">
+                            <div class="invitation-message">
+                                Это даёт вам право:
                             </div>
+                        </div>
+                        <div class="invitation-actions">
+                            <button id="cancelInvitationTimeoutBtn" class="btn btn-secondary">
+                                🔄 Отозвать приглашение
+                            </button>
+                        </div>
+                        <div class="invitation-note">
+                            и вернуть себе комиссию
                         </div>
                     </div>
                 </div>
@@ -268,9 +292,8 @@
         // V2 функция loadUserData удалена - заменена на V3 логику в initializeApp
         
         // V2 функция loadContacts удалена - заменена на V3 polling в DecentralizedEventSystemV3
-        
 
-        // V2 функция sendInvitation удалена - заменена на chatUIManager.sendInvitation() в V3
+        // V3: Функция отправки приглашения перенесена в ChatAreaManagerV3.sendInvitation()
 
         // V2 функции acceptInvitation, rejectInvitation, cancelInvitation удалены
         // Заменены на методы chatUIManager.acceptInvitation(), chatUIManager.rejectInvitation(), chatUIManager.cancelInvitation() в V3
@@ -283,8 +306,6 @@
         // V2 UI функции удалены: showInvitationPanel, hideInvitationPanel, showWaitingPanel, hideWaitingPanel, showCreateInvitationArea
         // Заменены на компонентные функции setVisiblePanel* в V3
         
-
-
         // V2 функции управления областями удалены: setArea*Visibility
         // Заменены на компонентные функции setVisiblePanel* в V3
 
@@ -304,48 +325,9 @@
         // В V3 интерфейс контактов управляется через ContactListManagerV3
         
         // V2 функция createContactItem удалена
-        // В V3 элементы контактов создаются в ContactListManagerV3
-
+        // В V3 элементы контактов создаются в ContactListManagerV3       
         
-        
-        // Обновление информации о пользователе в заголовке (v2)
-        function updateUserInfoInHeader() {
-            const sidebarTitle = document.querySelector('.sidebar-title');
-            const sidebarSubtitle = document.querySelector('.sidebar-subtitle');
-            
-            if (currentUser) {
-                const shortAddress = `${currentUser.slice(0, 6)}...${currentUser.slice(-4)}`;
-                sidebarTitle.textContent = `CryptoMessenger v2`;
-                sidebarSubtitle.textContent = `Пользователь: ${shortAddress}`;
-            }
-        }
-        
-        // Форматирование времени
-        function formatTime(timestamp) {
-            const now = new Date();
-            const messageTime = new Date(timestamp);
-            const diff = now - messageTime;
-            
-            if (diff < 60000) { // Меньше минуты
-                return 'только что';
-            } else if (diff < 3600000) { // Меньше часа
-                return `${Math.floor(diff / 60000)} мин назад`;
-            } else if (diff < 86400000) { // Меньше дня
-                return messageTime.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-            } else if (diff < 604800000) { // Меньше недели
-                return messageTime.toLocaleDateString('ru-RU', { weekday: 'short' });
-            } else {
-                return messageTime.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
-            }
-        }
-
-        // Обновление информации о пользователе
-        function updateUserInfo() {
-            const sidebarSubtitle = document.querySelector('.sidebar-subtitle');
-            if (sidebarSubtitle) {
-                sidebarSubtitle.textContent = `Пользователь: ${currentUser.slice(0, 6)}...${currentUser.slice(-4)}`;
-            }
-        }
+        // V2 функции updateUserInfoInHeader и updateUserInfo удалены - заменены на встроенную логику в initializeApp
 
 
         // ========================================
@@ -419,119 +401,13 @@
             // Если это текущий открытый чат, обновляем его UI
             const currentChatId = chatUIManager ? chatUIManager.currentChatID : null;
             if (currentChatId === chatID) {
-                updateChatAreaForState(frontendState);
+                chatUIManager.updateChatAreaForState(frontendState);
             }
         }
         
-        /**
-         * Обновление области чата в зависимости от состояния (компонентный подход)
-         */
-        function updateChatAreaForState(frontendState) {
-            // Убран избыточный лог обновления панелей            
-            // Независимо определяем видимость панелей
-            setVisiblePanelInputAndSendMessage(frontendState=='allowedWrite');
-            setVisiblePanelWaitingAcceptanceFromMe(frontendState=='waitingAcceptanceFromMe');
-            setVisiblePanelWaitingAcceptanceFromOther(frontendState=='waitingAcceptanceFromOther');
-        }
+        // updateChatAreaForState перенесена в ChatAreaManagerV3
         
-        // ========================================
-        // 🆕 КОМПОНЕНТНЫЕ ФУНКЦИИ УПРАВЛЕНИЯ ПАНЕЛЯМИ
-        // ========================================
-        
-        /**
-         * Панель "Область ввода и отправки сообщений"
-         * Условие показа: Состояние == allowedWrite
-         */
-        function setVisiblePanelInputAndSendMessage(visible) {
-            const panel = document.getElementById('panelInputAndSendMessage');
-            if (panel) {
-                panel.style.display = visible ? 'block' : 'none';
-                // Убран избыточный лог панели ввода
-                
-                if (visible) {
-                    // Особенность: если не выбран никакой чат, показываем приветствие
-                    const currentContact = appState.currentContact;
-                    if (!currentContact) {
-                        const messagesContainer = document.getElementById('chat-messages');
-                        if (messagesContainer) {
-                            messagesContainer.innerHTML = `
-                                <div class="message incoming">
-                                    <div class="message-content">
-                                        <div class="message-text">Добро пожаловать в CryptoMessenger! Выберите контакт для начала общения.</div>
-                                        <div class="message-time">Система</div>
-                                    </div>
-                                </div>
-                            `;
-                        }
-                    }
-                }
-            }
-        }
-        
-        /**
-         * Панель "ВХОДЯЩЕЕ ПРИГЛАШЕНИЕ"
-         * Условие показа: Состояние == waitingAcceptanceFromMe
-         */
-        function setVisiblePanelWaitingAcceptanceFromMe(visible) {
-            const panel = document.getElementById('panelWaitingAcceptanceFromMe');
-            if (panel) {
-                panel.style.display = visible ? 'block' : 'none';
-                // Убран избыточный лог панели приглашений
-                
-                if (visible) {
-                    // Заполняем данные текущего контакта
-                    const currentContact = appState.currentContact;
-                    if (currentContact) {
-                        const fromContactName = document.getElementById('fromContactName');
-                        const fromContactAddress = document.getElementById('fromContactAddress');
-                        
-                        if (fromContactName) fromContactName.textContent = currentContact.name;
-                        if (fromContactAddress) fromContactAddress.textContent = `${currentContact.address.slice(0, 6)}...${currentContact.address.slice(-4)}`;
-                        
-                        // Настраиваем обработчики кнопок
-                        const acceptBtn = document.getElementById('acceptInvitationBtn');
-                        const rejectBtn = document.getElementById('rejectInvitationBtn');
-                        
-                        if (acceptBtn) acceptBtn.onclick = () => {
-                            if (chatUIManager) chatUIManager.acceptInvitation();
-                        };
-                        if (rejectBtn) rejectBtn.onclick = () => {
-                            if (chatUIManager) chatUIManager.rejectInvitation();
-                        };
-                    }
-                }
-            }
-        }
-        
-        /**
-         * Панель "ИСХОДЯЩЕЕ ПРИГЛАШЕНИЕ"  
-         * Условие показа: Состояние == waitingAcceptanceFromOther
-         */
-        function setVisiblePanelWaitingAcceptanceFromOther(visible) {
-            const panel = document.getElementById('panelWaitingAcceptanceFromOther');
-            if (panel) {
-                panel.style.display = visible ? 'block' : 'none';
-                // Убран избыточный лог панели ожидания
-                
-                if (visible) {
-                    // Заполняем данные текущего контакта
-                    const currentContact = appState.currentContact;
-            if (currentContact) {
-                        const toContactName = document.getElementById('toContactName');
-                        const toContactAddress = document.getElementById('toContactAddress');
-                        
-                        if (toContactName) toContactName.textContent = currentContact.name;
-                        if (toContactAddress) toContactAddress.textContent = `${currentContact.address.slice(0, 6)}...${currentContact.address.slice(-4)}`;
-                        
-                        // Настраиваем обработчик кнопки отзыва
-                        const cancelBtn = document.getElementById('cancelInvitationBtn');
-                        if (cancelBtn) cancelBtn.onclick = () => {
-                            if (chatUIManager) chatUIManager.cancelInvitation();
-                        };
-                    }
-                }
-            }
-        }
+        // setVisiblePanel* функции перенесены в ChatAreaManagerV3
         
         // Основная функция инициализации
         async function initializeApp() {
@@ -566,13 +442,28 @@
 
                 console.log('📄 Контракт инициализирован:', window.CryptoMessengerConfig.contractAddress);
 
+                // 🆕 Загружаем константы из контракта
+                try {
+                    const invitationTimeout = await contract.methods.INVITATION_TIMEOUT().call();
+                    window.CryptoMessengerConfig.INVITATION_TIMEOUT = parseInt(invitationTimeout) * 1000; // Конвертируем в миллисекунды
+                    console.log('⏰ V3: Загружен INVITATION_TIMEOUT из контракта:', {
+                        seconds: invitationTimeout,
+                        days: Math.floor(parseInt(invitationTimeout) / (24 * 60 * 60)),
+                        milliseconds: window.CryptoMessengerConfig.INVITATION_TIMEOUT
+                    });
+                } catch (error) {
+                    console.error('❌ V3: Ошибка загрузки INVITATION_TIMEOUT:', error);
+                    // Fallback на 3 дня если не удалось загрузить
+                    window.CryptoMessengerConfig.INVITATION_TIMEOUT = 3 * 24 * 60 * 60 * 1000;
+                }
+
                 // 🆕 V3: Загружаем ключи из localStorage (не спрашиваем контракт!)
                 const savedKeys = localStorage.getItem('cryptoMessengerKeys');
                 if (!savedKeys) {
                     console.error('❌ V3: Ключи не найдены в localStorage');
                     showNotification('Ключи шифрования не найдены! Перейдите на страницу регистрации.', 'error');
                     setTimeout(() => {
-                        window.location.href = 'auth-v2.html';
+                        window.location.href = 'auth.html';
                     }, 3000);
                     return;
                 }
@@ -615,8 +506,12 @@
                 appState.setUserPublicKey(userPublicKey);
                 appState.setUserPrivateKey(userPrivateKey);
                 
-                // 🆕 Инициализация DecentralizedEventSystem V3
-                eventSystem = new DecentralizedEventSystemV3(contract, currentUser);
+                // 🆕 Инициализация модулей V3 в правильном порядке
+                contactListManager = new ContactListManagerV3(appState, contract, null); // eventSystem добавим позже
+                chatUIManager = new ChatAreaManagerV3(appState, contract, web3);
+                
+                // 🆕 Инициализация DecentralizedEventSystem V3 с ссылкой на ContactListManager
+                eventSystem = new DecentralizedEventSystemV3(contract, currentUser, contactListManager);
                 
                 // Настраиваем callbacks для V3
                 eventSystem.setCallbacks({
@@ -625,14 +520,13 @@
                     onChatStateChange: handleChatStateChangeV3
                 });
                 
-                contactListManager = new ContactListManagerV3(appState, contract, eventSystem);
-                chatUIManager = new ChatAreaManagerV3(appState, contract, web3);
+                // Обновляем ссылку на eventSystem в contactListManager
+                contactListManager.eventSystem = eventSystem;
 
-                // Обновляем UI
-                updateUserInfo();
+                // UI обновится автоматически через V3 модули
                 
                 // V3: Скрываем все панели при инициализации (контакт не выбран)
-                updateChatAreaForState('allowedWrite'); // Показываем приветствие
+                chatUIManager.updateChatAreaForState('allowedWrite'); // Показываем приветствие
                 
                 // 🆕 Инициализируем V3 систему (загрузка контактов + запуск polling)
                 console.log('🚀 Инициализируем DecentralizedEventSystem V3...');
@@ -674,7 +568,13 @@
                 // UI обновится автоматически через подписки в ContactListManager
                 
                 // Обновляем заголовок с информацией о пользователе
-                updateUserInfoInHeader();
+                const sidebarTitle = document.querySelector('.sidebar-title');
+                const sidebarSubtitle = document.querySelector('.sidebar-subtitle');
+                if (currentUser && sidebarTitle && sidebarSubtitle) {
+                    const shortAddress = `${currentUser.slice(0, 6)}...${currentUser.slice(-4)}`;
+                    sidebarTitle.textContent = `CryptoMessenger v3`;
+                    sidebarSubtitle.textContent = `Пользователь: ${shortAddress}`;
+                }
                 
                 // Настраиваем обработчики событий
                 console.log('⚙️ Настраиваем обработчики событий...');
@@ -721,19 +621,7 @@
                         }
                         
                         if (isActiveChat) {
-                            // Обычный чат - сбрасываем счётчик непрочитанных сообщений
-                            const contact = contacts.find(c => c.address.toLowerCase() === contactAddress.toLowerCase());
-                            if (contact) {
-                                contact.unreadCount = 0;
-                                // Убираем бейдж у текущего контакта
-                                const currentContactElement = document.querySelector(`[data-address="${contactAddress}"]`);
-                                if (currentContactElement) {
-                                    const badge = currentContactElement.querySelector('.contact-badge');
-                                    if (badge) {
-                                        badge.remove();
-                                    }
-                                }
-                            }
+                            // V3: Сброс счетчика происходит в ContactListManagerV3.onCurrentContactChanged
                         }
                     } catch (error) {
                         console.error('❌ Ошибка проверки статуса чата для сброса счётчика:', error);
@@ -842,22 +730,7 @@
             messagesArea.scrollTop = messagesArea.scrollHeight;
         }
 
-        // Обработка поиска
-        document.querySelector('.search-input').addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase();
-            const contacts = document.querySelectorAll('.contact-item');
-            
-            contacts.forEach(contact => {
-                const name = contact.querySelector('.contact-name').textContent.toLowerCase();
-                const message = contact.querySelector('.contact-last-message').textContent.toLowerCase();
-                
-                if (name.includes(searchTerm) || message.includes(searchTerm)) {
-                    contact.style.display = 'flex';
-                } else {
-                    contact.style.display = 'none';
-                }
-            });
-        });
+        // Поиск контактов перенесен в ContactListManagerV3.setupContactSearch()
 
 
         // Обработка системной кнопки "назад" на мобильных устройствах
@@ -923,7 +796,7 @@
 
             // Кнопка отправки приглашения (из списка контактов)
             document.getElementById('sendInvitationBtn').addEventListener('click', () => {
-                openInvitationModal('', false); // Пустой адрес, поле редактируемое
+                contactListManager.openInvitationModal('', false); // Пустой адрес, поле редактируемое
             });
 
             // Кнопка очистки кэша
@@ -943,14 +816,15 @@
                         // Также очищаем sessionStorage
                         sessionStorage.clear();
                         
-                        // Очищаем все глобальные переменные
-                        contacts = [];
+                        // Очищаем глобальные переменные V2 (V3 использует модули)
                         messages = {};
                         currentContact = null;
                         currentChat = null;
                         
                         // V3: Скрываем все панели так как контакт не выбран
-                        updateChatAreaForState('allowedWrite');
+                        if (chatUIManager) {
+                            chatUIManager.updateChatAreaForState('allowedWrite');
+                        }
                         
                         // Очищаем кэш систем V2
                         if (eventSystem) {
@@ -990,24 +864,11 @@
                 }
             });
 
-            // Функция закрытия модального окна с сбросом состояния
-            function closeInvitationModal() {
-                const modal = document.getElementById('invitationModal');
-                const addressField = document.getElementById('recipientAddress');
-                
-                // Сбрасываем состояние поля адреса
-                addressField.readOnly = false;
-                addressField.style.backgroundColor = '#2a2a2a';
-                addressField.style.color = '#fff';
-                addressField.title = '';
-                
-                // Закрываем модальное окно
-                modal.style.display = 'none';
-            }
+            // closeInvitationModal перенесена в ContactListManagerV3
 
             // Закрытие модального окна отправки приглашения
-            document.getElementById('closeModal').addEventListener('click', closeInvitationModal);
-            document.getElementById('cancelInvitationBtn').addEventListener('click', closeInvitationModal);
+            document.getElementById('closeModal').addEventListener('click', () => contactListManager.closeInvitationModal());
+            document.getElementById('cancelInvitationBtn').addEventListener('click', () => contactListManager.closeInvitationModal());
 
             // Подтверждение отправки приглашения
             document.getElementById('confirmInvitationBtn').addEventListener('click', async () => {
@@ -1029,7 +890,7 @@
                     document.getElementById('confirmInvitationBtn').disabled = true;
                     document.getElementById('confirmInvitationBtn').textContent = 'Отправка...';
 
-                    await sendInvitation(recipientAddress, message, fee);
+                    await contactListManager.sendInvitation(recipientAddress, message, fee);
 
                     // Обновляем панель для текущего контакта, если он совпадает с получателем приглашения
                     // V3: Панели обновятся автоматически через polling после отправки приглашения
@@ -1039,8 +900,7 @@
                     document.getElementById('invitationMessage').value = '';
                     document.getElementById('invitationFee').value = '0.00000217';
 
-                    // Закрываем модальное окно
-                    closeInvitationModal();
+                    // Модальное окно закроется автоматически в contactListManager.sendInvitation()
 
                 } catch (error) {
                     console.error('Ошибка отправки приглашения:', error);
@@ -1060,7 +920,7 @@
                 const invitationModal = document.getElementById('invitationModal');
                 
                 if (e.target === invitationModal) {
-                    closeInvitationModal();
+                    contactListManager.closeInvitationModal();
                 }
             });
         }
@@ -1089,7 +949,7 @@
                     showNotification('Новый аккаунт не зарегистрирован! Перенаправляем на страницу регистрации...', 'warning');
                     
                     setTimeout(() => {
-                        window.location.href = 'auth-v2.html';
+                        window.location.href = 'auth.html';
                     }, 2500);
                 }
                 
@@ -1098,7 +958,7 @@
                 showNotification('Ошибка проверки регистрации. Перенаправляем на страницу авторизации...', 'error');
                 
                 setTimeout(() => {
-                    window.location.href = 'auth-v2.html';
+                    window.location.href = 'auth.html';
                 }, 2000);
             }
         }
@@ -1113,7 +973,7 @@
                     
                     // Перенаправляем на страницу авторизации
                     setTimeout(() => {
-                        window.location.href = 'auth-v2.html';
+                        window.location.href = 'auth.html';
                     }, 2000);
                 } else 
                 {
@@ -1170,7 +1030,12 @@
                     `User ${contactAddress.slice(0, 6)}`;
                 
                 if (chatTitle) chatTitle.textContent = contactName;
-                if (chatSubtitle) chatSubtitle.textContent = contactAddress;
+                
+                // Показываем адрес только если имя не является адресом
+                if (chatSubtitle) {
+                    const isNameAnAddress = contactName.toLowerCase().includes(contactAddress.toLowerCase().slice(2, 8));
+                    chatSubtitle.textContent = isNameAnAddress ? '' : contactAddress;
+                }
                 
                 // V3: Открываем чат через AppState
                 appState.setCurrentContact({ address: contactAddress, name: contactName });
@@ -1208,30 +1073,7 @@
             }, 3000);
         }
 
-        // Функция открытия модального окна приглашения
-        function openInvitationModal(recipientAddress = '', isReadOnly = false) {
-            const modal = document.getElementById('invitationModal');
-            const addressField = document.getElementById('recipientAddress');
-            
-            // Заполняем адрес получателя
-            addressField.value = recipientAddress;
-            
-            // Устанавливаем режим readonly если нужно
-            if (isReadOnly) {
-                addressField.readOnly = true;
-                addressField.style.backgroundColor = '#3a3a3a';
-                addressField.style.color = '#aaa';
-                addressField.title = 'Адрес получателя зафиксирован для этого контакта';
-            } else {
-                addressField.readOnly = false;
-                addressField.style.backgroundColor = '#2a2a2a';
-                addressField.style.color = '#fff';
-                addressField.title = '';
-            }
-            
-            // Показываем модальное окно
-            modal.style.display = 'flex';
-        }
+        // openInvitationModal перенесена в ContactListManagerV3
 
         // Инициализация
         

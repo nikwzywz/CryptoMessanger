@@ -406,6 +406,32 @@ class CryptoUtils {
         // Используем encodePacked как в контракте (не encodeParameters!)
         return web3.utils.keccak256(smaller + larger.slice(2)); // Убираем 0x из второго адреса
     }
+
+    /**
+     * Генерация ключей шифрования из подписи (перенесено из auth.html)
+     * @param {string} signature - Подпись пользователя
+     * @param {string} userAddress - Адрес пользователя
+     * @returns {Object} Объект с ключами {privateKeyForEncode, publicKeyForEncode, address}
+     */
+    static generateEncryptionKeys(signature, userAddress) {
+        try {
+            // Используем подпись как источник энтропии
+            const seed = CryptoJS.SHA256(signature).toString();
+            const privateKeyForEncode = CryptoJS.SHA256(seed + userAddress).toString();
+            
+            // Генерируем публичный ключ (упрощенная версия)
+            const publicKeyForEncode = CryptoJS.SHA256(privateKeyForEncode + 'public').toString();
+
+            return {
+                privateKeyForEncode: privateKeyForEncode,
+                publicKeyForEncode: publicKeyForEncode,
+                address: userAddress
+            };
+        } catch (error) {
+            console.error('❌ Ошибка генерации ключей шифрования:', error);
+            throw new Error(`Не удалось сгенерировать ключи: ${error.message}`);
+        }
+    }
 }
 
 // Логируем загрузку модуля

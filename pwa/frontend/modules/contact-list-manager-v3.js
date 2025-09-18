@@ -16,6 +16,9 @@ class ContactListManagerV3 {
         // Подписываемся на изменения состояния
         this.appState.subscribe('currentContact', this.onCurrentContactChanged.bind(this));
         
+        // Настраиваем поиск контактов
+        this.setupContactSearch();
+        
         console.log('📦 ContactListManager v3.0.0 - V3 polling architecture loaded');
         console.log('🔧 File: modules/contact-list-manager-v3.js');
     }
@@ -79,7 +82,7 @@ class ContactListManagerV3 {
                 <div class="contact-name">${name}</div>
                 <div class="contact-address">${address.slice(0, 6)}...${address.slice(-4)}</div>
             </div>
-            <div class="contact-status" id="status-${address}">
+            <div class="contact-status" id="status-${address.toLowerCase()}">
                 <!-- Статус будет обновлен через updateChatStateIcon -->
             </div>
         `;
@@ -274,5 +277,194 @@ class ContactListManagerV3 {
             chatStatesCount: this.chatStatesCache.size,
             knownContacts: Array.from(this.contactsCache.keys())
         };
+    }
+
+    /**
+     * Открытие модального окна приглашения
+     */
+    openInvitationModal(recipientAddress = '', isReadOnly = false) {
+        const modal = document.getElementById('invitationModal');
+        const addressField = document.getElementById('recipientAddress');
+        
+        // Заполняем адрес получателя
+        addressField.value = recipientAddress;
+        
+        // Устанавливаем режим readonly если нужно
+        if (isReadOnly) {
+            addressField.readOnly = true;
+            addressField.style.backgroundColor = '#3a3a3a';
+            addressField.style.color = '#aaa';
+            addressField.title = 'Адрес получателя зафиксирован для этого контакта';
+        } else {
+            addressField.readOnly = false;
+            addressField.style.backgroundColor = '#2a2a2a';
+            addressField.style.color = '#fff';
+            addressField.title = '';
+        }
+        
+        // Показываем модальное окно
+        modal.style.display = 'flex';
+        
+        console.log('📤 V3: Открыто модальное окно приглашения:', {
+            recipientAddress: recipientAddress,
+            isReadOnly: isReadOnly
+        });
+    }
+
+    /**
+     * Закрытие модального окна приглашения
+     */
+    closeInvitationModal() {
+        const modal = document.getElementById('invitationModal');
+        const addressField = document.getElementById('recipientAddress');
+        
+        // Сбрасываем состояние поля адреса
+        addressField.readOnly = false;
+        addressField.style.backgroundColor = '#2a2a2a';
+        addressField.style.color = '#fff';
+        addressField.title = '';
+        
+        // Закрываем модальное окно
+        modal.style.display = 'none';
+        
+        console.log('❌ V3: Модальное окно приглашения закрыто');
+    }
+
+    /**
+     * Отправка приглашения V3 (перенесено из ChatAreaManagerV3)
+     */
+    async sendInvitation(recipientAddress, message, fee) {
+        try {
+            console.log('📤 V3: Отправляем приглашение:', {
+                recipient: recipientAddress,
+                message: message,
+                fee: fee
+            });
+            
+            // Проверяем валидность адреса
+            if (!recipientAddress || !recipientAddress.startsWith('0x') || recipientAddress.length !== 42) {
+                throw new Error('Неверный формат адреса получателя');
+            }
+            
+            // Проверяем, что не пытаемся добавить самого себя
+            if (recipientAddress.toLowerCase() === this.appState.currentUser.toLowerCase()) {
+                throw new Error('Нельзя отправить приглашение самому себе');
+            }
+            
+            // Проверяем, что контакт не добавлен уже
+            if (this.contactsCache.has(recipientAddress.toLowerCase())) {
+                const contactData = this.contactsCache.get(recipientAddress.toLowerCase());
+                throw new Error(`Контакт "${contactData.name || recipientAddress}" уже есть в вашем списке`);
+            }
+            
+            // Получаем публичный ключ получателя
+            const recipientPublicKey = await this.getContactPublicKey(recipientAddress);
+            
+            // Шифруем сообщение для обеих сторон
+            const encryptedForRecipient = CryptoUtils.encryptMessage(message, recipientPublicKey);
+            const encryptedForSender = CryptoUtils.encryptMessage(message, this.appState.userPublicKey);
+            
+            // Отправляем приглашение через контракт
+            await this.contract.methods.invitationSend(
+                recipientAddress,
+                encryptedForRecipient,
+                encryptedForSender
+            ).send({ 
+                from: this.appState.currentUser,
+                value: web3.utils.toWei(fee.toString(), 'ether')
+            });
+            
+            console.log('✅ V3: Приглашение отправлено');
+            
+            // Закрываем модальное окно
+            this.closeInvitationModal();
+            
+        } catch (error) {
+            console.error('❌ V3: Ошибка отправки приглашения:', error);
+            
+            // Показываем понятное сообщение пользователю
+            if (this.appState.showNotification) {
+                if (error.message.includes('не зарегистрирован')) {
+                    this.appState.showNotification('Получатель не зарегистрирован в системе', 'error');
+                } else if (error.message.includes('уже есть в вашем списке')) {
+                    this.appState.showNotification(error.message, 'warning');
+                } else if (error.message.includes('самому себе')) {
+                    this.appState.showNotification('Нельзя отправить приглашение самому себе', 'warning');
+                } else if (error.message.includes('Неверный формат адреса')) {
+                    this.appState.showNotification('Неверный формат адреса получателя', 'error');
+                } else {
+                    this.appState.showNotification('Ошибка отправки приглашения: ' + error.message, 'error');
+                }
+            }
+            
+            throw error;
+        }
+    }
+
+    /**
+     * Получение публичного ключа контакта
+     */
+    async getContactPublicKey(contactAddress) {
+        try {
+            const userSettings = await this.contract.methods.userSettings(contactAddress).call();
+            const contactPublicKey = userSettings.publicKeyForEncode;
+            
+            console.log('🔑 V3: Публичный ключ контакта:', {
+                contactAddress: contactAddress,
+                publicKey: contactPublicKey.substring(0, 20) + '...',
+                fullLength: contactPublicKey.length
+            });
+            
+            // Проверяем, что пользователь зарегистрирован
+            if (!contactPublicKey || contactPublicKey === '0x' || contactPublicKey.length < 60) {
+                throw new Error(`Пользователь ${contactAddress} не зарегистрирован в системе или имеет неверный публичный ключ`);
+            }
+            
+            return contactPublicKey;
+        } catch (error) {
+            console.error('❌ V3: Ошибка получения публичного ключа:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Настройка поиска контактов (перенесено из main.html)
+     */
+    setupContactSearch() {
+        const searchInput = document.querySelector('.search-input');
+        if (searchInput) {
+            searchInput.addEventListener('input', (event) => {
+                this.filterContacts(event.target.value);
+            });
+            console.log('🔍 V3: Поиск контактов настроен');
+        } else {
+            console.warn('⚠️ V3: Поле поиска контактов не найдено');
+        }
+    }
+
+    /**
+     * Фильтрация контактов по поисковому запросу
+     */
+    filterContacts(searchTerm) {
+        const term = searchTerm.toLowerCase();
+        const contacts = document.querySelectorAll('.contact-item');
+        
+        contacts.forEach(contact => {
+            const nameElement = contact.querySelector('.contact-name');
+            const messageElement = contact.querySelector('.contact-last-message');
+            
+            if (nameElement) {
+                const name = nameElement.textContent.toLowerCase();
+                const message = messageElement ? messageElement.textContent.toLowerCase() : '';
+                
+                if (name.includes(term) || message.includes(term)) {
+                    contact.style.display = 'flex';
+                } else {
+                    contact.style.display = 'none';
+                }
+            }
+        });
+        
+        console.log(`🔍 V3: Фильтрация контактов по запросу: "${searchTerm}"`);
     }
 }

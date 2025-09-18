@@ -1,6 +1,6 @@
 /**
  * Утилиты общего назначения для CryptoMessenger
- * v1.0.0
+ * v1.1.0 - Добавлена поддержка английского языка в formatTime
  */
 
 class Utils {
@@ -15,17 +15,28 @@ class Utils {
             const now = new Date();
             const diff = now - date;
             
+            // Определяем язык пользователя
+            const isRussian = navigator.language.startsWith('ru') || navigator.languages.some(lang => lang.startsWith('ru'));
+            
             if (diff < 60000) { // Меньше минуты
-                return 'сейчас';
+                return isRussian ? 'сейчас' : 'now';
             } else if (diff < 3600000) { // Меньше часа
-                return `${Math.floor(diff / 60000)}м`;
+                const minutes = Math.floor(diff / 60000);
+                return isRussian ? `${minutes}м` : `${minutes}m`;
             } else if (diff < 86400000) { // Меньше дня
-                return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+                const locale = isRussian ? 'ru-RU' : 'en-US';
+                return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
             } else if (diff < 604800000) { // Меньше недели
-                const days = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
-                return days[date.getDay()];
+                if (isRussian) {
+                    const days = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+                    return days[date.getDay()];
+                } else {
+                    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                    return days[date.getDay()];
+                }
             } else {
-                return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+                const locale = isRussian ? 'ru-RU' : 'en-US';
+                return date.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' });
             }
         } catch (error) {
             console.error('❌ Utils: Ошибка форматирования времени:', error);
@@ -74,4 +85,4 @@ if (typeof window !== 'undefined') {
     window.Utils = Utils;
 }
 
-console.log('📦 Utils v1.0.0 - Утилиты общего назначения загружены');
+console.log('📦 Utils v1.1.0 - Утилиты общего назначения загружены (English/Русский)');

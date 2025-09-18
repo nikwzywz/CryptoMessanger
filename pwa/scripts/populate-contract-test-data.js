@@ -15,7 +15,7 @@
  * - Единая система чатов с уникальными ID
  * - Поддержка имен контактов
  * - Использует @noble/secp256k1 и CryptoJS для реального шифрования
- * - Совместимо с системой ключей из auth-v2.html
+ * - Совместимо с системой ключей из auth.html
  * - Использует подписываемую фразу из config.js для генерации ключей
  */
 
@@ -59,14 +59,14 @@ class CryptoMessengerEncryption {
     }
 
     /**
-     * Генерация пары ключей из подписи (как в auth-v2.html)
+     * Генерация пары ключей из подписи (как в auth.html)
      */
     async generateKeyPairFromSignature(signature, userAddress) {
         try {
             // Загружаем secp256k1 если еще не загружен
             const secp256k1Lib = await loadSecp256k1();
             
-            // Используем подпись как источник энтропии (как в auth-v2.html)
+            // Используем подпись как источник энтропии (как в auth.html)
             const seed = CryptoJS.SHA256(signature).toString();
             const privateKeyForEncode = CryptoJS.SHA256(seed + userAddress).toString();
             
@@ -419,7 +419,7 @@ function getAddressFromPrivateKey(privateKey, web3Instance) {
 /**
  * Генерирует ключи шифрования из реальной подписи реального сообщения
  * В реальном приложении подпись получается от пользователя через MetaMask
- * Логика соответствует auth-v2.html
+ * Логика соответствует auth.html
  */
 async function generateEncryptionKeys(userId, userAddress, userPrivateKey) {
     // Используем подписываемую фразу из конфигурации
@@ -500,7 +500,7 @@ async function registerUser(userId, privateKey, userData) {
         // 2. Получаем адрес из PRIVATE_KEY (для транзакций)
         const address = getAddressFromPrivateKey(privateKey, userWeb3);
         
-        // 3. Генерируем ключи шифрования (как в auth-v2.html)
+        // 3. Генерируем ключи шифрования (как в auth.html)
         const encryptionKeys = await generateEncryptionKeys(userId, address, privateKey);
         const publicKeyForEncode = encryptionKeys.publicKeyForEncode;
         

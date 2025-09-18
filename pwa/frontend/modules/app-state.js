@@ -9,7 +9,7 @@ class AppState {
         this.currentUser = null;
         this.currentContact = null;
         this.currentChat = null;
-        this.contacts = [];
+        // V2 contacts array удален - используется ContactListManagerV3.contactsCache
         this.messages = {};
         
         // Web3 и контракт
@@ -133,28 +133,9 @@ class AppState {
      * Обновление списка контактов
      * @param {Array} contacts - Массив контактов
      */
-    setContacts(contacts) {
-        this.contacts = contacts;
-        this.notify('contacts', contacts);
-    }
+    // V2 метод setContacts удален
 
-    /**
-     * Добавление контакта в список
-     * @param {Object} contact - Объект контакта
-     */
-    addContact(contact) {
-        const existingIndex = this.contacts.findIndex(c => 
-            c.address.toLowerCase() === contact.address.toLowerCase()
-        );
-        
-        if (existingIndex >= 0) {
-            this.contacts[existingIndex] = contact;
-        } else {
-            this.contacts.push(contact);
-        }
-        
-        this.notify('contacts', this.contacts);
-    }
+    // V2 метод addContact удален
 
     /**
      * Установка Web3 и контракта
@@ -232,7 +213,7 @@ class AppState {
         this.currentUser = null;
         this.currentContact = null;
         this.currentChat = null;
-        this.contacts = [];
+        // V2 contacts array удален
         this.messages = {};
         this.userPrivateKey = null;
         this.userPublicKey = null;

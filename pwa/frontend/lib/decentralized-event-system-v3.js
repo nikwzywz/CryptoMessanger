@@ -5,22 +5,20 @@
  */
 
 class DecentralizedEventSystemV3 {
-    constructor(contract = null, userAddress = null) {
+    constructor(contract = null, userAddress = null, contactListManager = null) {
         console.log('📦 DecentralizedEventSystem v3.0.0 - Polling architecture loaded');
         console.log('🔧 File: decentralized-event-system-v3.js');
         
         // Web3 контракт
         this.contract = contract;
         this.userAddress = userAddress;
+        this.contactListManager = contactListManager; // Ссылка на ContactListManagerV3
         
         // Polling состояние
         this.lastMessageIndex = -1; // Начинаем с -1, первое сообщение имеет индекс 0
         this.lastContactIndex = 0;
         this.isPollingActive = false;
         this.pollingInterval = null;
-        
-        // Кэш известных контактов
-        this.knownContacts = new Set();
         
         // Frontend состояния чатов
         this.chatFrontendStates = new Map(); // chatID -> frontendState
@@ -67,7 +65,7 @@ class DecentralizedEventSystemV3 {
             
             console.log('✅ DecentralizedEventSystem V3 инициализирован');
             console.log('📊 Состояние:', {
-                knownContacts: this.knownContacts.size,
+                knownContacts: this.contactListManager ? this.contactListManager.contactsCache.size : 0,
                 lastMessageIndex: this.lastMessageIndex,
                 pollingActive: this.isPollingActive
             });
@@ -112,10 +110,7 @@ class DecentralizedEventSystemV3 {
                     hasMoreContacts = false;
                     console.log('📇 Загрузка контактов завершена (пустой результат)');
                 } else {
-                    // Добавляем контакты в кэш
-                    result.contacts.forEach(address => {
-                        this.knownContacts.add(address.toLowerCase());
-                    });
+                    // Контакты добавляются в contactsCache через callback onNewContacts
                     
                     // Уведомляем UI о новых контактах
                     if (this.onNewContacts) {
@@ -258,12 +253,25 @@ class DecentralizedEventSystemV3 {
             
             // 3. 🆕 ПРОВЕРЯЕМ НОВЫЕ КОНТАКТЫ
             const unknownChatIDs = Array.from(newChatIDs).filter(chatID => {
-                const addresses = this.extractAddressesFromChatID(chatID);
-                return !addresses.every(addr => this.knownContacts.has(addr.toLowerCase()));
+                // Проверяем, знаем ли мы уже этот chatID среди известных контактов
+                const currentUserLower = this.userAddress.toLowerCase();
+                
+                if (!this.contactListManager) {
+                    return true; // Если нет ContactListManager, считаем все чаты неизвестными
+                }
+                
+                for (const contactAddress of this.contactListManager.contactsCache.keys()) {
+                    const testChatID = this.generateChatId(currentUserLower, contactAddress);
+                    if (testChatID === chatID) {
+                        return false; // Контакт известен
+                    }
+                }
+                return true; // Контакт неизвестен
             });
             
             if (unknownChatIDs.length > 0) {
-                console.log(`🚨 Обнаружены новые контакты в ${unknownChatIDs.length} чатах`);
+                console.log(`🚨 Обнаружены новые контакты в ${unknownChatIDs.length} чатах:`, unknownChatIDs.map(id => id.substring(0, 10)));
+                console.log(`📇 Текущее количество известных контактов: ${this.contactListManager ? this.contactListManager.contactsCache.size : 0}`);
                 await this.loadNewContacts();
             }
             
@@ -277,7 +285,7 @@ class DecentralizedEventSystemV3 {
             console.log(`📊 Обновлен lastMessageIndex: ${this.lastMessageIndex}`);
             
         } catch (error) {
-            console.error('❌ Ошибка polling сообщений:', error);
+            // Скрываем Network Error - это нормально при временных сбоях сети
         }
     }
 
@@ -285,7 +293,7 @@ class DecentralizedEventSystemV3 {
      * Загрузка новых контактов при обнаружении неизвестных чатов
      */
     async loadNewContacts() {
-        console.log('📇 Загружаем новые контакты...');
+        console.log(`📇 Загружаем новые контакты начиная с индекса ${this.lastContactIndex}...`);
         
         let hasMoreContacts = true;
         let currentIndex = this.lastContactIndex;
@@ -302,9 +310,9 @@ class DecentralizedEventSystemV3 {
                 });
                 
                 if (startIndex >= parseInt(contactsCount)) {
-                    console.log('📇 Загрузка новых контактов завершена (startIndex >= contactsCount)');
-                    hasMoreContacts = false;
-                    break;
+                console.log(`📇 Загрузка новых контактов завершена (startIndex ${startIndex} >= contactsCount ${contactsCount})`);
+                hasMoreContacts = false;
+                break;
                 }
                 
                 const result = await this.contract.methods.getContactsPaginated(
@@ -315,10 +323,7 @@ class DecentralizedEventSystemV3 {
                 if (result.contacts.length === 0) {
                     hasMoreContacts = false;
                 } else {
-                    // Добавляем новые контакты в кэш
-                    result.contacts.forEach(address => {
-                        this.knownContacts.add(address.toLowerCase());
-                    });
+                    // Контакты добавляются в contactsCache через callback onNewContacts
                     
                     // Уведомляем UI о новых контактах
                     if (this.onNewContacts) {
@@ -327,6 +332,8 @@ class DecentralizedEventSystemV3 {
                     
                     newContactsCount += result.contacts.length;
                     currentIndex += result.contacts.length;
+                    
+                    console.log(`📇 Загружено ${result.contacts.length} новых контактов (всего новых: ${newContactsCount})`);
                 }
                 
             } catch (error) {
@@ -336,7 +343,7 @@ class DecentralizedEventSystemV3 {
         }
         
         this.lastContactIndex = currentIndex;
-        console.log(`✅ Загружено ${newContactsCount} новых контактов`);
+        console.log(`✅ Загрузка новых контактов завершена: ${newContactsCount} новых контактов, lastContactIndex обновлен до ${currentIndex}`);
     }
 
     /**
@@ -376,10 +383,12 @@ class DecentralizedEventSystemV3 {
         // Для каждого известного контакта проверяем, соответствует ли chatID
         const currentUserLower = this.userAddress.toLowerCase();
         
-        for (const contactAddress of this.knownContacts) {
-            const testChatID = this.generateChatId(currentUserLower, contactAddress);
-            if (testChatID === chatID) {
-                return [currentUserLower, contactAddress];
+        if (this.contactListManager) {
+            for (const contactAddress of this.contactListManager.contactsCache.keys()) {
+                const testChatID = this.generateChatId(currentUserLower, contactAddress);
+                if (testChatID === chatID) {
+                    return [currentUserLower, contactAddress];
+                }
             }
         }
         
@@ -460,7 +469,7 @@ class DecentralizedEventSystemV3 {
         return {
             lastMessageIndex: this.lastMessageIndex,
             lastContactIndex: this.lastContactIndex,
-            knownContactsCount: this.knownContacts.size,
+            knownContactsCount: this.contactListManager ? this.contactListManager.contactsCache.size : 0,
             isPollingActive: this.isPollingActive,
             chatStatesCount: this.chatFrontendStates.size,
             pollingInterval: this.POLLING_INTERVAL
@@ -472,7 +481,6 @@ class DecentralizedEventSystemV3 {
      */
     destroy() {
         this.stopPolling();
-        this.knownContacts.clear();
         this.chatFrontendStates.clear();
         
         this.onNewMessages = null;

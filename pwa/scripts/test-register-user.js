@@ -82,7 +82,7 @@ async function testRegisterUser() {
         
         console.log(`👤 Тестовый аккаунт: ${address}`);
         
-        // Генерируем ключи шифрования (как в auth-v2.html)
+        // Генерируем ключи шифрования (как в auth.html)
         const mockSignature = `Mock signature for user02 - ${Date.now()}`;
         const seed = CryptoJS.SHA256(mockSignature).toString();
         const privateKeyForEncode = CryptoJS.SHA256(seed + address).toString();

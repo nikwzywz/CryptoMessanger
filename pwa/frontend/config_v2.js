@@ -29,6 +29,9 @@ window.CryptoMessengerConfig = {
         deactivate: 'I deactivate this chat'
     },
     
+    // Таймаут для отзыва приглашений (загружается из контракта)
+    INVITATION_TIMEOUT: null, // Будет загружен из contract.INVITATION_TIMEOUT()
+    
     // ABI контракта (полный)
     contractABI: [
     {

@@ -384,6 +384,7 @@
 
     <script src="lib/web3.min.js"></script>
     <script src="lib/crypto-js.min.js"></script>
+    <script src="lib/crypto-utils.js"></script>
     <script src="config_v2.js"></script>
     <script>
         // Версия приложения
@@ -559,18 +560,8 @@
                 elements.generateBtn.disabled = true;
                 elements.generateBtn.innerHTML = '<div class="loading"></div>Генерация...';
 
-                // Используем подпись как источник энтропии
-                const seed = CryptoJS.SHA256(signature).toString();
-                const privateKeyForEncode = CryptoJS.SHA256(seed + userAddress).toString();
-                
-                // Генерируем публичный ключ (упрощенная версия)
-                const publicKeyForEncode = CryptoJS.SHA256(privateKeyForEncode + 'public').toString();
-
-                encryptionKeys = {
-                    privateKeyForEncode: privateKeyForEncode,
-                    publicKeyForEncode: publicKeyForEncode,
-                    address: userAddress
-                };
+                // Используем функцию из crypto-utils.js для единообразия
+                encryptionKeys = CryptoUtils.generateEncryptionKeys(signature, userAddress);
 
                 // Сохраняем в localStorage
                 localStorage.setItem('cryptoMessengerKeys', JSON.stringify(encryptionKeys));
@@ -580,9 +571,9 @@
                 elements.generateBtn.innerHTML = 'Сгенерировать ключи';
                 elements.keyDisplay.innerHTML = `
                     <strong>PublicKeyForEncode:</strong><br>
-                    ${publicKeyForEncode.substring(0, 50)}...<br><br>
+                    ${encryptionKeys.publicKeyForEncode.substring(0, 50)}...<br><br>
                     <strong>PrivateKeyForEncode:</strong><br>
-                    ${privateKeyForEncode.substring(0, 50)}...
+                    ${encryptionKeys.privateKeyForEncode.substring(0, 50)}...
                 `;
                 elements.keyDisplay.classList.remove('hidden');
 

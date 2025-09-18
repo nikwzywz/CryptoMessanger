@@ -22,6 +22,24 @@ class ChatAreaManagerV3 {
     }
 
     /**
+     * Обновление области чата в зависимости от состояния (перенесено из main.html)
+     */
+    updateChatAreaForState(frontendState) {
+        console.log(`🎨 V3: Обновляем UI для состояния:`, frontendState);        
+        // Независимо определяем видимость панелей
+        this.setVisiblePanelInputAndSendMessage((frontendState === 'allowedWrite') && (this.appState.currentContact));
+        this.setVisiblePanelWaitingAcceptanceFromMe(frontendState === 'waitingAcceptanceFromMe');
+        this.setVisiblePanelWaitingAcceptanceFromOther(frontendState === 'waitingAcceptanceFromOther');
+
+        // Для waitingAcceptanceFromOther проверяем таймаут
+        if (frontendState === 'waitingAcceptanceFromOther') {
+            const isTimeoutExpired = this.checkInvitationTimeout();
+            this.setVisiblePanelInvitationCancel((frontendState === 'waitingAcceptanceFromOther')&&(isTimeoutExpired));
+        }
+    }
+
+
+    /**
      * Обработчик изменения текущего контакта (Detail в Master-Detail)
      */
     async onContactChanged(contact) {
@@ -334,20 +352,18 @@ class ChatAreaManagerV3 {
     }
 
     /**
-     * Обновление UI чата в зависимости от состояния (делегируем главной функции)
+     * Обновление UI чата в зависимости от состояния
      */
     updateChatUI(frontendState) {
         this.currentFrontendState = frontendState;
         
         const chatSubtitle = document.getElementById('chatSubtitle');
         
-        // Убран избыточный лог обновления UI
-        
         // Обновляем подзаголовок чата
         if (chatSubtitle) {
             switch (frontendState) {
                 case 'allowedWrite':
-                    chatSubtitle.textContent = 'Активный чат';
+                    // Не затираем адрес - он уже установлен в selectContact
                     break;
                 case 'notAllowedWrite':
                     chatSubtitle.textContent = '🚫 Чат заблокирован';
@@ -363,12 +379,169 @@ class ChatAreaManagerV3 {
             }
         }
         
-        // Делегируем управление панелями главной функции updateChatAreaForState
-        if (window.updateChatAreaForState) {
-            window.updateChatAreaForState(frontendState);
-        } else {
-            console.warn('⚠️ V3: updateChatAreaForState не найдена');
+        // Управляем панелями напрямую
+        this.updateChatAreaForState(frontendState);
+    }
+
+    /**
+     * Панель 1: Область ввода и отправки сообщений
+     * Условие показа: Состояние == allowedWrite
+     */
+    setVisiblePanelInputAndSendMessage(visible) {
+        const panel = document.getElementById('panelInputAndSendMessage');
+        if (panel) {
+            panel.style.display = visible ? 'block' : 'none';
+            console.log(`🎨 Панель ввода сообщений: ${visible ? 'показана' : 'скрыта'}`);
+            
+            if (visible) {
+                // Особенность: если не выбран никакой чат, показываем приветствие
+                const currentContact = this.appState.currentContact;
+                if (!currentContact) {
+                    const messagesContainer = document.getElementById('chat-messages');
+                    if (messagesContainer) {
+                        messagesContainer.innerHTML = `
+                            <div class="message incoming">
+                                <div class="message-content">
+                                    <div class="message-text">Добро пожаловать в CryptoMessenger! Выберите контакт для начала общения.</div>
+                                    <div class="message-time">Система</div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
+            }
         }
+    }
+
+    /**
+     * Панель 2: ВХОДЯЩЕЕ ПРИГЛАШЕНИЕ
+     * Условие показа: Состояние == waitingAcceptanceFromMe
+     */
+    setVisiblePanelWaitingAcceptanceFromMe(visible) {
+        const panel = document.getElementById('panelWaitingAcceptanceFromMe');
+        if (panel) {
+            panel.style.display = visible ? 'block' : 'none';
+            console.log(`🎨 Панель входящего приглашения: ${visible ? 'показана' : 'скрыта'}`);
+            
+            if (visible) {
+                // Заполняем данные текущего контакта
+                const currentContact = this.appState.currentContact;
+                if (currentContact) {
+                    const fromContactName = document.getElementById('fromContactName');
+                    const fromContactAddress = document.getElementById('fromContactAddress');
+                    
+                    if (fromContactName) fromContactName.textContent = currentContact.name;
+                    if (fromContactAddress) fromContactAddress.textContent = `${currentContact.address.slice(0, 6)}...${currentContact.address.slice(-4)}`;
+                    
+                    // Настраиваем обработчики кнопок
+                    const acceptBtn = document.getElementById('acceptInvitationBtn');
+                    const rejectBtn = document.getElementById('rejectInvitationBtn');
+                    
+                    if (acceptBtn) acceptBtn.onclick = () => this.acceptInvitation();
+                    if (rejectBtn) rejectBtn.onclick = () => this.rejectInvitation();
+                }
+            }
+        }
+    }
+
+    /**
+     * Панель 3: ИСХОДЯЩЕЕ ПРИГЛАШЕНИЕ
+     * Условие показа: Состояние == waitingAcceptanceFromOther
+     */
+    setVisiblePanelWaitingAcceptanceFromOther(visible) {
+        const panel = document.getElementById('panelWaitingAcceptanceFromOther');
+        if (panel) {
+            panel.style.display = visible ? 'block' : 'none';
+            console.log(`🎨 Панель исходящего приглашения: ${visible ? 'показана' : 'скрыта'}`);
+            
+            if (visible) {
+                // Заполняем данные текущего контакта
+                const currentContact = this.appState.currentContact;
+                if (currentContact) {
+                    const toContactName = document.getElementById('toContactName');
+                    const toContactAddress = document.getElementById('toContactAddress');
+                    
+                    if (toContactName) toContactName.textContent = currentContact.name;
+                    if (toContactAddress) toContactAddress.textContent = `${currentContact.address.slice(0, 6)}...${currentContact.address.slice(-4)}`;
+                    
+                    // Настраиваем обработчик кнопки отзыва
+                    const cancelBtn = document.getElementById('cancelInvitationBtn');
+                    if (cancelBtn) cancelBtn.onclick = () => this.cancelInvitation();
+                }
+            }
+        }
+    }
+
+    /**
+     * Панель 4: ОТЗЫВ ПРИГЛАШЕНИЯ (после таймаута)
+     * Условие показа: Состояние == waitingAcceptanceFromOther И прошло более INVITATION_TIMEOUT времени
+     */
+    setVisiblePanelInvitationCancel(visible) {
+        const panel = document.getElementById('panelInvitationCancel');
+        if (panel) {
+            panel.style.display = visible ? 'block' : 'none';
+            console.log(`🎨 Панель отзыва приглашения: ${visible ? 'показана' : 'скрыта'}`);
+            
+            if (visible) {
+                // Заполняем данные текущего контакта и рассчитываем дни
+                const currentContact = this.appState.currentContact;
+                if (currentContact) {
+                    const daysSince = this.calculateDaysSinceLastMessage();
+                    
+                    // Обновляем заголовок с количеством дней
+                    const daysSinceSpan = document.getElementById('daysSinceInvitation');
+                    if (daysSinceSpan) {
+                        daysSinceSpan.textContent = daysSince;
+                    }
+                    
+                    // Настраиваем обработчик кнопки отзыва
+                    const cancelBtn = document.getElementById('cancelInvitationTimeoutBtn');
+                    if (cancelBtn) cancelBtn.onclick = () => this.cancelInvitation();
+                }
+            }
+        }
+    }
+
+    /**
+     * Проверка истечения таймаута приглашения
+     */
+    checkInvitationTimeout() {
+        if (!this.currentChatMessages || this.currentChatMessages.length === 0) {
+            return false; // Нет сообщений - таймаут не применяется
+        }
+        
+        // Берем последнее сообщение
+        const lastMessage = this.currentChatMessages[this.currentChatMessages.length - 1];
+        const lastMessageTime = parseInt(lastMessage.messageTimestamp) * 1000; // Конвертируем в миллисекунды
+        const now = Date.now();
+        
+        const timeSinceLastMessage = now - lastMessageTime;
+        const timeoutThreshold = window.CryptoMessengerConfig.INVITATION_TIMEOUT;
+        
+        console.log(`⏰ V3: Проверка таймаута приглашения:`, {
+            lastMessageTime: new Date(lastMessageTime).toLocaleString(),
+            timeSinceLastMessage: Math.floor(timeSinceLastMessage / (24 * 60 * 60 * 1000)) + ' дней',
+            timeoutThreshold: Math.floor(timeoutThreshold / (24 * 60 * 60 * 1000)) + ' дней',
+            isExpired: timeSinceLastMessage > timeoutThreshold
+        });
+        
+        return timeSinceLastMessage > timeoutThreshold;
+    }
+
+    /**
+     * Расчет количества дней с последнего сообщения
+     */
+    calculateDaysSinceLastMessage() {
+        if (!this.currentChatMessages || this.currentChatMessages.length === 0) {
+            return 0;
+        }
+        
+        const lastMessage = this.currentChatMessages[this.currentChatMessages.length - 1];
+        const lastMessageTime = parseInt(lastMessage.messageTimestamp) * 1000;
+        const now = Date.now();
+        
+        const daysSince = Math.floor((now - lastMessageTime) / (24 * 60 * 60 * 1000));
+        return daysSince;
     }
 
     // Удален устаревший метод showInvitationButtons()
@@ -472,6 +645,8 @@ class ChatAreaManagerV3 {
             console.error('❌ V3: Ошибка отзыва приглашения:', error);
         }
     }
+
+    // sendInvitation перенесен в ContactListManagerV3
 
     /**
      * Отправка сообщения V3
