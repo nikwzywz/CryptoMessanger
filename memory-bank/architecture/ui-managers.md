@@ -217,7 +217,6 @@ addNewMessage(message) {
 ```
 modules/
 ├── app-state.js              # Централизованное состояние
-├── ui-manager.js             # Общий координатор UI
 ├── contact-ui-manager-v4.js  # Левая панель (список контактов)
 └── chat-ui-manager-v4.js     # Правая панель (область чата)
 ```

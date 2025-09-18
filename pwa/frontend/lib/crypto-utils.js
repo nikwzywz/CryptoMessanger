@@ -8,6 +8,31 @@
 class CryptoUtils {
 
     /**
+     * Конвертация hex строки в Uint8Array
+     * @param {string} hex - Hex строка (без 0x)
+     * @returns {Uint8Array} - Массив байтов
+     */
+    static convertHexIntoUint8Array(hex) {
+        const cleanHex = hex.replace('0x', '');
+        const bytes = new Uint8Array(cleanHex.length / 2);
+        for (let i = 0; i < cleanHex.length; i += 2) {
+            bytes[i / 2] = parseInt(cleanHex.substr(i, 2), 16);
+        }
+        return bytes;
+    }
+
+    /**
+     * Конвертация Uint8Array в hex строку
+     * @param {Uint8Array} bytes - Массив байтов
+     * @returns {string} - Hex строка (без 0x)
+     */
+    static convertUint8ArrayIntoHex(bytes) {
+        return Array.from(bytes)
+            .map(byte => byte.toString(16).padStart(2, '0'))
+            .join('');
+    }
+
+    /**
      * Определение правильного поля для расшифровки в v2 контракте
      * @param {string} currentUserAddress - Адрес текущего пользователя
      * @param {string} contactAddress - Адрес собеседника
@@ -273,19 +298,22 @@ class CryptoUtils {
     /**
      * Дешифрование ECIES сообщения
      * @param {string} encryptedHex - Зашифрованное сообщение в hex формате
+     * @param {string} privateKey - Приватный ключ (опционально, если не передан - берется из localStorage)
      * @returns {string} Расшифрованное сообщение
      */
-    static decryptMessage(encryptedHex) {
+    static decryptMessage(encryptedHex, privateKey = null) {
         try {
-            // Получаем приватный ключ из localStorage
-            const storedKeys = localStorage.getItem('cryptoMessengerKeys');
-            if (!storedKeys) {
-                console.warn('🔑 Ключи шифрования не найдены в localStorage');
-                return '[Ключи не найдены]';
+            // Получаем приватный ключ
+            if (!privateKey) {
+                const storedKeys = localStorage.getItem('cryptoMessengerKeys');
+                if (!storedKeys) {
+                    console.warn('🔑 Ключи шифрования не найдены в localStorage');
+                    return '[Ключи не найдены]';
+                }
+                
+                const encryptionKeys = JSON.parse(storedKeys);
+                privateKey = encryptionKeys.privateKeyForEncode;
             }
-            
-            const encryptionKeys = JSON.parse(storedKeys);
-            const privateKey = encryptionKeys.privateKeyForEncode;
             
             if (!privateKey) {
                 console.warn('🔑 Приватный ключ для расшифровки не найден');
@@ -304,13 +332,47 @@ class CryptoUtils {
                 // Пытаемся распарсить как ECIES структуру
                 const encryptedData = JSON.parse(resultJson);
                 
-                if (encryptedData.ephemeralPublicKey && encryptedData.encryptedMessage) {
-                    // Вычисляем общий секрет
-                    const sharedSecret = CryptoJS.SHA256(encryptedData.ephemeralPublicKey.replace('0x', '') + '0x' + privateKey).toString();
+                // Убраны избыточные логи анализа данных
+                
+            if (encryptedData.ephemeralPublicKey && encryptedData.encryptedMessage) {
                     
-                    // Дешифруем сообщение
-                    const decrypted = CryptoJS.AES.decrypt(encryptedData.encryptedMessage, sharedSecret);
-                    return decrypted.toString(CryptoJS.enc.Utf8);
+                    try {
+                        // Используем тот же алгоритм, что и в encryptMessage
+                        const ephemeralPrivateKeyHex = encryptedData.ephemeralPublicKey.replace('0x', '').substring(0, 64); // Получаем эфемерный ключ
+                        
+                        // Нужно получить НАШИ публичные ключи из localStorage (как в encryptMessage)
+                        const storedKeys = localStorage.getItem('cryptoMessengerKeys');
+                        const encryptionKeys = JSON.parse(storedKeys);
+                        let userPublicKey = encryptionKeys.publicKeyForEncode;
+                        
+                        // Добавляем префикс 0x если нужно
+                        if (!userPublicKey.startsWith('0x')) {
+                            userPublicKey = '0x' + userPublicKey;
+                        }
+                        
+                        // Вычисляем общий секрет точно так же, как в encryptMessage
+                        const sharedSecret = CryptoJS.SHA256(ephemeralPrivateKeyHex + userPublicKey).toString();
+                        
+                        // Дешифруем сообщение
+                        const decrypted = CryptoJS.AES.decrypt(encryptedData.encryptedMessage, sharedSecret);
+                        const result = decrypted.toString(CryptoJS.enc.Utf8);
+                        
+                        // Логируем только неудачные расшифровки
+                        if (result.length === 0 || decrypted.sigBytes < 0) {
+                            console.log('🔓 V3: Ошибка расшифровки:', {
+                                sigBytes: decrypted.sigBytes,
+                                resultLength: result.length,
+                                ephemeralKey: ephemeralPrivateKeyHex.substring(0, 20) + '...',
+                                userPublicKey: userPublicKey.substring(0, 20) + '...'
+                            });
+                        }
+                        
+                        return result;
+                        
+                    } catch (decryptError) {
+                        console.error('❌ Ошибка совместимой расшифровки:', decryptError);
+                        return '[Ошибка расшифровки]';
+                    }
                 }
             } catch (parseError) {
                 console.error('❌ Ошибка парсинга ECIES данных:', parseError);
@@ -321,6 +383,28 @@ class CryptoUtils {
             console.error('❌ Ошибка дешифрования:', error);
             return '[Ошибка дешифрования]';
         }
+    }
+
+    /**
+     * Генерация chatID (аналогично контракту V3)
+     * @param {string} address1 - Первый адрес
+     * @param {string} address2 - Второй адрес
+     * @returns {string} Уникальный идентификатор чата
+     */
+    static generateChatId(address1, address2) {
+        const addr1 = address1.toLowerCase();
+        const addr2 = address2.toLowerCase();
+        
+        // Сортируем адреса как в контракте
+        const [smaller, larger] = addr1 < addr2 ? [addr1, addr2] : [addr2, addr1];
+        
+        // Используем глобальную переменную web3
+        if (typeof web3 === 'undefined') {
+            throw new Error('Web3 не инициализирован для генерации chatID');
+        }
+        
+        // Используем encodePacked как в контракте (не encodeParameters!)
+        return web3.utils.keccak256(smaller + larger.slice(2)); // Убираем 0x из второго адреса
     }
 }
 

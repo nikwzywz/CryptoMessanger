@@ -61,6 +61,7 @@ class Utils {
         return `${address.slice(0, startChars)}...${address.slice(-endChars)}`;
     }
 
+
 }
 
 // Экспорт для использования в других модулях

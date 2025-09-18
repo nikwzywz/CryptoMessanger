@@ -32,7 +32,7 @@
             
             <div class="contacts-list" id="contactsList">
                 <!-- Контакты будут загружены динамически из блокчейна -->
-                <div class="contact-item" style="text-align: center; padding: 20px; color: #888;">
+                <div id="loadingContactsPlaceholder" class="contact-item" style="text-align: center; padding: 20px; color: #888;">
                     <div class="contact-info">
                         <div class="contact-name">Загрузка контактов...</div>
                         <div class="contact-last-message">Подключение к блокчейну</div>
@@ -55,21 +55,9 @@
                 <div>
                     <div class="chat-title" id="chatTitle">Выберите контакт</div>
                     <div class="chat-subtitle" id="chatSubtitle"> </div>
-                    <div class="chat-stats" id="chatStats" style="display: none;">
-                        <span class="chat-stats-item">
-                            <strong id="totalMessages">0</strong> сообщений
-                        </span>
-                        <span class="chat-stats-item">
-                            <strong id="loadedMessages">0</strong> загружено
-                        </span>
-                        <span class="chat-stats-item">
-                            <strong id="isFullyLoaded">Нет</strong> история
-                        </span>
+                    <!-- V3: chatStats удален - статистика не нужна в polling архитектуре -->
                     </div>
-                </div>
-                <div class="chat-actions" style="margin-left: auto;">
-                    <button class="action-button" id="refreshBtn" style="display: none; margin-right: 10px;">🔄 Обновить</button>
-                </div>
+                <!-- V3: refreshBtn удален - обновление происходит автоматически через polling -->
             </div>
 
             <div class="messages-area">
@@ -82,58 +70,73 @@
                     </div>
                 </div>
                 
-                <div class="history-loading" id="historyLoading" style="display: none;">
-                    <div class="spinner"></div>
-                    Загружаем историю...
-                </div>
+                <!-- V3: historyLoading удален - история загружается через polling -->
             </div>
 
-            <div class="input-area" id="inputArea">
+            <!-- Панель 1: Область ввода и отправки сообщений -->
+            <div class="panel-component" id="panelInputAndSendMessage" style="display: none;">
+                <div class="input-area">
                 <div class="input-container">
                     <textarea class="message-input" id="messageInput" placeholder="Введите сообщение..." rows="1"></textarea>
                     <button class="send-button" id="sendButton">➤</button>
+                    </div>
                 </div>
             </div>
             
-            <!-- Панель обработки приглашений (для получателя) -->
-            <div class="invitation-panel" id="invitationPanel">
+            <!-- Панель 2: ВХОДЯЩЕЕ ПРИГЛАШЕНИЕ -->
+            <div class="panel-component" id="panelWaitingAcceptanceFromMe" style="display: none;">
+                <div class="invitation-panel-content">
+                    <div class="panel-header">
+                        <h3>📥 Приглашение в контакты</h3>
+                    </div>
+                    <div class="panel-body">
                 <div class="invitation-info">
-                    <div class="invitation-title">📨 Приглашение в контакты</div>
-                    <div class="invitation-message" id="invitationText">Пользователь хочет добавить вас в контакты</div>
-                    <div class="invitation-address" id="invitationFrom">От: 0x...</div>
+                            <div class="invitation-field">
+                                <strong>📍 От:</strong> <span id="fromContactName">-</span>
+                            </div>
+                            <div class="invitation-field">
+                                <strong>📧 Адрес отправителя:</strong> <span id="fromContactAddress">-</span>
+                            </div>
                 </div>
                 <div class="invitation-actions">
-                    <button class="invitation-btn accept" id="acceptInvitationChatBtn">
+                            <button id="acceptInvitationBtn" class="btn btn-success">
                         ✅ Разрешить общение
                     </button>
-                    <button class="invitation-btn reject" id="rejectInvitationChatBtn">
+                            <button id="rejectInvitationBtn" class="btn btn-danger">
                         ❌ Запретить
                     </button>
                 </div>
             </div>
-            
-            <!-- Панель ожидания (для отправителя) -->
-            <div class="waiting-panel" id="waitingPanel">
-                <div class="waiting-info">
-                    <div class="waiting-icon">⏳</div>
-                    <div class="waiting-title">Ожидание принятия приглашения</div>
-                    <div class="waiting-message">Пользователь ещё не ответил на ваше приглашение</div>
-                    <div class="waiting-address" id="waitingTo">Кому: 0x...</div>
                 </div>
             </div>
             
-            <!-- Панель создания приглашения -->
-            <div class="create-invitation-panel" id="createInvitationPanel">
-                <div class="create-invitation-info">
-                    <div class="create-invitation-icon">📝</div>
-                    <div class="create-invitation-title">Отправить приглашение</div>
-                    <div class="create-invitation-message">Этот пользователь не в ваших контактах</div>
-                    <div class="create-invitation-address" id="createInvitationTo">Кому: 0x...</div>
+            <!-- Панель 3: ИСХОДЯЩЕЕ ПРИГЛАШЕНИЕ -->
+            <div class="panel-component" id="panelWaitingAcceptanceFromOther" style="display: none;">
+                <div class="invitation-panel-content">
+                    <div class="panel-header">
+                        <h3>⏳ Ожидание принятия приглашения</h3>
                 </div>
-                <div class="create-invitation-actions">
-                    <button class="invitation-btn accept" id="createInvitationBtn">
-                        📤 Отправить приглашение
+                    <div class="panel-body">
+                        <div class="invitation-info">
+                            <div class="invitation-field">
+                                <strong>📍 Кому:</strong> <span id="toContactName">-</span>
+                            </div>
+                            <div class="invitation-field">
+                                <strong>📧 Адрес:</strong> <span id="toContactAddress">-</span>
+                            </div>
+                            <div class="invitation-message">
+                                💬 Пользователь ещё не ответил на ваше приглашение
+                            </div>
+                        </div>
+                        <div class="invitation-actions">
+                            <button id="cancelInvitationBtn" class="btn btn-secondary">
+                                🔄 Отозвать приглашение
                     </button>
+                            <div class="invitation-note">
+                                и вернуть себе комиссию
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -167,58 +170,33 @@
         </div>
     </div>
 
-    <!-- Модальное окно для обработки приглашений -->
-    <div id="invitationActionsModal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>📨 Обработка приглашения</h3>
-                <span class="close" id="closeActionsModal">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div id="invitationInfo">
-                    <p><strong>От:</strong> <span id="inviterAddress"></span></p>
-                    <p><strong>Сообщение:</strong> <span id="invitationMessageText"></span></p>
-                    <p><strong>Комиссия:</strong> <span id="invitationFeeAmount"></span> ETH</p>
-                </div>
-                <div class="modal-actions">
-                    <button class="btn btn-success" id="acceptInvitationBtn">Принять</button>
-                    <button class="btn btn-danger" id="rejectInvitationBtn">Отклонить</button>
-                    <button class="btn btn-secondary" id="cancelActionsBtn">Отмена</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- V3: invitationActionsModal удален - заменен компонентными панелями -->
 
     <!-- Подключение библиотек -->
     <script src="lib/web3.min.js"></script>
     <script src="lib/crypto-js.min.js"></script>
     <script src="config_v2.js"></script>
     <script src="lib/crypto-utils.js"></script>
-    <script src="lib/decentralized-event-system-browser-v2.js"></script>
+    <script src="lib/decentralized-event-system-v3.js"></script>
     <script src="lib/utils.js"></script>
     <script src="modules/app-state.js"></script>
-    <script src="modules/contact-list-manager.js"></script>
-    <script src="modules/chat-area-manager.js"></script>
+    <script src="modules/contact-list-manager-v3.js"></script>
+    <script src="modules/chat-area-manager-v3.js"></script>
     
     <script>
         // CryptoMessenger v2.0.0 - Main Interface with Contract v2 Migration
         console.log('CryptoMessenger v2.0.0 - Main Interface Loaded with Contract v2 Migration');
         
-        // Глобальные переменные
+        // Глобальные переменные V3
         let web3;
         let contract;
         let currentUser;
         let userPrivateKey;
         let userPublicKey;
-        let contacts = [];
-        let currentContact = null;
-        let currentChat = null;
         let chatUIManager;
         let eventSystem;
-        let contactRequests = [];
-        let messages = {};
         
-        // Новые модули
+        // V3 модули
         let appState;
         let contactListManager;
         
@@ -287,874 +265,46 @@
             }
         }
         
-        // Загрузка данных пользователя
-        async function loadUserData() {
-            try {
-                // Получаем текущий аккаунт
-                const accounts = await web3.eth.getAccounts();
-                if (accounts.length === 0) {
-                    console.error('❌ Аккаунт не подключен');
-                    return false;
-                }
-                
-                currentUser = accounts[0];
-                console.log('👤 Текущий пользователь:', currentUser);
-                
-                // Проверяем регистрацию пользователя в новом контракте
-                const isRegistered = await contract.methods.isUserRegistered(currentUser).call();
-                console.log('🔍 Проверка регистрации в новом контракте:', isRegistered);
-                if (!isRegistered) {
-                    console.error('❌ Пользователь не зарегистрирован в новом контракте!');
-                    console.error('💡 Необходимо зарегистрироваться в новом контракте через auth-v2.html');
-                    showNotification('Пользователь не зарегистрирован в новом контракте! Перейдите на страницу регистрации.', 'error');
-                    setTimeout(() => {
-                        window.location.href = 'auth-v2.html';
-                    }, 3000);
-                    return false;
-                }
-                
-                // Получаем публичный ключ пользователя
-                userPublicKey = await contract.methods.getPublicKey(currentUser).call();
-                console.log('🔑 Публичный ключ пользователя:', userPublicKey);
-                
-                return true;
-            } catch (error) {
-                console.error('❌ Ошибка загрузки данных пользователя:', error);
-                return false;
-            }
-        }
+        // V2 функция loadUserData удалена - заменена на V3 логику в initializeApp
         
-        // Загрузка контактов из блокчейна (v2)
-        async function loadContacts() {
-            try {
-                console.log('📞 Загружаем контакты из блокчейна (v2)...');
-                console.log('🔍 Контракт:', window.CryptoMessengerConfig.contractAddress);
-                console.log('👤 Текущий пользователь:', currentUser);
-                
-                // ДИАГНОСТИКА: Проверяем, действительно ли мы обращаемся к правильному контракту
-                console.log('🔍 ПРОВЕРКА КОНТРАКТА:');
-                console.log('   📄 Адрес контракта из переменной contract._address:', contract._address);
-                console.log('   📄 Адрес контракта из конфига:', window.CryptoMessengerConfig.contractAddress);
-                console.log('   🤝 Совпадают ли адреса:', contract._address === window.CryptoMessengerConfig.contractAddress);
-                
-                // Получаем все контакты пользователя (новая функция v2)
-                const contactAddresses = await contract.methods.getContacts(currentUser).call();
-                console.log('📋 РЕЗУЛЬТАТ getContacts() для', currentUser, ':', contactAddresses.length);
-                console.log('📋 Адреса контактов:', contactAddresses);
-                
-                contacts = [];
-                
-                for (const address of contactAddresses) {
-                    try {
-                        // Получаем публичный ключ контакта
-                        const contactPublicKey = await contract.methods.getPublicKey(address).call();
-                        
-                        // Получаем имя контакта (новая функция v2)
-                        const contactName = await contract.methods.getContactName(address).call();
-                        
-                        // Получаем chatId для пары пользователей (новая функция v2)
-                        const chatId = await contract.methods.getChatId(currentUser, address).call();
-                        
-                        // Определяем статус чата
-                        let chatType = 'contact';
-                        let invitationInfo = null;
-                        
-                        if (chatId && chatId !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
-                            try {
-                                const chat = await contract.methods.getChat(chatId).call();
-                                console.log(`📊 Статус чата с ${contactName}:`, {
-                                    isActive: chat.isActive,
-                                    isNeedAcceptance: chat.isNeedAcceptance,
-                                    inviter: chat.inviter
-                                });
-                                
-                                if (!chat.isActive && chat.isNeedAcceptance) {
-                                    // Чат с приглашением
-                                    if (chat.inviter && chat.inviter.toLowerCase() === currentUser.toLowerCase()) {
-                                        chatType = 'outgoing-request';
-                                        console.log('📤 Исходящее приглашение к:', contactName);
-                                    } else {
-                                        chatType = 'incoming-request';
-                                        console.log('📥 Входящее приглашение от:', contactName);
-                                    }
-                                    
-                                    invitationInfo = {
-                                        inviter: chat.inviter,
-                                        fee: chat.invitationFee,
-                                        timestamp: new Date(parseInt(chat.createdAt) * 1000)
-                                    };
-                                }
-                            } catch (chatError) {
-                                console.warn('⚠️ Ошибка получения информации о чате:', chatError);
-                            }
-                        }
-                        
-                        contacts.push({
-                            address: address,
-                            name: contactName || `User ${address.slice(2, 6)}`,
-                            publicKey: contactPublicKey,
-                            chatId: chatId,
-                            chatType: chatType,
-                            invitationInfo: invitationInfo,
-                            lastMessage: 'Загрузка...', // Будет обновлено после загрузки
-                            lastMessageTime: null,
-                            unreadCount: 0, // Счётчик непрочитанных сообщений
-                        });
-                    } catch (error) {
-                        console.warn('⚠️ Ошибка загрузки контакта:', address, error);
-                    }
-                }
-                
-                console.log('✅ Контакты загружены:', contacts.length);
-                
-                // Детальная информация о контактах
-                if (contacts.length > 0) {
-                    console.log('📋 Детали контактов:');
-                    contacts.forEach((contact, index) => {
-                        console.log(`   ${index + 1}. ${contact.name} (${contact.address})`);
-                        console.log(`      🔑 Публичный ключ: ${contact.publicKey.slice(0, 20)}...`);
-                        console.log(`      💬 Последнее сообщение: ${contact.lastMessage}`);
-                        console.log(`      ⏰ Время: ${contact.lastMessageTime ? formatTime(contact.lastMessageTime) : 'Нет'}`);
-                    });
-                } else {
-                    console.log('📋 Контакты не найдены');
-                }
-                
-                // Загружаем последние сообщения для каждого контакта
-                await loadLastMessagesForContacts();
-                
-                return contacts;
-            } catch (error) {
-                console.error('❌ Ошибка загрузки контактов:', error);
-                return [];
-            }
-        }
+        // V2 функция loadContacts удалена - заменена на V3 polling в DecentralizedEventSystemV3
         
 
-        // Отправка приглашения (v2)
-        async function sendInvitation(recipientAddress, message, fee) {
-            try {
-                console.log('📤 Отправляем приглашение (v2):', { recipientAddress, message, fee });
-                
-                // Получаем публичный ключ получателя
-                const recipientPublicKey = await contract.methods.getPublicKey(recipientAddress).call();
-                
-                // Шифруем сообщение для получателя
-                const encryptedForRecipient = await encryptMessage(message, recipientPublicKey);
-                
-                // Шифруем сообщение для отправителя (новая функция v2)
-                const encryptedForSender = await encryptMessage(message, userPublicKey);
-                
-                // Конвертируем fee в wei
-                const feeInWei = web3.utils.toWei(fee.toString(), 'ether');
-                
-                // Отправляем приглашение (новая функция v2)
-                const result = await contract.methods.invitationSend(
-                    recipientAddress,
-                    encryptedForRecipient,
-                    encryptedForSender
-                ).send({ 
-                    from: currentUser,
-                    value: feeInWei,
-                    gas: 300000
-                });
-                
-                console.log('✅ Приглашение отправлено в блокчейн:', result.transactionHash);
-                
-                // Показываем уведомление
-                appState.showNotification('Приглашение успешно отправлено!', 'success');
-                
-                // Обновляем список контактов
-                await contactListManager.refreshContacts();
-                
-                return result;
-                
-            } catch (error) {
-                console.error('❌ Ошибка отправки приглашения:', error);
-                showNotification('Ошибка отправки приглашения: ' + error.message, 'error');
-                throw error;
-            }
-        }
+        // V2 функция sendInvitation удалена - заменена на chatUIManager.sendInvitation() в V3
 
-        // Принятие приглашения (v2)
-        async function acceptInvitation(inviterAddress) {
-            try {
-                console.log('✅ Принимаем приглашение (v2):', inviterAddress);
-                
-                // Принимаем приглашение (новая функция v2)
-                const result = await contract.methods.invitationAccept(inviterAddress).send({
-                    from: currentUser,
-                    gas: 200000
-                });
-                
-                console.log('✅ Приглашение принято:', result.transactionHash);
-                
-                // Показываем уведомление
-                appState.showNotification('Приглашение принято!', 'success');
-                
-                // Обновляем список контактов
-                await contactListManager.refreshContacts();
-                
-                return result;
-                
-            } catch (error) {
-                console.error('❌ Ошибка принятия приглашения:', error);
-                showNotification('Ошибка принятия приглашения: ' + error.message, 'error');
-                throw error;
-            }
-        }
-
-        // Отклонение приглашения (v2)
-        async function rejectInvitation(inviterAddress) {
-            try {
-                console.log('❌ Отклоняем приглашение (v2):', inviterAddress);
-                
-                // Отклоняем приглашение (новая функция v2)
-                const result = await contract.methods.invitationReject(inviterAddress).send({
-                    from: currentUser,
-                    gas: 200000
-                });
-                
-                console.log('✅ Приглашение отклонено:', result.transactionHash);
-                
-                // Показываем уведомление
-                appState.showNotification('Приглашение отклонено', 'info');
-                
-                // Обновляем список контактов
-                await contactListManager.refreshContacts();
-                
-                // Сбрасываем выбранный контакт
-                appState.setCurrentContact(null);
-                
-                return result;
-                
-            } catch (error) {
-                console.error('❌ Ошибка отклонения приглашения:', error);
-                showNotification('Ошибка отклонения приглашения: ' + error.message, 'error');
-                throw error;
-            }
-        }
-
-        // Отзыв приглашения (v2)
-        async function cancelInvitation(recipientAddress) {
-            try {
-                console.log('🔄 Отзываем приглашение (v2):', recipientAddress);
-                
-                // Отзываем приглашение (новая функция v2)
-                const result = await contract.methods.invitationCancel(recipientAddress).send({
-                    from: currentUser,
-                    gas: 200000
-                });
-                
-                console.log('✅ Приглашение отозвано:', result.transactionHash);
-                
-                // Показываем уведомление
-                appState.showNotification('Приглашение отозвано', 'info');
-                
-                // Обновляем список контактов
-                await contactListManager.refreshContacts();
-                
-                return result;
-                
-            } catch (error) {
-                console.error('❌ Ошибка отзыва приглашения:', error);
-                showNotification('Ошибка отзыва приглашения: ' + error.message, 'error');
-                throw error;
-            }
-        }
+        // V2 функции acceptInvitation, rejectInvitation, cancelInvitation удалены
+        // Заменены на методы chatUIManager.acceptInvitation(), chatUIManager.rejectInvitation(), chatUIManager.cancelInvitation() в V3
         
         // Инициализация децентрализованной системы событий
         
-        // Функция шифрования сообщений (используем настоящее ECIES)
-        function encryptMessage(message, publicKey) {
-            try {
-                // Используем настоящее ECIES шифрование из CryptoUtils
-                const encrypted = CryptoUtils.encryptMessage(message, publicKey);
-                console.log('✅ Сообщение зашифровано ECIES:', encrypted.slice(0, 40) + '...');
-                return encrypted;
-                
-            } catch (error) {
-                console.error('❌ Ошибка ECIES шифрования:', error);
-                return `[Ошибка шифрования: ${message.slice(0, 20)}...]`;
-            }
-        }
-
-        // Функция расшифровки сообщений
-        // Используем общую функцию из CryptoUtils
-        function decryptMessage(encryptedMessage, sender, recipient) {
-            return CryptoUtils.decryptMessage(encryptedMessage);
-        }
+        // V2 функции encryptMessage, decryptMessage, loadLastMessagesForContacts удалены
+        // Заменены на CryptoUtils.encryptMessage(), CryptoUtils.decryptMessage() и V3 polling
         
-        // Загрузка последних сообщений для всех контактов
-        async function loadLastMessagesForContacts() {
-            console.log('💬 Загружаем последние сообщения для контактов...');
-            
-            for (const contact of contacts) {
-                try {
-                    if (contact.chatId && contact.chatId !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
-                        // Получаем последнее сообщение через V2 систему
-                        if (eventSystem) {
-                            const messages = await eventSystem.loadChatMessages(contact.address, 1);
-                            if (messages && messages.length > 0) {
-                                const lastMsg = messages[messages.length - 1];
-                                
-                                // Расшифровываем сообщение
-                                const encryptedMessage = CryptoUtils.getEncryptedFieldForUser(currentUser, contact.address, lastMsg);
-                                const decryptedText = decryptMessage(encryptedMessage);
-                                
-                                // Обновляем контакт
-                                contact.lastMessage = decryptedText || 'Зашифрованное сообщение';
-                                contact.lastMessageTime = lastMsg.timestamp || new Date(parseInt(lastMsg.messageTimestamp) * 1000);
-                                
-                                // Устанавливаем количество непрочитанных сообщений
-                                // Количество непрочитанных сообщений будет вычисляться системой V2
-                                // В реальном приложении это будет вычисляться на основе времени последнего прочтения
-                                contact.unreadCount = 0;
-                            } else {
-                                contact.lastMessage = 'Нет сообщений';
-                                contact.unreadCount = 0;
-                            }
-                        }
-                    } else {
-                        contact.lastMessage = 'Нет сообщений';
-                        contact.unreadCount = 0;
-                    }
-                } catch (error) {
-                    console.warn('⚠️ Ошибка загрузки последнего сообщения для:', contact.address, error);
-                    contact.lastMessage = 'Ошибка загрузки';
-                    contact.unreadCount = 0;
-                }
-            }
-            
-            console.log('✅ Последние сообщения загружены');
-        }
-        
-        // Управление панелями ввода и приглашений
-        function showInvitationPanel(inviterAddress, inviterName, invitationMessage) {
-            console.log('📨 Показываем панель приглашения от:', inviterAddress);
-            console.log('📨 Сообщение приглашения:', invitationMessage);
-            
-            // Скрываем обычную панель ввода
-            const inputArea = document.getElementById('inputArea');
-            if (inputArea) {
-                inputArea.style.display = 'none';
-                console.log('✅ Панель ввода скрыта');
-            }
-            
-            // Показываем панель приглашения
-            const invitationPanel = document.getElementById('invitationPanel');
-            if (invitationPanel) {
-                invitationPanel.style.display = 'block';
-                console.log('✅ Панель приглашения показана');
-                
-                // Заполняем информацию о приглашении
-                document.getElementById('invitationText').textContent = invitationMessage || 'Пользователь хочет добавить вас в контакты';
-                document.getElementById('invitationFrom').textContent = `От: ${inviterAddress}`;
-                
-                // Сохраняем адрес приглашающего для обработки
-                invitationPanel.setAttribute('data-inviter-address', inviterAddress);
-                    } else {
-                console.error('❌ Панель приглашения не найдена');
-            }
-        }
-        
-        function hideInvitationPanel() {
-            console.log('📨 Скрываем панель приглашения');
-            
-            // Показываем обычную панель ввода
-            document.getElementById('inputArea').style.display = 'block';
-            
-            // Скрываем панель приглашения
-            document.getElementById('invitationPanel').style.display = 'none';
-        }
-        
-        // Показ панели ожидания для отправителя приглашения
-        function showWaitingPanel(recipientAddress, recipientName) {
-            console.log('⏳ Показываем панель ожидания для:', recipientAddress);
-            
-            // Скрываем обычную панель ввода
-            document.getElementById('inputArea').style.display = 'none';
-            
-            // Скрываем панель приглашения
-            document.getElementById('invitationPanel').style.display = 'none';
-            
-            // Показываем панель ожидания
-            const waitingPanel = document.getElementById('waitingPanel');
-            waitingPanel.style.display = 'block';
-            
-            // Заполняем информацию
-            document.getElementById('waitingTo').textContent = `Кому: ${recipientAddress}`;
-            
-            console.log('✅ Панель ожидания показана');
-        }
-        
-        function hideWaitingPanel() {
-            console.log('⏳ Скрываем панель ожидания');
-            
-            // Показываем обычную панель ввода
-            document.getElementById('inputArea').style.display = 'block';
-            
-            // Скрываем панель ожидания
-            document.getElementById('waitingPanel').style.display = 'none';
-        }
-        
-        // Показ панели создания приглашения
-        function showCreateInvitationArea(contactAddress, contactName) {
-            console.log('📝 Показываем панель создания приглашения для:', contactAddress);
-            
-            // Скрываем все остальные панели
-            document.getElementById('inputArea').style.display = 'none';
-            document.getElementById('invitationPanel').style.display = 'none';
-            document.getElementById('waitingPanel').style.display = 'none';
-            
-            // Показываем панель создания приглашения
-            const createPanel = document.getElementById('createInvitationPanel');
-            createPanel.style.display = 'block';
-            
-            // Заполняем информацию
-            document.getElementById('createInvitationTo').textContent = `Кому: ${contactAddress}`;
-            
-            // Сохраняем адрес для обработки
-            createPanel.setAttribute('data-recipient-address', contactAddress);
-            
-            console.log('✅ Панель создания приглашения показана');
-        }
+        // V2 UI функции удалены: showInvitationPanel, hideInvitationPanel, showWaitingPanel, hideWaitingPanel, showCreateInvitationArea
+        // Заменены на компонентные функции setVisiblePanel* в V3
         
 
 
-        // ========== НОВЫЕ ФУНКЦИИ УПРАВЛЕНИЯ ВИДИМОСТЬЮ ОБЛАСТЕЙ ==========
+        // V2 функции управления областями удалены: setArea*Visibility
+        // Заменены на компонентные функции setVisiblePanel* в V3
+
+        // V2 функция updateAllAreasVisibility удалена
+        // В V3 управление панелями происходит через компонентные функции setVisiblePanel* в updateChatAreaForState
         
-        // Область приветствия (когда контакт не выбран)
-        function setAreaNoMessagesVisibility(visible) {
-            const welcomeMessage = document.querySelector('#chat-messages .message.incoming');
-            if (welcomeMessage) {
-                welcomeMessage.style.display = visible ? 'block' : 'none';
-            }
-        }
-
-        // Область сообщений выбранного чата
-        function setAreaChatMessagesVisibility(visible) {
-            const chatMessages = document.getElementById('chat-messages');
-            if (chatMessages) {
-                // Скрываем/показываем все сообщения кроме приветственного
-                const messages = chatMessages.querySelectorAll('.message:not(.message.incoming:first-child)');
-                messages.forEach(message => {
-                    message.style.display = visible ? 'block' : 'none';
-                });
-            }
-        }
-
-        // Панель отправки сообщений
-        function setAreaSendMessageVisibility(visible) {
-            const inputArea = document.getElementById('inputArea');
-            if (inputArea) {
-                inputArea.style.display = visible ? 'block' : 'none';
-            }
-        }
-
-        // Панель ожидания принятия приглашения (отправитель ждёт)
-        function setAreaWaitAcceptanceFromFriendVisibility(visible) {
-            const waitingPanel = document.getElementById('waitingPanel');
-            if (waitingPanel) {
-                waitingPanel.style.display = visible ? 'block' : 'none';
-                
-                // Обновляем информацию о получателе если панель показывается
-                if (visible && currentContact) {
-                    const waitingTo = document.getElementById('waitingTo');
-                    if (waitingTo) {
-                        waitingTo.textContent = `Кому: ${currentContact.address}`;
-                    }
-                }
-            }
-        }
-
-        // Панель принятия приглашения (получатель решает)
-        function setAreaWaitAcceptanceFromYouVisibility(visible) {
-            const invitationPanel = document.getElementById('invitationPanel');
-            if (invitationPanel) {
-                invitationPanel.style.display = visible ? 'block' : 'none';
-                
-                // Обновляем информацию об отправителе если панель показывается
-                if (visible && currentContact) {
-                    const invitationFrom = document.getElementById('invitationFrom');
-                    if (invitationFrom) {
-                        invitationFrom.textContent = `От: ${currentContact.address}`;
-                    }
-                    
-                    // Сохраняем адрес отправителя для кнопок принятия/отклонения
-                    invitationPanel.setAttribute('data-inviter-address', currentContact.address);
-                }
-            }
-        }
-
-        // Панель отправки нового приглашения
-        function setAreaCanInviteVisibility(visible) {
-            const createInvitationPanel = document.getElementById('createInvitationPanel');
-            if (createInvitationPanel) {
-                createInvitationPanel.style.display = visible ? 'block' : 'none';
-                
-                // Обновляем информацию о получателе если панель показывается
-                if (visible && currentContact) {
-                    const createInvitationTo = document.getElementById('createInvitationTo');
-                    if (createInvitationTo) {
-                        createInvitationTo.textContent = `Кому: ${currentContact.address}`;
-                    }
-                    
-                    // Сохраняем адрес получателя для кнопки отправки приглашения
-                    createInvitationPanel.setAttribute('data-recipient-address', currentContact.address);
-                }
-            }
-        }
-
-        // Главная функция обновления видимости всех областей
-        async function updateAllAreasVisibility() {
-            const contactSelected = (currentContact !== null);
-            const contactAddress = currentContact?.address;
-            const contactName = currentContact?.name;
-            
-            console.log('🎨 Обновляем видимость всех областей для контакта:', contactAddress);
-            
-            // Если контакт выбран, получаем информацию о чате
-            if (contactSelected && contactAddress) {
-                try {
-                    const chatId = await contract.methods.getChatId(currentUser, contactAddress).call();
-                    if (chatId && chatId !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
-                        currentChat = await contract.methods.getChat(chatId).call();
-                    } else {
-                        currentChat = null;
-                    }
-            } catch (error) {
-                    console.error('❌ Ошибка получения информации о чате:', error);
-                    currentChat = null;
-                }
-            } else {
-                currentChat = null;
-            }
-
-            // Логгируем в консоль все переменные, которые мы будем использовать для установления видимости областей
-            console.log('🔍 Переменные для установления видимости областей:', {
-                contactSelected,
-                currentChat,
-                currentUser,
-                chatInviter: currentChat?.inviter?.toLowerCase() || 'нет данных',
-                isActive: currentChat?.isActive || false,
-                isNeedAcceptance: currentChat?.isNeedAcceptance || false
-            });
-
-            // Применяем логику видимости согласно требованиям
-            
-            // Область приветствия
-            setAreaNoMessagesVisibility(!contactSelected);
-            
-            // Область сообщений чата
-            setAreaChatMessagesVisibility(contactSelected);
-            
-            // Панель отправки сообщений
-            setAreaSendMessageVisibility(contactSelected && currentChat && currentChat.isActive);
-            
-            // Панель ожидания от друга (мы отправители)
-            setAreaWaitAcceptanceFromFriendVisibility(
-                contactSelected && currentChat && !currentChat.isActive && currentChat.isNeedAcceptance && 
-                currentChat.inviter.toLowerCase() === currentUser.toLowerCase()
-            );
-            
-            // Панель принятия от нас (мы получатели)
-            setAreaWaitAcceptanceFromYouVisibility(
-                contactSelected && currentChat && !currentChat.isActive && currentChat.isNeedAcceptance && 
-                currentChat.inviter.toLowerCase() !== currentUser.toLowerCase()
-            );
-            
-            // Панель отправки приглашения
-            setAreaCanInviteVisibility(
-                contactSelected && currentChat && !currentChat.isActive && !currentChat.isNeedAcceptance
-            );
-
-            console.log('✅ Видимость областей обновлена:', {
-                contactSelected,
-                chatActive: currentChat?.isActive,
-                needAcceptance: currentChat?.isNeedAcceptance,
-                isInviter: currentChat?.inviter?.toLowerCase() === currentUser?.toLowerCase()
-            });
-        }
+        // V2 функция checkChatStatusAndShowPanel удалена
+        // В V3 состояние чата определяется через TypeMessage.newChatState в ChatAreaManagerV3
         
-        // Проверка статуса чата и определение типа панели
-        async function checkChatStatusAndShowPanel(contactAddress, contactName) {
-            try {
-                console.log('🔍 Проверяем статус чата с:', contactAddress);
-                
-                // Получаем chatId
-                const chatId = await contract.methods.getChatId(currentUser, contactAddress).call();
-                
-                if (chatId && chatId !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
-                    // Получаем информацию о чате
-                    const chat = await contract.methods.getChat(chatId).call();
-                    
-                    console.log('📊 Статус чата:', {
-                        isActive: chat.isActive,
-                        isNeedAcceptance: chat.isNeedAcceptance,
-                        inviter: chat.inviter,
-                        currentUser: currentUser
-                    });
-                    
-                    if (chat.isActive) {
-                        // 1. АКТИВНЫЙ ЧАТ - можно писать сообщения
-                        console.log('✅ Активный чат - показываем поле ввода');
-                        await updateAllAreasVisibility();
-                        return false; // Обычный чат
-                    } else {
-                        // 2. НЕАКТИВНЫЙ ЧАТ - проверяем причину
-                        if (chat.isNeedAcceptance) {
-                            // 2a. Есть приглашение, ожидающее ответа
-                            if (chat.inviter.toLowerCase() === currentUser.toLowerCase()) {
-                                // Мы отправили приглашение - показываем панель ожидания
-                                console.log('📤 Мы отправители - показываем панель ожидания');
-                                showWaitingPanel(contactAddress, contactName);
-                            } else {
-                                // Нам прислали приглашение - показываем панель принятия
-                                console.log('📥 Нам прислали приглашение - показываем панель принятия');
-                                const incomingInvitation = checkIncomingInvitation(contactAddress);
-                                showInvitationPanel(
-                                    contactAddress,
-                                    contactName,
-                                    incomingInvitation?.introMessage || 'Пользователь хочет добавить вас в контакты'
-                                );
-                            }
-                            return true; // Приглашение активно
-                } else {
-                            // 2b. Чат неактивен и нет приглашения - показываем область создания приглашения
-                            console.log('📝 Чат неактивен, нет приглашения - показываем область создания приглашения');
-                            showCreateInvitationArea(contactAddress, contactName);
-                            return true; // Специальная панель
-                        }
-                    }
-                } else {
-                    // Чат не существует - показываем область создания приглашения
-                    console.log('❌ Чат не существует - показываем область создания приглашения');
-                    showCreateInvitationArea(contactAddress, contactName);
-                    return true;
-                }
-            } catch (error) {
-                console.error('❌ Ошибка проверки статуса чата:', error);
-                await updateAllAreasVisibility();
-                return false;
-            }
-        }
+        // V2 функция checkIncomingInvitation удалена
+        // В V3 информация о приглашениях получается через polling и TypeMessage
         
-        // Проверка, есть ли входящее приглашение от выбранного контакта
-        function checkIncomingInvitation(contactAddress) {
-            // Ищем контакт с входящим приглашением
-            const contact = contacts.find(c => 
-                c.address.toLowerCase() === contactAddress.toLowerCase() && 
-                c.chatType === 'incoming-request'
-            );
-            console.log('🔍 Проверяем приглашение для:', contactAddress, '→', contact ? 'НАЙДЕНО' : 'НЕ НАЙДЕНО');
-            return contact ? { 
-                address: contact.address,
-                introMessage: contact.lastMessage,
-                ...contact.invitationInfo 
-            } : null;
-        }
+        // V2 функции handleAcceptInvitationFromChat, handleRejectInvitationFromChat удалены
+        // В V3 обработка происходит через chatUIManager.acceptInvitation(), chatUIManager.rejectInvitation()
         
-        // Обработка принятия приглашения из чата
-        async function handleAcceptInvitationFromChat() {
-            const invitationPanel = document.getElementById('invitationPanel');
-            const inviterAddress = invitationPanel.getAttribute('data-inviter-address');
-            
-            if (!inviterAddress) {
-                console.error('❌ Адрес приглашающего не найден');
-                return;
-            }
-            
-            try {
-                // Блокируем кнопки
-                document.getElementById('acceptInvitationChatBtn').disabled = true;
-                document.getElementById('rejectInvitationChatBtn').disabled = true;
-                
-                // Принимаем приглашение
-                await acceptInvitation(inviterAddress);
-                
-                // Скрываем панель приглашения
-                hideInvitationPanel();
-                
-                // Обновляем список контактов
-                await contactListManager.refreshContacts();
-                
-                // Устанавливаем текущий контакт (приглашающий теперь наш контакт)
-                const contactName = appState.contacts.find(c => c.address.toLowerCase() === inviterAddress.toLowerCase())?.name || 'Контакт';
-                appState.setCurrentContact({ address: inviterAddress, name: contactName });
-                
-                // Обновляем заголовок чата
-                const chatTitle = document.getElementById('chatTitle');
-                if (chatTitle) chatTitle.textContent = contactName;
-                
-                // Обновляем подсветку активного контакта
-                updateActiveContactHighlight();
-                
-                // Обновляем панели интерфейса
-                await updateAllAreasVisibility();
-                
-                console.log('✅ Приглашение принято из чата, установлен currentContact:', currentContact);
-                
-            } catch (error) {
-                console.error('❌ Ошибка принятия приглашения из чата:', error);
-                
-                // Разблокируем кнопки
-                document.getElementById('acceptInvitationChatBtn').disabled = false;
-                document.getElementById('rejectInvitationChatBtn').disabled = false;
-            }
-        }
+        // V2 функции updateContactsUI, updateActiveContactHighlight удалены
+        // В V3 интерфейс контактов управляется через ContactListManagerV3
         
-        // Обработка отклонения приглашения из чата
-        async function handleRejectInvitationFromChat() {
-            const invitationPanel = document.getElementById('invitationPanel');
-            const inviterAddress = invitationPanel.getAttribute('data-inviter-address');
-            
-            if (!inviterAddress) {
-                console.error('❌ Адрес приглашающего не найден');
-                return;
-            }
-            
-            try {
-                // Блокируем кнопки
-                document.getElementById('acceptInvitationChatBtn').disabled = true;
-                document.getElementById('rejectInvitationChatBtn').disabled = true;
-                
-                // Отклоняем приглашение
-                await rejectInvitation(inviterAddress);
-                
-                // Скрываем панель приглашения
-                hideInvitationPanel();
-                
-                // Обновляем список контактов
-                await loadInvitations();
-                updateContactsUI();
-                
-                console.log('✅ Приглашение отклонено из чата');
-                
-            } catch (error) {
-                console.error('❌ Ошибка отклонения приглашения из чата:', error);
-                
-                // Разблокируем кнопки
-                document.getElementById('acceptInvitationChatBtn').disabled = false;
-                document.getElementById('rejectInvitationChatBtn').disabled = false;
-            }
-        }
-        
-        // Обновление интерфейса контактов (упрощённая версия без loadInvitations)
-        function updateContactsUI() {
-            const contactsList = document.getElementById('contactsList');
-            contactsList.innerHTML = '';
-            
-            if (contacts.length === 0) {
-                contactsList.innerHTML = '<div style="color: #888; text-align: center; padding: 20px;">Контакты не найдены</div>';
-                return;
-            }
-            
-            // Отображаем все контакты с их реальными статусами из блокчейна
-            contacts.forEach((contact, index) => {
-                let unreadCount = contact.unreadCount || 0;
-                
-                console.log(`🔍 Контакт ${contact.name}:`, {
-                    chatType: contact.chatType,
-                    unreadCount: unreadCount,
-                    address: contact.address
-                });
-                
-                const contactWithUnread = { ...contact, unreadCount: unreadCount };
-                const contactItem = createContactItem(contactWithUnread, contact.chatType, `contact-${index}`);
-                contactsList.appendChild(contactItem);
-            });
-            
-            // Настраиваем обработчики кликов для новых элементов
-            setupContactClickHandlers();
-        }
-
-        // Обновление подсветки активного контакта
-        function updateActiveContactHighlight() {
-            // Убираем класс active у всех контактов
-            document.querySelectorAll('.contact-item').forEach(item => {
-                item.classList.remove('active');
-            });
-            
-            // Добавляем класс active текущему контакту
-            if (currentContact) {
-                document.querySelectorAll('.contact-item').forEach(item => {
-                    const itemAddress = item.getAttribute('data-address');
-                    if (itemAddress && itemAddress.toLowerCase() === currentContact.address.toLowerCase()) {
-                        item.classList.add('active');
-                    }
-                });
-            }
-        }
-        
-        // Создание элемента контакта
-        function createContactItem(contact, type, id) {
-            const contactItem = document.createElement('div');
-            contactItem.className = `contact-item ${type}`;
-            contactItem.setAttribute('data-contact-id', id);
-            contactItem.setAttribute('data-address', contact.address);
-            
-            // Добавляем класс active если это текущий выбранный контакт
-            if (currentContact && currentContact.address.toLowerCase() === contact.address.toLowerCase()) {
-                contactItem.classList.add('active');
-            }
-            
-            const timeStr = contact.lastMessageTime ? 
-                formatTime(contact.lastMessageTime) : 
-                (contact.timestamp ? formatTime(contact.timestamp) : '');
-            
-            // Формируем бейдж для непрочитанных сообщений или приглашений
-            let badge = '';
-            
-            if (type === 'incoming-request') {
-                // Для входящих приглашений ВСЕГДА показываем красный "!" (приглашение нельзя "прочитать")
-                badge = `<div class="contact-badge single-digit" style="background: #dc3545;">!</div>`;
-                console.log(`📨 Входящее приглашение от ${contact.name}: показываем красный бейдж "!"`);
-            } else if (type === 'outgoing-request') {
-                // Для исходящих приглашений ВСЕГДА показываем жёлтый "!" (ожидание ответа)
-                badge = `<div class="contact-badge single-digit" style="background: #ffc107; color: #000;">!</div>`;
-                console.log(`📤 Исходящее приглашение к ${contact.name}: показываем жёлтый бейдж "!"`);
-            } else {
-                // Для обычных контактов показываем количество непрочитанных (если есть)
-                if (contact.unreadCount && contact.unreadCount > 0) {
-                    const displayCount = contact.unreadCount > 99 ? '99+' : contact.unreadCount.toString();
-                    const badgeClass = displayCount.length === 1 ? 'single-digit' : 'multi-digit';
-                    badge = `<div class="contact-badge ${badgeClass}">${displayCount}</div>`;
-                    console.log(`💬 Обычный контакт ${contact.name}: показываем синий бейдж "${displayCount}" (unreadCount: ${contact.unreadCount})`);
-                } else {
-                    console.log(`📋 Контакт ${contact.name}: бейдж не показываем (unreadCount: ${contact.unreadCount || 0})`);
-                }
-            }
-            
-            // Убираем текстовые индикаторы - достаточно бейджа и зелёной полоски
-            let actionButtons = '';
-            
-            // Генерируем контрастный тёмный цвет для аватара
-            const colors = [
-                '#1a365d', // густой синий
-                '#1c4532', // густой зелёный  
-                '#44337a', // густой фиолетовый
-                '#744210', // густой тёмно коричневый
-                '#742a2a'  // тёмно-бардовый
-            ];
-            const colorIndex = contact.address.charCodeAt(2) % colors.length;
-            const avatarColor = colors[colorIndex];
-            
-            contactItem.innerHTML = `
-                <div class="contact-avatar" style="background: ${avatarColor};">${contact.name.charAt(0).toUpperCase()}</div>
-                <div class="contact-info" style="flex: 1;">
-                    <div class="contact-name">${contact.name}</div>
-                    <div class="contact-last-message">${contact.lastMessage || contact.introMessage || 'Нет сообщений'}</div>
-                    ${actionButtons}
-                </div>
-                <div class="contact-meta">
-                    <div class="contact-time">${timeStr}</div>
-                    ${badge}
-                </div>
-            `;
-            
-            return contactItem;
-        }
+        // V2 функция createContactItem удалена
+        // В V3 элементы контактов создаются в ContactListManagerV3
 
         
         
@@ -1197,6 +347,191 @@
             }
         }
 
+
+        // ========================================
+        // 🆕 CALLBACK ФУНКЦИИ ДЛЯ V3 POLLING
+        // ========================================
+        
+        /**
+         * Обработка новых сообщений из polling V3
+         */
+        function handleNewMessagesV3(chatID, messages) {
+            console.log(`📨 V3: Получены новые сообщения для чата ${chatID.substring(0, 8)}...`, {
+                count: messages.length,
+                messages: messages
+            });
+            
+            // Если это текущий открытый чат, обновляем UI
+            const currentChatId = chatUIManager ? chatUIManager.currentChatID : null;
+            if (currentChatId === chatID) {
+                console.log('🎯 Обновляем текущий открытый чат');
+                
+                // Добавляем новые сообщения в UI
+                messages.forEach(msg => {
+                    chatUIManager.addMessageToUI(msg);
+                });
+                
+                // Прокручиваем вниз
+                chatUIManager.scrollToBottom();
+            }
+            
+            // Обновляем счетчики непрочитанных сообщений
+            if (contactListManager) {
+                contactListManager.updateUnreadCount(chatID, messages.length);
+            }
+        }
+        
+        /**
+         * Обработка новых контактов из polling V3
+         */
+        function handleNewContactsV3(contactsData) {
+            console.log('👥 V3: Получены новые контакты:', {
+                count: contactsData.contacts.length,
+                contacts: contactsData.contacts
+            });
+            
+            // Обновляем список контактов в UI
+            if (contactListManager) {
+                contactListManager.addContactsToUI(contactsData);
+            }
+            
+            // Скрываем индикатор загрузки при появлении контактов
+            const loadingPlaceholder = document.getElementById('loadingContactsPlaceholder');
+            if (loadingPlaceholder && contactsData.contacts.length > 0) {
+                loadingPlaceholder.style.display = 'none';
+                console.log('✅ V3: Индикатор загрузки скрыт при добавлении контактов');
+            }
+        }
+        
+        /**
+         * Обработка изменения состояния чата из polling V3
+         */
+        function handleChatStateChangeV3(chatID, frontendState) {
+            console.log(`🔄 V3: Изменение состояния чата ${chatID.substring(0, 8)}...`, {
+                newState: frontendState
+            });
+            
+            // Обновляем иконки в списке контактов
+            if (contactListManager) {
+                contactListManager.updateChatStateIcon(chatID, frontendState);
+            }
+            
+            // Если это текущий открытый чат, обновляем его UI
+            const currentChatId = chatUIManager ? chatUIManager.currentChatID : null;
+            if (currentChatId === chatID) {
+                updateChatAreaForState(frontendState);
+            }
+        }
+        
+        /**
+         * Обновление области чата в зависимости от состояния (компонентный подход)
+         */
+        function updateChatAreaForState(frontendState) {
+            // Убран избыточный лог обновления панелей            
+            // Независимо определяем видимость панелей
+            setVisiblePanelInputAndSendMessage(frontendState=='allowedWrite');
+            setVisiblePanelWaitingAcceptanceFromMe(frontendState=='waitingAcceptanceFromMe');
+            setVisiblePanelWaitingAcceptanceFromOther(frontendState=='waitingAcceptanceFromOther');
+        }
+        
+        // ========================================
+        // 🆕 КОМПОНЕНТНЫЕ ФУНКЦИИ УПРАВЛЕНИЯ ПАНЕЛЯМИ
+        // ========================================
+        
+        /**
+         * Панель "Область ввода и отправки сообщений"
+         * Условие показа: Состояние == allowedWrite
+         */
+        function setVisiblePanelInputAndSendMessage(visible) {
+            const panel = document.getElementById('panelInputAndSendMessage');
+            if (panel) {
+                panel.style.display = visible ? 'block' : 'none';
+                // Убран избыточный лог панели ввода
+                
+                if (visible) {
+                    // Особенность: если не выбран никакой чат, показываем приветствие
+                    const currentContact = appState.currentContact;
+                    if (!currentContact) {
+                        const messagesContainer = document.getElementById('chat-messages');
+                        if (messagesContainer) {
+                            messagesContainer.innerHTML = `
+                                <div class="message incoming">
+                                    <div class="message-content">
+                                        <div class="message-text">Добро пожаловать в CryptoMessenger! Выберите контакт для начала общения.</div>
+                                        <div class="message-time">Система</div>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    }
+                }
+            }
+        }
+        
+        /**
+         * Панель "ВХОДЯЩЕЕ ПРИГЛАШЕНИЕ"
+         * Условие показа: Состояние == waitingAcceptanceFromMe
+         */
+        function setVisiblePanelWaitingAcceptanceFromMe(visible) {
+            const panel = document.getElementById('panelWaitingAcceptanceFromMe');
+            if (panel) {
+                panel.style.display = visible ? 'block' : 'none';
+                // Убран избыточный лог панели приглашений
+                
+                if (visible) {
+                    // Заполняем данные текущего контакта
+                    const currentContact = appState.currentContact;
+                    if (currentContact) {
+                        const fromContactName = document.getElementById('fromContactName');
+                        const fromContactAddress = document.getElementById('fromContactAddress');
+                        
+                        if (fromContactName) fromContactName.textContent = currentContact.name;
+                        if (fromContactAddress) fromContactAddress.textContent = `${currentContact.address.slice(0, 6)}...${currentContact.address.slice(-4)}`;
+                        
+                        // Настраиваем обработчики кнопок
+                        const acceptBtn = document.getElementById('acceptInvitationBtn');
+                        const rejectBtn = document.getElementById('rejectInvitationBtn');
+                        
+                        if (acceptBtn) acceptBtn.onclick = () => {
+                            if (chatUIManager) chatUIManager.acceptInvitation();
+                        };
+                        if (rejectBtn) rejectBtn.onclick = () => {
+                            if (chatUIManager) chatUIManager.rejectInvitation();
+                        };
+                    }
+                }
+            }
+        }
+        
+        /**
+         * Панель "ИСХОДЯЩЕЕ ПРИГЛАШЕНИЕ"  
+         * Условие показа: Состояние == waitingAcceptanceFromOther
+         */
+        function setVisiblePanelWaitingAcceptanceFromOther(visible) {
+            const panel = document.getElementById('panelWaitingAcceptanceFromOther');
+            if (panel) {
+                panel.style.display = visible ? 'block' : 'none';
+                // Убран избыточный лог панели ожидания
+                
+                if (visible) {
+                    // Заполняем данные текущего контакта
+                    const currentContact = appState.currentContact;
+            if (currentContact) {
+                        const toContactName = document.getElementById('toContactName');
+                        const toContactAddress = document.getElementById('toContactAddress');
+                        
+                        if (toContactName) toContactName.textContent = currentContact.name;
+                        if (toContactAddress) toContactAddress.textContent = `${currentContact.address.slice(0, 6)}...${currentContact.address.slice(-4)}`;
+                        
+                        // Настраиваем обработчик кнопки отзыва
+                        const cancelBtn = document.getElementById('cancelInvitationBtn');
+                        if (cancelBtn) cancelBtn.onclick = () => {
+                            if (chatUIManager) chatUIManager.cancelInvitation();
+                        };
+                    }
+                }
+            }
+        }
         
         // Основная функция инициализации
         async function initializeApp() {
@@ -1231,30 +566,91 @@
 
                 console.log('📄 Контракт инициализирован:', window.CryptoMessengerConfig.contractAddress);
 
-                // Получаем публичный ключ пользователя
-                userPublicKey = await contract.methods.getPublicKey(currentUser).call();
-                console.log('🔑 Публичный ключ пользователя:', userPublicKey);
+                // 🆕 V3: Загружаем ключи из localStorage (не спрашиваем контракт!)
+                const savedKeys = localStorage.getItem('cryptoMessengerKeys');
+                if (!savedKeys) {
+                    console.error('❌ V3: Ключи не найдены в localStorage');
+                    showNotification('Ключи шифрования не найдены! Перейдите на страницу регистрации.', 'error');
+                    setTimeout(() => {
+                        window.location.href = 'auth-v2.html';
+                    }, 3000);
+                    return;
+                }
+                
+                const keys = JSON.parse(savedKeys);
+                // Добавляем префикс 0x к ключам для совместимости с контрактом
+                userPublicKey = keys.publicKeyForEncode.startsWith('0x') ? 
+                    keys.publicKeyForEncode : 
+                    '0x' + keys.publicKeyForEncode;
+                userPrivateKey = keys.privateKeyForEncode;
+                
+                console.log('🔑 V3: Ключи загружены из localStorage:', {
+                    publicKey: userPublicKey.substring(0, 20) + '...',
+                    privateKey: userPrivateKey.substring(0, 20) + '...'
+                });
+                
+                // 🔍 Проверяем совпадение ключей в localStorage и контракте
+                try {
+                    const userSettings = await contract.methods.userSettings(currentUser).call();
+                    const contractPublicKey = userSettings.publicKeyForEncode;
+                    
+                    console.log('🔍 V3: Сравнение ключей пользователя:', {
+                        localStorageKey: userPublicKey,
+                        contractKey: contractPublicKey,
+                        keysMatch: userPublicKey === contractPublicKey,
+                        localLength: userPublicKey.length,
+                        contractLength: contractPublicKey.length
+                    });
+                    
+                    if (userPublicKey !== contractPublicKey) {
+                        console.error('❌ V3: КЛЮЧИ НЕ СОВПАДАЮТ! Это объясняет проблему с расшифровкой');
+                    }
+                } catch (error) {
+                    console.error('❌ V3: Ошибка проверки ключей:', error);
+                }
 
                 // Инициализируем модули в правильном порядке
                 appState = new AppState();
                 appState.setCurrentUser(currentUser);
                 appState.setUserPublicKey(userPublicKey);
+                appState.setUserPrivateKey(userPrivateKey);
                 
-                eventSystem = new DecentralizedEventSystem(contract, currentUser);
-                contactListManager = new ContactListManager(appState, contract, eventSystem);
-                chatUIManager = new ChatAreaManager(appState, contract, web3);
+                // 🆕 Инициализация DecentralizedEventSystem V3
+                eventSystem = new DecentralizedEventSystemV3(contract, currentUser);
+                
+                // Настраиваем callbacks для V3
+                eventSystem.setCallbacks({
+                    onNewMessages: handleNewMessagesV3,
+                    onNewContacts: handleNewContactsV3,
+                    onChatStateChange: handleChatStateChangeV3
+                });
+                
+                contactListManager = new ContactListManagerV3(appState, contract, eventSystem);
+                chatUIManager = new ChatAreaManagerV3(appState, contract, web3);
 
                 // Обновляем UI
                 updateUserInfo();
                 
-                // Скрываем все панели при инициализации (контакт не выбран)
-                await updateAllAreasVisibility();
+                // V3: Скрываем все панели при инициализации (контакт не выбран)
+                updateChatAreaForState('allowedWrite'); // Показываем приветствие
                 
-                // Загружаем контакты и приглашения
-                console.log('📞 Загружаем контакты...');
+                // 🆕 Инициализируем V3 систему (загрузка контактов + запуск polling)
+                console.log('🚀 Инициализируем DecentralizedEventSystem V3...');
+                await eventSystem.initialize();
+                
+                // 🆕 Скрываем индикатор загрузки после инициализации
+                const loadingPlaceholder = document.getElementById('loadingContactsPlaceholder');
+                if (loadingPlaceholder) {
+                    loadingPlaceholder.style.display = 'none';
+                    console.log('✅ V3: Индикатор загрузки скрыт');
+                }
                 
                 // Настраиваем обработчики событий
                 setupEventHandlers();
+                
+                // 🆕 Настраиваем обработчики для новой панельной структуры
+                setupSendMessageHandler();
+                setupMessageInputHandlers();
                 
                 // Настраиваем обработчик системной кнопки "назад"
                 setupBackButtonHandler();
@@ -1263,17 +659,15 @@
                 setupWalletDisconnectHandler();
                 
                 showNotification('CryptoMessenger успешно инициализирован!', 'success');
-                console.log('✅ Инициализация завершена');
-                console.log('👤 Информация о пользователе:');
+                console.log('✅ V3: Инициализация завершена');
+                console.log('👤 V3: Информация о пользователе:');
                 console.log('   📍 Адрес:', currentUser);
                 console.log('   🔑 Публичный ключ:', userPublicKey);
                 
-                const loadedContacts = await contactListManager.loadContacts();
-                
-                // Выводим итоговую статистику (v2)
-                console.log('📊 Статистика загрузки (v2):');
-                console.log('   👥 Контакты:', loadedContacts.length);
-                console.log('   💬 Всего чатов:', Object.keys(messages).length);
+                // 🆕 В V3 контакты загружаются через eventSystem.initialize()
+                // Статистика будет доступна через eventSystem.getStats()
+                const stats = eventSystem.getStats();
+                console.log('📊 V3: Статистика polling системы:', stats);
                 
                 // Обновляем интерфейс
                 console.log('🎨 Обновляем интерфейс...');
@@ -1310,18 +704,16 @@
                     const chatTitle = document.getElementById('chatTitle');
                     if (chatTitle) chatTitle.textContent = contactName;
                     
-                    // Устанавливаем текущий контакт ДО проверки статуса
-                    currentContact = { address: contactAddress, name: contactName };
+                    // V3: Устанавливаем текущий контакт через AppState
+                    appState.setCurrentContact({ address: contactAddress, name: contactName });
                     
-                    // Обновляем подсветку активного контакта
-                    updateActiveContactHighlight();
+                    // V3: Подсветка контакта управляется ContactListManagerV3
                     
-                    // Проверяем статус чата и показываем соответствующую панель
-                    await updateAllAreasVisibility();
+                    // V3: Панели обновляются автоматически через ChatAreaManagerV3
                     
                     // Проверяем, является ли это активным чатом для сброса счётчика
                     try {
-                        const chatId = await contract.methods.getChatId(currentUser, contactAddress).call();
+                        const chatId = CryptoUtils.generateChatId(currentUser, contactAddress);
                         let isActiveChat = false;
                         if (chatId && chatId !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
                             const chat = await contract.methods.getChat(chatId).call();
@@ -1351,8 +743,7 @@
                     console.log('🆕 Открываем чат с:', contactAddress);
                     if (chatUIManager) {
                         try {
-                            await chatUIManager.openChat(contactAddress, onNewMessage, onHistoryLoaded);
-                            updateChatStats();
+                            await chatUIManager.openChat(contactAddress);
                             console.log('✅ Чат открыт через систему V2');
                         } catch (error) {
                             console.error('❌ Ошибка открытия чата через V2:', error);
@@ -1373,81 +764,63 @@
             });
         }
 
-        // Обработка отправки сообщений
-        document.getElementById('sendButton').addEventListener('click', async function() {
+        // Обработка отправки сообщений (адаптировано для новой панельной структуры)
+        function setupSendMessageHandler() {
+            const sendButton = document.getElementById('sendButton');
+            if (sendButton) {
+                sendButton.addEventListener('click', async function() {
             const input = document.querySelector('.message-input');
-            const message = input.value.trim();
+                    const message = input ? input.value.trim() : '';
             
             if (message) {
-                // Получаем активный контакт
-                const activeContact = document.querySelector('.contact-item.active');
-                if (!activeContact) {
-                    console.error('❌ Выберите контакт для отправки сообщения');
-                    return;
-                }
-                
-                const contactAddress = activeContact.getAttribute('data-address');
-                if (!contactAddress) {
-                    console.error('❌ Адрес контакта не найден');
+                        // Проверяем, что ChatAreaManager V3 готов
+                        if (!chatUIManager) {
+                            console.error('❌ V3: ChatUIManager не инициализирован');
                     return;
                 }
                 
                 try {
-                    // Отправка через V2 систему
-                    console.log('📤 Отправляем сообщение через V2 систему:', message);
-                
-                // Получаем публичный ключ получателя
-                    const recipientPublicKey = await contract.methods.getPublicKey(contactAddress).call();
-                
-                // Шифруем сообщение для получателя
-                    const encryptedForRecipient = await encryptMessage(message, recipientPublicKey);
-                
-                    // Шифруем сообщение для отправителя
-                    const encryptedForSender = await encryptMessage(message, userPublicKey);
-                
-                    // Отправляем сообщение в блокчейн
-                const result = await contract.methods.sendMessage(
-                        contactAddress,
-                    encryptedForRecipient,
-                    encryptedForSender
-                    ).send({ 
-                        from: currentUser,
-                        gas: 300000
-                    });
-                
-                console.log('✅ Сообщение отправлено в блокчейн:', result.transactionHash);
-                console.log('⏳ Ожидаем событие MessageSent для обновления чата...');
+                            // 🆕 Отправка через V3 систему
+                            console.log('📤 V3: Отправляем сообщение:', message);
+                            
+                            // 🆕 Отправка через ChatAreaManager V3
+                            await chatUIManager.sendMessage(message);
+                            
                     showNotification('Сообщение отправлено!', 'success');
                     
                     // Очищаем поле ввода
                     input.value = '';
                     input.style.height = 'auto';
                     
-                    // Обновляем чат через систему V2
-                    if (chatUIManager && currentContact) {
-                        await chatUIManager.checkForNewMessages(currentContact);
-                    }
-                    
             } catch (error) {
-                console.error('❌ Ошибка отправки сообщения:', error);
+                            console.error('❌ V3: Ошибка отправки сообщения:', error);
                     showNotification('Ошибка отправки сообщения: ' + error.message, 'error');
             }
         }
         });
+            }
+        }
 
+        // Настройка обработчиков для поля ввода сообщений
+        function setupMessageInputHandlers() {
+            const messageInput = document.querySelector('.message-input');
+            if (messageInput) {
         // Автоматическое изменение высоты поля ввода
-        document.querySelector('.message-input').addEventListener('input', function() {
+                messageInput.addEventListener('input', function() {
             this.style.height = 'auto';
             this.style.height = Math.min(this.scrollHeight, 120) + 'px';
         });
 
         // Обработка Enter для отправки
-        document.querySelector('.message-input').addEventListener('keydown', function(e) {
+                messageInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                document.getElementById('sendButton').click();
+                        const sendButton = document.getElementById('sendButton');
+                        if (sendButton) sendButton.click();
             }
         });
+            }
+        }
 
         // Функция добавления сообщения (демо)
         function addMessage(text, isOutgoing = false) {
@@ -1539,25 +912,14 @@
                 }
             });
 
-            // Дублирующие обработчики удалены - используются те, что выше
-
-            // Автоматическое изменение высоты поля ввода
-            document.getElementById('messageInput').addEventListener('input', (e) => {
-                e.target.style.height = 'auto';
-                e.target.style.height = e.target.scrollHeight + 'px';
-            });
+            // Дублирующие обработчики удалены - используются setupSendMessageHandler и setupMessageInputHandlers
 
             // Кнопка "Назад" для мобильных устройств
             document.getElementById('backButton').addEventListener('click', () => {
                 document.getElementById('appContainer').classList.remove('mobile-chat');
             });
 
-            // Кнопка обновления
-            document.getElementById('refreshBtn').addEventListener('click', async () => {
-                if (currentContact) {
-                    await refreshChat();
-                }
-            });
+            // V3: refreshBtn удален - обновление происходит автоматически через polling
 
             // Кнопка отправки приглашения (из списка контактов)
             document.getElementById('sendInvitationBtn').addEventListener('click', () => {
@@ -1587,8 +949,8 @@
                         currentContact = null;
                         currentChat = null;
                         
-                        // Скрываем все панели так как контакт не выбран
-                        await updateAllAreasVisibility();
+                        // V3: Скрываем все панели так как контакт не выбран
+                        updateChatAreaForState('allowedWrite');
                         
                         // Очищаем кэш систем V2
                         if (eventSystem) {
@@ -1670,10 +1032,7 @@
                     await sendInvitation(recipientAddress, message, fee);
 
                     // Обновляем панель для текущего контакта, если он совпадает с получателем приглашения
-                    if (currentContact && currentContact.address && currentContact.address.toLowerCase() === recipientAddress.toLowerCase()) {
-                        console.log('🔄 Обновляем панель для текущего контакта после отправки приглашения');
-                        await updateAllAreasVisibility();
-                    }
+                    // V3: Панели обновятся автоматически через polling после отправки приглашения
 
                     // Очищаем форму
                     document.getElementById('recipientAddress').value = '';
@@ -1691,62 +1050,17 @@
                 }
             });
 
-            // Закрытие модального окна обработки приглашений
-            document.getElementById('closeActionsModal').addEventListener('click', () => {
-                document.getElementById('invitationActionsModal').style.display = 'none';
-            });
-
-            document.getElementById('cancelActionsBtn').addEventListener('click', () => {
-                document.getElementById('invitationActionsModal').style.display = 'none';
-            });
-
-            // Принятие приглашения
-            document.getElementById('acceptInvitationBtn').addEventListener('click', async () => {
-                const inviterAddress = document.getElementById('inviterAddress').textContent;
-                try {
-                    await acceptInvitation(inviterAddress);
-                    document.getElementById('invitationActionsModal').style.display = 'none';
-                } catch (error) {
-                    console.error('Ошибка принятия приглашения:', error);
-                }
-            });
-
-            // Отклонение приглашения
-            document.getElementById('rejectInvitationBtn').addEventListener('click', async () => {
-                const inviterAddress = document.getElementById('inviterAddress').textContent;
-                try {
-                    await rejectInvitation(inviterAddress);
-                    document.getElementById('invitationActionsModal').style.display = 'none';
-                } catch (error) {
-                    console.error('Ошибка отклонения приглашения:', error);
-                }
-            });
+            // V3: Обработчики для invitationActionsModal удалены - заменены компонентными панелями
             
-            // Кнопки в панели приглашений в чате
-            document.getElementById('acceptInvitationChatBtn').addEventListener('click', handleAcceptInvitationFromChat);
-            document.getElementById('rejectInvitationChatBtn').addEventListener('click', handleRejectInvitationFromChat);
-            
-            // Кнопка создания приглашения (из области чата)
-            document.getElementById('createInvitationBtn').addEventListener('click', () => {
-                const createPanel = document.getElementById('createInvitationPanel');
-                const recipientAddress = createPanel.getAttribute('data-recipient-address');
-                
-                if (recipientAddress) {
-                    // Открываем модальное окно с заблокированным полем адреса
-                    openInvitationModal(recipientAddress, true); // Адрес заполнен, поле readonly
-                }
-            });
+            // Кнопки в панели приглашений в чате - обработчики настраиваются в компонентных функциях
+            // Удалены устаревшие обработчики для acceptInvitationChatBtn, rejectInvitationChatBtn, createInvitationBtn
 
-            // Закрытие модальных окон при клике вне их
+            // Закрытие модального окна при клике вне него
             window.addEventListener('click', (e) => {
                 const invitationModal = document.getElementById('invitationModal');
-                const actionsModal = document.getElementById('invitationActionsModal');
                 
                 if (e.target === invitationModal) {
                     closeInvitationModal();
-                }
-                if (e.target === actionsModal) {
-                    actionsModal.style.display = 'none';
                 }
             });
         }
@@ -1846,29 +1160,23 @@
                     sidebar.classList.remove('open');
                 }
 
-                // Обновляем заголовок чата
-                const contact = contacts.find(c => c.address === contactAddress);
-                if (contact) {
+                // V3: Заголовок чата обновляется через ContactListManagerV3 и AppState
                     const chatTitle = document.getElementById('chatTitle');
                     const chatSubtitle = document.getElementById('chatSubtitle');
                     
-                    if (chatTitle) chatTitle.textContent = contact.name;
-                    if (chatSubtitle) chatSubtitle.textContent = contact.address;
-                }
+                // V3: Получаем имя контакта из DOM элемента (используем уже найденный contactElement)
+                const contactName = contactElement ? 
+                    contactElement.querySelector('.contact-name')?.textContent || `User ${contactAddress.slice(0, 6)}` :
+                    `User ${contactAddress.slice(0, 6)}`;
                 
-                // Показываем кнопки действий
-                const refreshBtn = document.getElementById('refreshBtn');
+                if (chatTitle) chatTitle.textContent = contactName;
+                if (chatSubtitle) chatSubtitle.textContent = contactAddress;
                 
-                if (refreshBtn) refreshBtn.style.display = 'inline-block';
-
-                // Открываем чат
-                currentContact = contactAddress;
+                // V3: Открываем чат через AppState
+                appState.setCurrentContact({ address: contactAddress, name: contactName });
                 if (chatUIManager) {
-                    await chatUIManager.openChat(contactAddress, onNewMessage, onHistoryLoaded);
+                    await chatUIManager.openChat(contactAddress);
                 }
-
-                // Обновляем статистику
-                updateChatStats();
 
                 console.log('✅ Чат открыт с контактом:', contactAddress);
 
@@ -1878,92 +1186,8 @@
             }
         }
 
-        // Обработка новых сообщений
-        function onNewMessage(newMessages, event) {
-            console.log('📨 Получено новое сообщение:', newMessages.length);
-            showNotification(`Получено ${newMessages.length} новых сообщений`, 'success');
-        }
-
-        // Обработка загрузки истории
-        function onHistoryLoaded(pageMessages, startIndex) {
-            console.log('📚 Загружена страница истории:', pageMessages.length, 'сообщений, начиная с', startIndex);
-        }
-
-        // Загрузка истории чата
-        async function loadChatHistory() {
-            if (!currentContact) return;
-
-            try {
-                console.log('📚 Загружаем историю чата...');
-                
-                // Показываем индикатор загрузки
-                const historyLoading = document.getElementById('historyLoading');
-                historyLoading.style.display = 'block';
-
-                await chatUIManager.loadChatHistory(currentContact);
-
-                // Скрываем индикатор загрузки
-                historyLoading.style.display = 'none';
-
-                // Обновляем статистику
-                updateChatStats();
-
-                showNotification('История чата загружена', 'success');
-
-            } catch (error) {
-                console.error('❌ Ошибка загрузки истории:', error);
-                showNotification('Ошибка загрузки истории: ' + error.message, 'error');
-                
-                // Скрываем индикатор загрузки
-                document.getElementById('historyLoading').style.display = 'none';
-            }
-        }
-
-        // Обновление чата
-        async function refreshChat() {
-            if (!currentContact) return;
-
-            try {
-                console.log('🔄 Обновляем чат...');
-                
-                const newMessages = await chatUIManager.checkForNewMessages(currentContact);
-                
-                if (newMessages.length > 0) {
-                    showNotification(`Загружено ${newMessages.length} новых сообщений`, 'success');
-                    updateChatStats();
-                } else {
-                    showNotification('Новых сообщений нет', 'info');
-                }
-
-            } catch (error) {
-                console.error('❌ Ошибка обновления чата:', error);
-                showNotification('Ошибка обновления: ' + error.message, 'error');
-            }
-        }
-
-        // Обновление статистики чата
-        function updateChatStats() {
-            if (!currentContact || !chatUIManager) return;
-
-            try {
-                const stats = chatUIManager.getChatStats(currentContact);
-                const chatStats = document.getElementById('chatStats');
-                
-                if (chatStats) {
-                    const totalMessagesEl = document.getElementById('totalMessages');
-                    const loadedMessagesEl = document.getElementById('loadedMessages');
-                    const isFullyLoadedEl = document.getElementById('isFullyLoaded');
-                    
-                    if (totalMessagesEl) totalMessagesEl.textContent = stats.totalMessages;
-                    if (loadedMessagesEl) loadedMessagesEl.textContent = stats.loadedMessages;
-                    if (isFullyLoadedEl) isFullyLoadedEl.textContent = stats.isFullyLoaded ? 'Да' : 'Нет';
-                    
-                    chatStats.style.display = 'block';
-                }
-            } catch (error) {
-                console.warn('⚠️ Ошибка обновления статистики чата:', error);
-            }
-        }
+        // V2 функции удалены: onNewMessage, onHistoryLoaded, loadChatHistory, refreshChat, updateChatStats
+        // В V3 обновления происходят автоматически через polling callbacks
 
 
         // Показ уведомлений

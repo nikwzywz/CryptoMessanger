@@ -24,8 +24,19 @@ const publicKeyForEncode = secp256k1.getPublicKey(privateKeyBytes);
 ```
 
 ### Хранение ключей
-- **PublicKeyForEncode**: Регистрируется в смарт-контракте
-- **PrivateKeyForEncode**: Хранится в localStorage браузера
+- **PublicKeyForEncode**: Регистрируется в смарт-контракте (с префиксом `0x`, 66 символов)
+- **PrivateKeyForEncode**: Хранится в localStorage браузера (без префикса `0x`, 64 символа)
+
+### 🔧 Совместимость ключей (V3)
+**Проблема:** localStorage хранит ключи без префикса `0x`, а контракт - с префиксом.
+
+**Решение:** Автоматическое добавление префикса при загрузке:
+```javascript
+const keys = JSON.parse(localStorage.getItem('cryptoMessengerKeys'));
+userPublicKey = keys.publicKeyForEncode.startsWith('0x') ? 
+    keys.publicKeyForEncode : 
+    '0x' + keys.publicKeyForEncode;
+```
 
 ## 🔒 ECIES шифрование с двойным шифрованием
 
@@ -36,6 +47,21 @@ const publicKeyForEncode = secp256k1.getPublicKey(privateKeyBytes);
 Каждое сообщение шифруется **дважды**:
 1. **Публичным ключом получателя** - для получателя
 2. **Публичным ключом отправителя** - для отправителя
+
+### Структура зашифрованных данных
+Зашифрованные сообщения хранятся в формате JSON:
+```json
+{
+  "ephemeralPublicKey": "0xfe58ef9c1d7458c132a68586f3ef49d7ae59bab9d8ecc3d8d06a2f1e8b8a4f29",
+  "encryptedMessage": "U2FsdGVkX19xX05pFsvAD9wbBcCS2K1RxGd3YPsl6IoPy5V/ssYA5OiZ1qPaCNY3jMsVuo5ulycrI/HO0YzioA==",
+  "mac": "..."
+}
+```
+
+**Поля:**
+- `ephemeralPublicKey` - эфемерный публичный ключ (66 символов с 0x)
+- `encryptedMessage` - AES-зашифрованное сообщение (Base64)
+- `mac` - код аутентификации сообщения (не используется в текущей реализации)
 
 ### Шифрование сообщения
 ```javascript
@@ -77,6 +103,39 @@ function decryptMessage(encryptedData, privateKey, myAddress, senderAddress, rec
     throw new Error('Неизвестный тип сообщения');
 }
 ```
+
+### 🚨 Критическая проблема и решение (V3)
+
+#### Проблема: Неверный алгоритм ECDH
+В первоначальной реализации использовался **неправильный** алгоритм вычисления общего секрета:
+
+```javascript
+// ❌ НЕПРАВИЛЬНО: простая конкатенация + SHA256
+const sharedSecret = CryptoJS.SHA256(ephemeralKey + privateKey).toString();
+```
+
+**Симптомы:**
+- `sigBytes: -96, -101, -173` при AES расшифровке
+- Пустой результат расшифровки
+- Структура данных содержит поле `mac` вместо `algorithm`
+
+#### Решение: Настоящий ECDH
+```javascript
+// ✅ ПРАВИЛЬНО: настоящий ECDH через secp256k1
+const ephemeralKeyBytes = convertHexIntoUint8Array(ephemeralKey.replace('0x', ''));
+const privateKeyBytes = convertHexIntoUint8Array(privateKey);
+
+// Вычисляем общий секрет через ECDH
+const sharedPoint = secp256k1Lib.getSharedSecret(privateKeyBytes, ephemeralKeyBytes);
+const sharedSecret = CryptoJS.SHA256(convertUint8ArrayIntoHex(sharedPoint.slice(1))).toString();
+
+// slice(1) убирает префикс 0x04 от несжатой точки
+```
+
+**Результат:**
+- Положительные `sigBytes` при AES расшифровке
+- Успешное восстановление исходного текста сообщения
+- Совместимость с криптографическими стандартами ECIES
 
 ### Преимущества двойного шифрования
 - **✅ Полное восстановление** - все сообщения доступны на новом устройстве

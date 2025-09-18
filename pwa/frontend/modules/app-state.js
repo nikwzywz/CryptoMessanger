@@ -95,6 +95,14 @@ class AppState {
             this.notify('userPublicKey', publicKey);
         }
     }
+    
+    setUserPrivateKey(privateKey) {
+        const oldValue = this.userPrivateKey;
+        this.userPrivateKey = privateKey;
+        if (oldValue !== privateKey) {
+            this.notify('userPrivateKey', privateKey);
+        }
+    }
 
     /**
      * Установка текущего контакта

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Скрипт для автоматического обновления ABI в config.js
+ * Скрипт для автоматического обновления ABI в config_v2.js
  * 
  * Приоритет источников ABI:
  * 1. abi-raw.json - основной источник (скопируйте сюда ABI с Basescan)
@@ -18,13 +18,13 @@ const path = require('path');
 
 // Конфигурация
 const BASESCAN_API_URL = 'https://api.basescan.org/api';
-const CONFIG_FILE = path.join(__dirname, '../frontend/config.js');
+const CONFIG_FILE = path.join(__dirname, '../frontend/config_v2.js');
 const ABI_RAW_FILE = path.join(__dirname, '../../abi-raw.json');
 
 // Получаем адрес контракта из аргументов командной строки или из config.js
 let CONTRACT_ADDRESS = process.argv[2]; // Первый аргумент командной строки
 
-// Если адрес не передан, читаем из config.js
+// Если адрес не передан, читаем из config_v2.js
 if (!CONTRACT_ADDRESS) {
     try {
         const configContent = fs.readFileSync(CONFIG_FILE, 'utf8');

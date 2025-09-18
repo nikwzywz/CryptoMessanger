@@ -1,4 +1,4 @@
-# Смарт-контракт CryptoMessenger
+# Смарт-контракт CryptoMessenger V2
 
 ## 📋 Обзор
 
