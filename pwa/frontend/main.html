@@ -233,7 +233,7 @@
                     <input type="text" id="editNameInput" class="form-input" placeholder="Введите ваше имя" maxlength="40">
                 </div>
                 <div class="form-hint">
-                    Максимум 40 байтов (русские символы = 2 байта). Это имя будут видеть ваши контакты.
+                    Максимум 40 байтов (русские символы = 2 байта). Можно оставить пустым - будет показан адрес.
                 </div>
             </div>
             <div class="modal-actions">
@@ -668,8 +668,8 @@
 
                 // Получаем данные пользователя через ContactListManager (правильная архитектура V3)
                 const userSettings = await contactListManager.getCurrentUserInfo();
-                // Умное сокращение адреса пользователя (в sidebar места меньше)
-                const shortAddress = Utils.smartShortenAddress(currentUser, 20);
+                // Умное сокращение адреса пользователя (в sidebar места меньше, сокращено на 2 символа больше)
+                const shortAddress = Utils.smartShortenAddress(currentUser, 18);
                 const userName = userSettings.contactName || '';
 
                 // Формируем HTML в зависимости от наличия имени
@@ -1207,25 +1207,31 @@
                     const chatTitle = document.getElementById('chatTitle');
                     const chatSubtitle = document.getElementById('chatSubtitle');
                     
-                // V3: Получаем имя контакта из DOM элемента (используем уже найденный contactElement)
-                const contactName = contactElement ? 
-                    contactElement.querySelector('.contact-name')?.textContent || `User ${Utils.smartShortenAddress(addressLower, 15)}` :
-                    `User ${Utils.smartShortenAddress(addressLower, 15)}`;
+                // V3: Получаем имя контакта из DOM элемента
+                const contactNameElement = contactElement ? contactElement.querySelector('.contact-name') : null;
+                const contactName = contactNameElement ? contactNameElement.textContent : '';
                 
-                if (chatTitle) chatTitle.textContent = contactName;
+                // Получаем оригинальное имя из кэша для проверки
+                const contactData = contactListManager.getContactData(addressLower);
+                const originalName = contactData ? contactData.name : '';
                 
-                // Показываем адрес только если имя не является адресом
+                // Показываем в заголовке имя или адрес (используем новую универсальную функцию)
+                if (chatTitle) {
+                    const displayTitle = Utils.selectAndShortenString(originalName, addressLower, 25);
+                    chatTitle.textContent = displayTitle;
+                }
+                
+                // Показываем адрес в subtitle только если в заголовке показывается имя
                 if (chatSubtitle) {
-                    const isNameAnAddress = contactName.toLowerCase().includes(addressLower.slice(2, 8));
-                    
-                    if (isNameAnAddress) {
-                        chatSubtitle.textContent = '';
-                    } else {
-                        // Умное сокращение адреса в зависимости от ширины экрана
+                    if (originalName && originalName.trim()) {
+                        // В заголовке имя → показываем адрес в subtitle
                         const isMobile = window.innerWidth <= 768;
-                        const maxLength = isMobile ? 20 : 42; // На мобильных сокращаем, на десктопе показываем полностью
+                        const maxLength = isMobile ? 20 : 42;
                         const displayAddress = Utils.smartShortenAddress(addressLower, maxLength);
                         chatSubtitle.textContent = displayAddress;
+                    } else {
+                        // В заголовке адрес → subtitle пустой
+                        chatSubtitle.textContent = '';
                     }
                     
                     console.log(`🏷️ V3: Установлен chatSubtitle:`, {

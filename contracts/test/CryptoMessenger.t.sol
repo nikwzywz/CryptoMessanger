@@ -71,10 +71,13 @@ contract CryptoMessengerTest is Test {
         vm.stopPrank();
     }
     
-    function testCannotRegisterWithEmptyName() public {
+    function testCanRegisterWithEmptyName() public {
         vm.startPrank(alice);
-        vm.expectRevert(CryptoMessenger.ContactNameEmpty.selector);
+        // Теперь пустые имена разрешены - просто проверяем что транзакция не ревертится
         cryptoMessenger.registerUser("", alicePublicKey);
+        
+        // Проверяем что пользователь зарегистрирован
+        assertTrue(cryptoMessenger.isUserRegistered(alice));
         vm.stopPrank();
     }
     

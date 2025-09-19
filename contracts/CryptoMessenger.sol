@@ -9,7 +9,6 @@ pragma solidity ^0.8.19;
 contract CryptoMessenger {
 
     // Кастомные ошибки для экономии газа
-    error ContactNameEmpty();
     error ContactNameTooLong();
     error PublicKeyEmpty();
     error UserAlreadyRegistered();
@@ -129,7 +128,6 @@ contract CryptoMessenger {
         uint256 nameLength = bytes(contactName).length;
         uint256 keyLength = userPublicKey.length;
         
-        if (nameLength == 0) revert ContactNameEmpty();
         if (nameLength > 50) revert ContactNameTooLong();
         if (keyLength == 0) revert PublicKeyEmpty();
         if (userSettings[msg.sender].isRegistered) revert UserAlreadyRegistered();
@@ -165,7 +163,6 @@ contract CryptoMessenger {
         // Кэшируем длину для экономии газа
         uint256 nameLength = bytes(newContactName).length;
         
-        if (nameLength == 0) revert ContactNameEmpty();
         if (nameLength > 40) revert ContactNameTooLong();
         
         userSettings[msg.sender].contactName = newContactName;

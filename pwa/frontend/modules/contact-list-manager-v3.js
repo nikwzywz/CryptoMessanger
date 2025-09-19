@@ -233,12 +233,14 @@ class ContactListManagerV3 {
             contactElement.setAttribute('data-name', name);
             
             // Базовая HTML структура
+            const displayName = Utils.selectAndShortenString(name, addressLower, 25);
+            const avatarColor = Utils.getAvatarColor(addressLower);
             contactElement.innerHTML = `
-                <div class="contact-avatar">
-                    <span class="contact-initial">${name.charAt(0).toUpperCase()}</span>
+                <div class="contact-avatar" style="background-color: ${avatarColor};">
+                    <span class="contact-initial">${displayName.charAt(0).toUpperCase()}</span>
                 </div>
                 <div class="contact-info">
-                    <div class="contact-name">${name}</div>
+                    <div class="contact-name">${displayName}</div>
                     <div class="contact-last-message">
                         ${lastMessageText || 'Нет сообщений'}
                     </div>
@@ -274,9 +276,13 @@ class ContactListManagerV3 {
      * Обновление содержимого карточки контакта
      */
     updateContactCardContent(contactElement, name, frontendState, unreadCount, lastMessageText) {
-        // Обновляем имя
+        // Обновляем имя (показываем адрес если имя пустое)
         const nameElement = contactElement.querySelector('.contact-name');
-        if (nameElement) nameElement.textContent = name;
+        if (nameElement) {
+            const address = contactElement.getAttribute('data-address');
+            const displayName = Utils.selectAndShortenString(name, address, 25);
+            nameElement.textContent = displayName;
+        }
         
         // Обновляем последнее сообщение
         const lastMessageElement = contactElement.querySelector('.contact-last-message');
@@ -376,8 +382,9 @@ class ContactListManagerV3 {
         contactDiv.setAttribute('data-address', address.toLowerCase()); // Консистентный lowercase
         contactDiv.setAttribute('data-name', name);
         
+        const avatarColor = Utils.getAvatarColor(address);
         contactDiv.innerHTML = `
-            <div class="contact-avatar">
+            <div class="contact-avatar" style="background-color: ${avatarColor};">
                 <span class="contact-initial">${name.charAt(0).toUpperCase()}</span>
             </div>
             <div class="contact-info">
@@ -433,7 +440,8 @@ class ContactListManagerV3 {
             } else {
                 console.error(`❌ V3: Не удалось найти данные для контакта ${addressLower} в кэше`);
                 // Временное решение, чтобы избежать полной поломки
-                this.appState.setCurrentContact({ address: addressLower, name: `User ${Utils.smartShortenAddress(addressLower, 15)}` });
+                const fallbackName = Utils.selectAndShortenString('', addressLower, 15);
+                this.appState.setCurrentContact({ address: addressLower, name: fallbackName });
             }
             
         } catch (error) {
@@ -1499,19 +1507,17 @@ class ContactListManagerV3 {
             });
 
             const trimmedName = newName.trim();
-            
-            if (!newName || !trimmedName) {
-                throw new Error('Введите имя пользователя');
+
+            // 🔍 ВАЛИДАЦИЯ: Проверяем длину имени в байтах только если имя не пустое (контракт ограничивает 40 байтов)
+            if (trimmedName) {
+                const nameBytes = new TextEncoder().encode(trimmedName).length;
+                if (nameBytes > 40) {
+                    throw new Error(`Имя не должно превышать 40 байтов (текущая длина: ${nameBytes} байтов, ${trimmedName.length} символов). Русские символы занимают по 2 байта.`);
+                }
             }
 
-            // 🔍 ВАЛИДАЦИЯ: Проверяем длину имени в байтах (контракт ограничивает 40 байтов)
-            const nameBytes = new TextEncoder().encode(trimmedName).length;
-            if (nameBytes > 40) {
-                throw new Error(`Имя не должно превышать 40 байтов (текущая длина: ${nameBytes} байтов, ${trimmedName.length} символов). Русские символы занимают по 2 байта.`);
-            }
-
-            // Проверяем на недопустимые символы
-            if (trimmedName.includes('\n') || trimmedName.includes('\r') || trimmedName.includes('\t')) {
+            // Проверяем на недопустимые символы (только если имя не пустое)
+            if (trimmedName && (trimmedName.includes('\n') || trimmedName.includes('\r') || trimmedName.includes('\t'))) {
                 throw new Error('Имя содержит недопустимые символы (переносы строк или табуляцию)');
             }
 

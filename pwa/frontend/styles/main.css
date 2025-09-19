@@ -320,6 +320,10 @@ body {
     color: white;
 }
 
+.contact-initial {
+    transform: translate(1px, 1px); /* Сдвиг на 1px вправо и вниз */
+}
+
 .contact-info {
     flex: 1;
     min-width: 0;

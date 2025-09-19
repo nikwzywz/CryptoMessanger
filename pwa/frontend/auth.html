@@ -713,7 +713,7 @@
                     
                     try {
                         // В контракте v2 функция называется registerUser и принимает имя и публичный ключ
-                        const contactName = document.getElementById('contactName').value.trim() || 'Пользователь';
+                        const contactName = document.getElementById('contactName').value.trim() || '';
                         console.log('📝 Имя пользователя:', contactName);
                         
                         // 🔍 ВАЛИДАЦИЯ: Проверяем длину имени в байтах (контракт ограничивает 50 байтов)

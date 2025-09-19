@@ -82,17 +82,58 @@ class Utils {
     }
 
     /**
-     * Получение цвета аватара на основе адреса
+     * Получение цвета аватара на основе адреса (детерминированный)
      * @param {string} address - Адрес для генерации цвета
      * @returns {string} Цвет в формате hex
      */
     static getAvatarColor(address) {
+        // Расширенная палитра приятных цветов для аватаров
         const colors = [
-            '#2563eb', '#dc2626', '#059669', '#7c2d12', '#7c3aed', 
-            '#ea580c', '#db2777', '#ca8a04', '#14b8a6', '#64748b'
+            '#3B82F6', // Синий
+            '#EF4444', // Красный  
+            '#10B981', // Зеленый
+            '#F59E0B', // Желтый
+            '#8B5CF6', // Фиолетовый
+            '#06B6D4', // Голубой
+            '#84CC16', // Лайм
+            '#F97316', // Оранжевый
+            '#EC4899', // Розовый
+            '#6366F1', // Индиго
+            '#14B8A6', // Бирюзовый
+            '#A855F7', // Пурпурный
+            '#22C55E', // Изумрудный
+            '#F43F5E', // Малиновый
+            '#0EA5E9', // Небесный
+            '#8B5A2B'  // Коричневый
         ];
-        const hash = address.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-        return colors[hash % colors.length];
+        
+        // Более качественный хэш на основе адреса
+        let hash = 0;
+        const cleanAddress = address.toLowerCase().replace('0x', '');
+        
+        for (let i = 0; i < cleanAddress.length; i++) {
+            const char = cleanAddress.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Конвертируем в 32-битное число
+        }
+        
+        return colors[Math.abs(hash) % colors.length];
+    }
+
+    /**
+     * Тестовая функция для демонстрации цветов аватаров
+     * @param {string[]} addresses - Массив адресов для тестирования
+     * @returns {Object[]} - Массив объектов {address, color, initial}
+     */
+    static testAvatarColors(addresses) {
+        console.log('🎨 Тестирование цветов аватаров:');
+        const results = addresses.map(address => {
+            const color = this.getAvatarColor(address);
+            const initial = address.charAt(2).toUpperCase(); // Берем первый символ после 0x
+            console.log(`📍 ${address} → 🎨 ${color} → 🔤 ${initial}`);
+            return { address, color, initial };
+        });
+        return results;
     }
 
     /**
@@ -133,6 +174,19 @@ class Utils {
         const suffixLength = maxLength - 3 - prefixLength;
         
         return `${address.slice(0, prefixLength)}...${address.slice(-suffixLength)}`;
+    }
+
+    /**
+     * Выбор и сокращение строки с fallback
+     * @param {string} primaryString - Основная строка (например, имя)
+     * @param {string} fallbackString - Резервная строка (например, адрес)
+     * @param {number} maxLength - Максимальная длина результата
+     * @returns {string} Сокращенная строка
+     */
+    static selectAndShortenString(primaryString, fallbackString, maxLength) {
+        return (primaryString && primaryString.trim()) 
+          ? primaryString.slice(0, maxLength)
+          : this.smartShortenAddress(fallbackString, maxLength);
     }
 
     //================================================================================
