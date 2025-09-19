@@ -329,24 +329,42 @@ class AppState {
             }
             
             // 🆕 ПУНКТ 7: Сохраняем новые сообщения в памяти (не в интерфейсе, а в данных)
+            console.log(`🌼 ПУНКТ 7`);
             await this.saveNewMessagesToModel(newMessages);
             
             // 🆕 ПУНКТ 8: Если количество новых сообщений > 0, то вызываем пересортировку
+            console.log(`🌼 ПУНКТ 8 - начало`);
             if (newMessages.length > 0) {
+                console.log(`🔄 V3: Вызываем resortAllContacts для ${newMessages.length} сообщений`);
                 this.pollingCoordinator.contactListManager.resortAllContacts();
+                console.log(`✅ V3: resortAllContacts завершен`);
+                
                 // Если поступило предельное количество (MESSAGES_BATCH_SIZE) новых сообщений,
                 // то обновляем время последнего обновления, но хитро, 
                 // чтобы следующее обновление наступило не через 15 секунд, 
                 // а через 1 секунду. Потому что очень вероятно есть ещё новые сообщения.
-                if (newMessages.length >= MESSAGES_BATCH_SIZE) {
+                if (newMessages.length >= window.CryptoMessengerConfig.pollingConfig.MESSAGES_BATCH_SIZE) {
+                    console.log(`⚡ V3: Устанавливаем ускоренный polling (полный батч)`);
                     this.pollingCoordinator.lastUpdateTime = now - 1000 * 60 * 60;
                 }
             }
+            console.log(`🌼 ПУНКТ 8 - завершен`);
+            
+            console.log(`🌼 ПУНКТ 8 → 9 переход`);
+            
+            try {
+                console.log(`🌼 ПУНКТ 9 - начало`);
+            } catch (error) {
+                console.error(`❌ V3: Ошибка в пункте 9:`, error);
+            }
             
             // 🆕 ПУНКТ 9: Конец алгоритма загрузки данных
+            console.log(`🌼 ПУНКТ 9`);
             console.log(`✅ V3: Алгоритм загрузки данных завершен, обработано ${newMessages.length} сообщений`);
             
             // 🆕 ПУНКТЫ 10-12: Отдельный алгоритм отрисовки UI (Model-View-Controller)
+            // 🔥 КРИТИЧЕСКИЙ ФИКС: Вызываем ВСЕГДА, не только при новых контактах!
+            console.log(`🌺 ПУНКТЫ 10-12 (запускаю renderUIUpdates)`);
             this.renderUIUpdates();
             
         } catch (error) {
@@ -460,12 +478,16 @@ class AppState {
         
         try {
             // ПУНКТ 10: отрисовка изменившихся контактов
+            console.log(`🌺 ПУНКТ 10`);
             this.renderUpdatedContacts();
             
             // ПУНКТ 11: отрисовка новых сообщений в чате выбранного контакта-чата
+            console.log(`🌺 ПУНКТ 11`);
             this.renderNewMessagesInCurrentChat();
             
             // ПУНКТ 12: обновление области чата в зависимости от состояния
+            // В том числе отрисовать новые сообщения этого чата, если они есть в данных
+            console.log(`🌺 ПУНКТ 12`);
             this.updateChatAreaForCurrentState();
             
             console.log(`✅ V3: Алгоритм отрисовки UI завершен`);

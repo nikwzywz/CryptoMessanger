@@ -1,5 +1,28 @@
 <!DOCTYPE html>
 <html lang="ru">
+<!--
+🏗️ АРХИТЕКТУРНЫЕ ПРИНЦИПЫ CryptoMessenger V3:
+
+📋 РАЗДЕЛЕНИЕ ОТВЕТСТВЕННОСТИ:
+- Все методы работы с КОНТРАКТОМ должны размещаться в соответствующих менеджерах:
+  ✅ Методы контактов, пользователей, приглашений → ContactListManagerV3
+  ✅ Методы сообщений, чатов, состояний чатов → ChatAreaManagerV3
+  ✅ Криптография и шифрование → CryptoUtils
+  ✅ Глобальное состояние и polling → AppState
+
+❌ В main.html НЕ ДОЛЖНО БЫТЬ:
+- Прямых вызовов методов контракта
+- Бизнес-логики работы с блокчейном
+- Сложной обработки данных
+
+✅ В main.html ДОЛЖНО БЫТЬ ТОЛЬКО:
+- Инициализация приложения
+- Настройка UI обработчиков
+- Координация между менеджерами
+- Простые DOM манипуляции
+
+🎯 ЦЕЛЬ: Чистая архитектура с разделением Model-View-Controller
+-->
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,8 +39,13 @@
         <!-- Боковая панель с контактами -->
         <div class="sidebar">
             <div class="sidebar-header">
-                <div class="sidebar-title">CryptoMessenger v2</div>
-                <div class="sidebar-subtitle">Децентрализованный мессенджер</div>
+                <div class="sidebar-title">CryptoMessenger v3</div>
+                <div class="user-info" id="userInfo">
+                    <div class="user-label">Пользователь:</div>
+                    <div class="user-details" id="userDetails">
+                        <div class="user-address" id="userAddress">Загрузка...</div>
+                    </div>
+                </div>
                 
                 
                 <div class="search-box">
@@ -162,6 +190,29 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно редактирования имени пользователя -->
+    <div class="modal" id="editNameModal" style="display: none;">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3>✏️ Редактирование имени</h3>
+                <button class="modal-close" onclick="closeEditNameModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="editNameInput">Ваше имя:</label>
+                    <input type="text" id="editNameInput" placeholder="Введите ваше имя" maxlength="40" style="width: 100%; padding: 12px; margin-top: 8px; background: #2a2a2a; border: 1px solid #444; border-radius: 8px; color: #fff;">
+                </div>
+                <div style="margin-top: 8px; font-size: 12px; color: #888;">
+                    Максимум 40 символов. Это имя будут видеть ваши контакты.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeEditNameModal()">Отмена</button>
+                <button class="btn btn-primary" onclick="saveUserName()">Сохранить</button>
             </div>
         </div>
     </div>
@@ -570,14 +621,8 @@
                 console.log('🎨 Обновляем интерфейс...');
                 // UI обновится автоматически через подписки в ContactListManager
                 
-                // Обновляем заголовок с информацией о пользователе
-                const sidebarTitle = document.querySelector('.sidebar-title');
-                const sidebarSubtitle = document.querySelector('.sidebar-subtitle');
-                if (currentUser && sidebarTitle && sidebarSubtitle) {
-                    const shortAddress = `${currentUser.slice(0, 6)}...${currentUser.slice(-4)}`;
-                    sidebarTitle.textContent = `CryptoMessenger v3`;
-                    sidebarSubtitle.textContent = `Пользователь: ${shortAddress}`;
-                }
+                // Обновляем информацию о пользователе
+                await updateUserInfo();
                 
                 // Настраиваем обработчики событий
                 console.log('⚙️ Настраиваем обработчики событий...');
@@ -586,6 +631,84 @@
                 console.log('✅ Приложение инициализировано');
             } catch (error) {
                 console.error('❌ Критическая ошибка инициализации:', error);
+            }
+        }
+
+        // Обновление информации о пользователе в header
+        async function updateUserInfo() {
+            try {
+                const userDetails = document.getElementById('userDetails');
+                if (!currentUser || !userDetails) return;
+
+                // Получаем данные пользователя через ContactListManager (правильная архитектура V3)
+                const userSettings = await contactListManager.getCurrentUserInfo();
+                const shortAddress = `${currentUser.slice(0, 6)}...${currentUser.slice(-4)}`;
+                const userName = userSettings.contactName || '';
+
+                // Формируем HTML в зависимости от наличия имени
+                if (userName.trim()) {
+                    userDetails.innerHTML = `
+                        <div class="user-name">
+                            <span>Имя: ${userName}</span>
+                            <button class="edit-name-btn" onclick="openEditNameModal()" title="Редактировать имя">✏️</button>
+                        </div>
+                        <div class="user-address">Адрес: ${shortAddress}</div>
+                    `;
+                } else {
+                    userDetails.innerHTML = `
+                        <div class="user-address">
+                            <span>Адрес: ${shortAddress}</span>
+                            <button class="edit-name-btn" onclick="openEditNameModal()" title="Добавить имя">✏️</button>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('❌ Ошибка обновления информации о пользователе:', error);
+            }
+        }
+
+        // Открытие модального окна редактирования имени
+        function openEditNameModal() {
+            const modal = document.getElementById('editNameModal');
+            const nameInput = document.getElementById('editNameInput');
+            
+            // Получаем текущее имя пользователя через ContactListManager (правильная архитектура V3)
+            contactListManager.getCurrentUserInfo()
+                .then(userSettings => {
+                    nameInput.value = userSettings.contactName || '';
+                    modal.style.display = 'flex';
+                    nameInput.focus();
+                })
+                .catch(error => {
+                    console.error('❌ Ошибка получения имени пользователя:', error);
+                    modal.style.display = 'flex';
+                    nameInput.focus();
+                });
+        }
+
+        // Закрытие модального окна редактирования имени
+        function closeEditNameModal() {
+            document.getElementById('editNameModal').style.display = 'none';
+        }
+
+        // Сохранение нового имени пользователя
+        async function saveUserName() {
+            try {
+                const nameInput = document.getElementById('editNameInput');
+                const newName = nameInput.value.trim();
+
+                // Используем ContactListManager для обновления имени (правильная архитектура V3)
+                await contactListManager.updateUserName(newName);
+                
+                // Обновляем информацию о пользователе в header
+                await updateUserInfo();
+                
+                // Закрываем модальное окно
+                closeEditNameModal();
+                
+            } catch (error) {
+                console.error('❌ Ошибка сохранения имени:', error);
+                // Уведомление об ошибке уже показано в ContactListManager
             }
         }
 

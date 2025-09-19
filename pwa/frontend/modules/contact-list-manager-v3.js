@@ -104,9 +104,10 @@ class ContactListManagerV3 {
 
     /**
      * Отрисовка всех контактов из модели данных в UI
+     * ✅ ПУНКТ 10: Полная синхронизация DOM с моделью (Model → View)
      */
     renderContactsFromModel() {
-        console.log(`🎨 V3: Отрисовка контактов из модели данных в UI`);
+        console.log(`🎨 V3: Отрисовка контактов из модели данных в UI (Пункт 10)`);
         
         const contactsList = document.getElementById('contactsList');
         if (!contactsList) {
@@ -121,20 +122,22 @@ class ContactListManagerV3 {
 
         console.log(`📋 V3: Найдено ${sortedContacts.length} контактов в модели для отрисовки`);
 
-        // Отрисовываем каждый контакт
+        // 1️⃣ Создаем новые элементы (если нужно)
         sortedContacts.forEach(contact => {
-            // Проверяем, есть ли уже DOM элемент для этого контакта
             const existingElement = contactsList.querySelector(`[data-address="${contact.address}"]`);
             if (!existingElement) {
                 console.log(`🎨 V3: Создаем DOM элемент для контакта ${contact.address}`);
                 this.createContactElement(contact.address, contact.name);
-                
-                // ✅ ИСПРАВЛЕНИЕ MVC: ТОЛЬКО отрисовываем UI, НЕ изменяем данные
-                this.renderContactElementUI(contact.address, contact);
             }
+            
+            // Обновляем UI элемента контакта (данные могли измениться)
+            this.renderContactElementUI(contact.address, contact);
         });
 
-        console.log(`✅ V3: Отрисовка контактов завершена`);
+        // 2️⃣ Синхронизируем порядок DOM с orderIndex из модели
+        this.syncDOMWithModel();
+
+        console.log(`✅ V3: Отрисовка контактов завершена (создание + синхронизация порядка)`);
     }
 
     /**
@@ -1395,16 +1398,151 @@ class ContactListManagerV3 {
 
     /**
      * ПУНКТ 8: Пересортировка всех контактов (строго по алгоритму)
+     * ✅ ТОЛЬКО MODEL: работает с данными, НЕ изменяет DOM
      */
     resortAllContacts() {
-        console.log('🔄 V3: Пересортировка контактов (алгоритм п.8)');
+        console.log('🔄 V3: Пересортировка контактов в модели данных (алгоритм п.8)');
         
-        // Этап 1: Перерасчет orderIndex в модели данных (без изменения DOM)
+        // ✅ ТОЛЬКО MODEL: Перерасчет orderIndex в модели данных (без изменения DOM)
         this.updateAllContactIndices();
         
-        // Этап 2: Обновление DOM согласно новым orderIndex
-        this.updateContactsListDOM();
-        
-        console.log('✅ V3: Пересортировка завершена с правильной сортировкой по статусам');
+        console.log('✅ V3: Пересортировка модели данных завершена (DOM будет обновлен в пункте 10)');
+    }
+
+    //================================================================================
+    // 🆕 УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЕМ (перенесено из main.html для правильной архитектуры)
+    //================================================================================
+
+    /**
+     * Обновление имени текущего пользователя
+     * @param {string} newName - Новое имя пользователя
+     */
+    async updateUserName(newName) {
+        try {
+            console.log(`✏️ V3: Обновляем имя пользователя: "${newName}"`);
+
+            // 🔍 ДЕТАЛЬНАЯ ВАЛИДАЦИЯ с диагностикой
+            console.log('🔍 V3: Анализируем входное имя:', {
+                original: `"${newName}"`,
+                trimmed: `"${newName.trim()}"`,
+                originalLength: newName.length,
+                trimmedLength: newName.trim().length,
+                isEmpty: !newName,
+                isEmptyAfterTrim: !newName.trim()
+            });
+
+            const trimmedName = newName.trim();
+            
+            if (!newName || !trimmedName) {
+                throw new Error('Введите имя пользователя');
+            }
+
+            if (trimmedName.length > 40) {
+                throw new Error(`Имя не должно превышать 40 символов (текущая длина: ${trimmedName.length})`);
+            }
+
+            // Проверяем на недопустимые символы
+            if (trimmedName.includes('\n') || trimmedName.includes('\r') || trimmedName.includes('\t')) {
+                throw new Error('Имя содержит недопустимые символы (переносы строк или табуляцию)');
+            }
+
+            // 🔍 ДИАГНОСТИКА: Проверяем регистрацию пользователя перед вызовом setContactName
+            console.log('🔍 V3: Проверяем статус регистрации пользователя...');
+            
+            // Проверяем двумя способами для диагностики
+            const [userSettings, isRegisteredDirect] = await Promise.all([
+                this.contract.methods.userSettings(this.appState.currentUser).call(),
+                this.contract.methods.isUserRegistered(this.appState.currentUser).call()
+            ]);
+            
+            console.log('📋 V3: Детальный статус пользователя:', {
+                address: this.appState.currentUser,
+                isRegistered_userSettings: userSettings.isRegistered,
+                isRegistered_directMethod: isRegisteredDirect,
+                currentName: userSettings.contactName,
+                hasPublicKey: !!userSettings.publicKeyForEncode,
+                publicKeyLength: userSettings.publicKeyForEncode ? userSettings.publicKeyForEncode.length : 0,
+                contactRequestFee: userSettings.contactRequestFee
+            });
+
+            if (!userSettings.isRegistered || !isRegisteredDirect) {
+                throw new Error('Пользователь не зарегистрирован в системе. Пожалуйста, пройдите регистрацию на auth.html');
+            }
+
+            // 🔍 ПРОВЕРКА: Сравниваем новое имя с текущим
+            if (trimmedName === userSettings.contactName) {
+                console.log('⚠️ V3: Новое имя идентично текущему, отменяем операцию');
+                this.appState.showNotification('Новое имя совпадает с текущим', 'warning');
+                return false;
+            }
+
+            // Отправляем транзакцию на изменение имени
+            console.log('⛓️ V3: Отправляем транзакцию setContactName с именем:', `"${trimmedName}"`);
+            console.log('🔍 V3: Сравнение имен:', {
+                current: `"${userSettings.contactName}"`,
+                new: `"${trimmedName}"`,
+                areEqual: trimmedName === userSettings.contactName,
+                currentLength: userSettings.contactName.length,
+                newLength: trimmedName.length
+            });
+            
+            await this.contract.methods.setContactName(trimmedName).send({ 
+                from: this.appState.currentUser 
+            });
+            
+            console.log('✅ V3: Имя пользователя обновлено в блокчейне');
+            
+            // Показываем уведомление об успехе
+            this.appState.showNotification('Имя пользователя обновлено!', 'success');
+            
+            return true;
+            
+        } catch (error) {
+            console.error('❌ V3: Ошибка обновления имени пользователя:', error);
+            
+            // Детализированная обработка ошибок
+            let errorMessage = 'Ошибка сохранения имени: ';
+            
+            if (error.message.includes('User denied transaction')) {
+                errorMessage += 'Транзакция отклонена пользователем';
+            } else if (error.message.includes('execution reverted')) {
+                errorMessage += 'Транзакция отклонена контрактом. Возможно, пользователь не зарегистрирован или имя некорректно';
+            } else if (error.message.includes('не зарегистрирован')) {
+                errorMessage += error.message;
+            } else {
+                errorMessage += error.message;
+            }
+            
+            // Показываем уведомление об ошибке
+            this.appState.showNotification(errorMessage, 'error');
+            
+            throw error;
+        }
+    }
+
+    /**
+     * Получение информации о текущем пользователе
+     * @returns {Object} Данные пользователя {contactName, publicKeyForEncode, contactRequestFee, isRegistered}
+     */
+    async getCurrentUserInfo() {
+        try {
+            if (!this.appState.currentUser) {
+                throw new Error('Пользователь не авторизован');
+            }
+
+            const userSettings = await this.contract.methods.userSettings(this.appState.currentUser).call();
+            
+            console.log('📋 V3: Получена информация о пользователе:', {
+                contactName: userSettings.contactName,
+                isRegistered: userSettings.isRegistered,
+                hasPublicKey: !!userSettings.publicKeyForEncode
+            });
+
+            return userSettings;
+            
+        } catch (error) {
+            console.error('❌ V3: Ошибка получения информации о пользователе:', error);
+            throw error;
+        }
     }
 }
