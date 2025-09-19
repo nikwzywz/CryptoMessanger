@@ -59,7 +59,12 @@ class ChatAreaManagerV3 {
         // Для waitingAcceptanceFromOther проверяем таймаут
         if (frontendState === 'waitingAcceptanceFromOther') {
             const isTimeoutExpired = this.checkInvitationTimeout();
-            this.setVisiblePanelInvitationCancel((frontendState === 'waitingAcceptanceFromOther')&&(isTimeoutExpired));
+            this.setVisiblePanelInvitationCancel(isTimeoutExpired);
+            console.log(`Панель отзыта показана для состояния waitingAcceptanceFromOther: ${isTimeoutExpired}`);
+        } else {
+            // Для всех остальных состояний скрываем панель отзыва
+            this.setVisiblePanelInvitationCancel(false);
+            console.log(`Панель отзыта скрыта для состояния ${frontendState}`);
         }
     }
 
@@ -454,23 +459,28 @@ class ChatAreaManagerV3 {
             console.log(`🎨 Панель исходящего приглашения: ${visible ? 'показана' : 'скрыта'}`);
             
             if (visible) {
-                // Заполняем данные текущего контакта
-                const currentContact = this.appState.currentContact;
-                if (currentContact) {
-                    const toContactName = document.getElementById('toContactName');
-                    const toContactAddress = document.getElementById('toContactAddress');
-                    
-                    if (toContactName) toContactName.textContent = currentContact.name;
-                    if (toContactAddress) {
-                        // Показываем полный адрес для максимальной безопасности
-                        toContactAddress.textContent = currentContact.address;
-                        toContactAddress.title = currentContact.address; // Полный адрес в tooltip
-                    }
-                    
-                    // Настраиваем обработчик кнопки отзыва
-                    const cancelBtn = document.getElementById('cancelInvitationBtn');
-                    if (cancelBtn) cancelBtn.onclick = () => this.cancelInvitation();
+                // Используем централизованную функцию расчета дней
+                const invitationDays = this.calculateInvitationDays();
+                
+                // Обновляем количество дней до отзыва
+                const daysSpan = document.getElementById('daysUntilCancel');
+                if (daysSpan) {
+                    daysSpan.textContent = invitationDays.daysUntil;
                 }
+                
+                // Скрываем/показываем надпись о сроках в зависимости от daysUntil
+                const noteElement = document.querySelector('#panelWaitingAcceptanceFromOther .invitation-note');
+                if (noteElement) {
+                    if (invitationDays.daysUntil <= 0) {
+                        noteElement.style.display = 'none';
+                        console.log(`🔍 V3: Надпись о сроках скрыта (daysUntil: ${invitationDays.daysUntil})`);
+                    } else {
+                        noteElement.style.display = 'block';
+                        console.log(`🔍 V3: Надпись о сроках показана (daysUntil: ${invitationDays.daysUntil})`);
+                    }
+                }
+                
+                console.log(`⏰ V3: Панель исходящего приглашения - дней до отзыва: ${invitationDays.daysUntil}`);
             }
         }
     }
@@ -481,56 +491,103 @@ class ChatAreaManagerV3 {
      */
     setVisiblePanelInvitationCancel(visible) {
         const panel = document.getElementById('panelInvitationCancel');
+        console.log(`🔍 V3: setVisiblePanelInvitationCancel вызвана:`, {
+            visible: visible,
+            panelFound: !!panel,
+            currentDisplay: panel ? panel.style.display : 'элемент не найден'
+        });
+        
         if (panel) {
             panel.style.display = visible ? 'block' : 'none';
-            console.log(`🎨 Панель отзыва приглашения: ${visible ? 'показана' : 'скрыта'}`);
+            console.log(`🎨 Панель отзыва приглашения: ${visible ? 'показана' : 'скрыта'} (display: ${panel.style.display})`);
             
             if (visible) {
-                // Заполняем данные текущего контакта и рассчитываем дни
-                const currentContact = this.appState.currentContact;
-                if (currentContact) {
-                    // Вычисляем дни с последнего сообщения
-                    const lastMessageTime = this.currentChatMessages.length > 0 ? 
-                        parseInt(this.currentChatMessages[this.currentChatMessages.length - 1].messageTimestamp) * 1000 : 0;
-                    const daysSince = Utils.calculateDaysSince(lastMessageTime);
-                    
-                    // Обновляем заголовок с количеством дней
-                    const daysSinceSpan = document.getElementById('daysSinceInvitation');
-                    if (daysSinceSpan) {
-                        daysSinceSpan.textContent = daysSince;
-                    }
-                    
-                    // Настраиваем обработчик кнопки отзыва
-                    const cancelBtn = document.getElementById('cancelInvitationTimeoutBtn');
-                    if (cancelBtn) cancelBtn.onclick = () => this.cancelInvitation();
+                // Используем централизованную функцию расчета дней
+                const invitationDays = this.calculateInvitationDays();
+                
+                // Обновляем заголовок с количеством дней
+                const daysSinceSpan = document.getElementById('daysSinceInvitation');
+                if (daysSinceSpan) {
+                    daysSinceSpan.textContent = invitationDays.daysSince;
                 }
+                
+                // Настраиваем обработчик кнопки отзыва
+                const cancelBtn = document.getElementById('cancelInvitationTimeoutBtn');
+                if (cancelBtn) cancelBtn.onclick = () => this.cancelInvitation();
+                
+                console.log(`⏰ V3: Панель отзыва приглашения - дней с момента приглашения: ${invitationDays.daysSince}`);
             }
         }
+    }
+
+    /**
+     * Расчет дней с момента последнего сообщения и до возможности отзыва
+     * @returns {Object} {daysSince, daysUntil, timeoutDays, isExpired}
+     */
+    calculateInvitationDays() {
+        if (!this.currentChatMessages || this.currentChatMessages.length === 0) {
+            return {
+                daysSince: 0,
+                daysUntil: 3,
+                timeoutDays: 3,
+                isExpired: false
+            };
+        }
+        
+        // Оптимизация: получаем время из кэша контакта вместо поиска в currentChatMessages
+        const currentContact = this.appState.currentContact;
+        if (!currentContact) {
+            return {
+                daysSince: 0,
+                daysUntil: 3,
+                timeoutDays: 3,
+                isExpired: false
+            };
+        }
+        
+        // Получаем данные контакта из ContactListManager
+        const contactData = this.appState.pollingCoordinator?.contactListManager?.getContactData(currentContact.address);
+        if (!contactData || !contactData.lastMessageTime) {
+            console.log(`⚠️ V3: Данные контакта не найдены, используем текущее время`);
+            return {
+                daysSince: 0,
+                daysUntil: 3,
+                timeoutDays: 3,
+                isExpired: false
+            };
+        }
+        
+        const lastMessageTime = contactData.lastMessageTime;
+        console.log(`🔍 V3: Время последнего сообщения из кэша контакта: ${Utils.formatTimeDebug(lastMessageTime)}`);
+        const timeoutThreshold = window.CryptoMessengerConfig.INVITATION_TIMEOUT;
+        const timeoutDays = Math.floor(timeoutThreshold / (24 * 60 * 60 * 1000));
+        
+        const daysSince = Utils.calculateDaysSince(lastMessageTime);
+        const daysUntil = Math.max(0, timeoutDays - daysSince);
+        const isExpired = Utils.checkTimeout(lastMessageTime, timeoutThreshold);
+        
+        return {
+            daysSince: daysSince,
+            daysUntil: daysUntil,
+            timeoutDays: timeoutDays,
+            isExpired: isExpired
+        };
     }
 
     /**
      * Проверка истечения таймаута приглашения
      */
     checkInvitationTimeout() {
-        if (!this.currentChatMessages || this.currentChatMessages.length === 0) {
-            return false; // Нет сообщений - таймаут не применяется
-        }
-        
-        // Берем последнее сообщение
-        const lastMessage = this.currentChatMessages[this.currentChatMessages.length - 1];
-        const lastMessageTime = parseInt(lastMessage.messageTimestamp) * 1000;
-        const timeoutThreshold = window.CryptoMessengerConfig.INVITATION_TIMEOUT;
-        
-        const isExpired = Utils.checkTimeout(lastMessageTime, timeoutThreshold);
+        const invitationDays = this.calculateInvitationDays();
         
         console.log(`⏰ V3: Проверка таймаута приглашения:`, {
-            lastMessageTime: new Date(lastMessageTime).toLocaleString(),
-            daysSince: Utils.calculateDaysSince(lastMessageTime),
-            timeoutDays: Math.floor(timeoutThreshold / (24 * 60 * 60 * 1000)),
-            isExpired: isExpired
+            daysSince: invitationDays.daysSince,
+            daysUntil: invitationDays.daysUntil,
+            timeoutDays: invitationDays.timeoutDays,
+            isExpired: invitationDays.isExpired
         });
         
-        return isExpired;
+        return invitationDays.isExpired;
     }
 
     // ❌ УДАЛЕНО: calculateDaysSinceLastMessage() - заменено на Utils.calculateDaysSince()

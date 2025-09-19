@@ -535,7 +535,7 @@ class ContactListManagerV3 {
             
             if (debugTimeElement) {
                 debugTimeElement.textContent = contactData.lastMessageTime ? 
-                    Utils.formatTime(new Date(contactData.lastMessageTime)) : '-';
+                    Utils.formatTimeDebug(new Date(contactData.lastMessageTime)) : '-';
             }
             
             if (debugStateElement) {
@@ -607,7 +607,7 @@ class ContactListManagerV3 {
             
             if (debugTimeElement) {
                 debugTimeElement.textContent = contactData.lastMessageTime ? 
-                    Utils.formatTime(new Date(contactData.lastMessageTime)) : '-';
+                    Utils.formatTimeDebug(new Date(contactData.lastMessageTime)) : '-';
             }
             
             if (debugStateElement) {
