@@ -4,23 +4,23 @@ window.CryptoMessengerConfig = {
     // Режим отладки - показывает дополнительную информацию. Например, на карточках контактов.
     debugMode: false, // true - показывать отладочную информацию, false - обычный режим
     
-    // Сеть 
+    // Сеть Base
     network: {
-        chainId: '0x89', // 137 в hex
-        chainName: 'Polygon',
+        chainId: '0x2105', // 8453 в hex
+        chainName: 'Base',
         rpcUrls: [
-            'https://polygon.rpc.subquery.network/public'
+            'https://mainnet.base.org'                // Официальная нода Base
         ],
-        blockExplorerUrls: ['https://polygonscan.com'],
+        blockExplorerUrls: ['https://basescan.org'],
         nativeCurrency: {
-            name: 'POL',
-            symbol: 'POL',
+            name: 'Ether',
+            symbol: 'ETH',
             decimals: 18
         }
     },
     
     // Адрес развернутого контракта 
-    contractAddress: '0xbc02826ba71d00604b91d2c883e0c27e9ecd30f7',
+    contractAddress: '0x4Bd5e407f3570A403023D2986815c047f91BD958',
     
     // Подписываемая фраза для генерации ключей шифрования
     signaturePhrase: 'By signing this message, I authorize CryptoMessenger to decrypt and read my messages.',
@@ -799,6 +799,6 @@ window.CryptoMessengerConfig = {
 ]
 };
 
-console.log('📦 Конфигурация CryptoMessenger загружена v1.0.0 - 2025-09-19 20:20 (полный ABI, Polygon)');
+console.log('📦 Конфигурация CryptoMessenger загружена v1.0.0 - 2025-09-19 20:14 (полный ABI)');
 console.log('🌐 Сеть:', window.CryptoMessengerConfig.network.chainName);
 console.log('📄 Контракт:', window.CryptoMessengerConfig.contractAddress);

@@ -45,6 +45,6 @@ fi
 echo ""
 echo "📋 РУЧНОЕ ОБНОВЛЕНИЕ НЕОБХОДИМО:"
 echo "1. Скопируйте ABI с https://basescan.org/address/$DEPLOYED_ADDRESS в abi-raw.json"
-echo "2. Запустите: make update-abi"
+echo "2. Запустите: make update-abi-base"
 echo ""
 echo "🎉 Деплой завершен!"

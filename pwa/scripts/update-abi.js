@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Скрипт для автоматического обновления ABI в config_v2.js
+ * Скрипт для автоматического обновления ABI в config.js
  * 
  * Приоритет источников ABI:
  * 1. abi-raw.json - основной источник (скопируйте сюда ABI с Basescan)
@@ -16,15 +16,52 @@
 const fs = require('fs');
 const path = require('path');
 
-// Конфигурация
-const BASESCAN_API_URL = 'https://api.basescan.org/api';
-const CONFIG_FILE = path.join(__dirname, '../frontend/config_v2.js');
+// Конфигурации сетей
+const NETWORKS = {
+    base: {
+        name: 'Base',
+        chainId: '0x2105', // 8453 в hex
+        rpcUrls: ['https://mainnet.base.org'],
+        blockExplorerUrls: ['https://basescan.org'],
+        apiUrl: 'https://api.basescan.org/api',
+        nativeCurrency: {
+            name: 'Ether',
+            symbol: 'ETH',
+            decimals: 18
+        }
+    },
+    polygon: {
+        name: 'Polygon',
+        chainId: '0x89', // 137 в hex
+        rpcUrls: ['https://polygon.rpc.subquery.network/public'],
+        blockExplorerUrls: ['https://polygonscan.com'],
+        apiUrl: 'https://api.polygonscan.com/api',
+        nativeCurrency: {
+            name: 'POL',
+            symbol: 'POL',
+            decimals: 18
+        }
+    }
+};
+
+const CONFIG_FILE = path.join(__dirname, '../frontend/config.js');
 const ABI_RAW_FILE = path.join(__dirname, '../../abi-raw.json');
 
-// Получаем адрес контракта из аргументов командной строки или из config.js
-let CONTRACT_ADDRESS = process.argv[2]; // Первый аргумент командной строки
+// Получаем параметры из аргументов командной строки
+const NETWORK_NAME = process.argv[2] || 'base'; // Название сети (base, polygon)
+let CONTRACT_ADDRESS = process.argv[3]; // Адрес контракта (опционально)
 
-// Если адрес не передан, читаем из config_v2.js
+// Проверяем поддерживаемую сеть
+if (!NETWORKS[NETWORK_NAME]) {
+    console.error(`❌ Неподдерживаемая сеть: ${NETWORK_NAME}`);
+    console.error(`✅ Поддерживаемые сети: ${Object.keys(NETWORKS).join(', ')}`);
+    process.exit(1);
+}
+
+const NETWORK_CONFIG = NETWORKS[NETWORK_NAME];
+console.log(`🌐 Обновляем конфигурацию для сети: ${NETWORK_CONFIG.name}`);
+
+// Если адрес не передан, читаем из config.js
 if (!CONTRACT_ADDRESS) {
     try {
         const configContent = fs.readFileSync(CONFIG_FILE, 'utf8');
@@ -60,32 +97,32 @@ try {
 }
 
 /**
- * Получает ABI контракта из Basescan API
+ * Получает ABI контракта из API блокчейн-эксплорера
  */
 async function fetchABI(contractAddress) {
     try {
-        console.log(`🔍 Получение ABI для контракта ${contractAddress}...`);
+        console.log(`🔍 Получение ABI для контракта ${contractAddress} из ${NETWORK_CONFIG.name}...`);
         
-        // Формируем URL с API ключом (пока без ключа, так как Basescan и Etherscan разные сервисы)
-        const apiUrl = `${BASESCAN_API_URL}?module=contract&action=getabi&address=${contractAddress}`;
+        // Формируем URL с API ключом
+        const apiUrl = `${NETWORK_CONFIG.apiUrl}?module=contract&action=getabi&address=${contractAddress}`;
         const urlWithKey = apiUrl; // Пока используем без ключа
         
-        console.log(`🌐 Запрос к Basescan API: ${urlWithKey.replace(ETHERSCAN_API_KEY, '***')}`);
+        console.log(`🌐 Запрос к ${NETWORK_CONFIG.name} API: ${urlWithKey}`);
         
         const response = await fetch(urlWithKey);
         const data = await response.json();
         
-        console.log('📊 Ответ от Basescan API:', data);
+        console.log(`📊 Ответ от ${NETWORK_CONFIG.name} API:`, data);
         
         if (data.status === '1' && data.result) {
             const abi = JSON.parse(data.result);
-            console.log('✅ ABI успешно получен из Basescan');
+            console.log(`✅ ABI успешно получен из ${NETWORK_CONFIG.name}`);
             return abi;
         } else {
-            throw new Error(`Basescan API error: ${data.message || data.result || 'Неизвестная ошибка'}`);
+            throw new Error(`${NETWORK_CONFIG.name} API error: ${data.message || data.result || 'Неизвестная ошибка'}`);
         }
     } catch (error) {
-        console.error('❌ Ошибка получения ABI из Basescan:', error);
+        console.error(`❌ Ошибка получения ABI из ${NETWORK_CONFIG.name}:`, error);
         throw error;
     }
 }
@@ -161,6 +198,32 @@ function updateConfigFile(abi, contractAddress) {
         console.log('📝 Чтение config.js...');
         let configContent = fs.readFileSync(CONFIG_FILE, 'utf8');
         
+        // Обновляем сетевую конфигурацию
+        const networkStartIndex = configContent.indexOf('network: {');
+        const networkEndIndex = configContent.indexOf('},', networkStartIndex) + 1;
+        
+        if (networkStartIndex !== -1 && networkEndIndex !== -1) {
+            const beforeNetwork = configContent.substring(0, networkStartIndex);
+            const afterNetwork = configContent.substring(networkEndIndex + 1);
+            
+            const newNetworkConfig = `network: {
+        chainId: '${NETWORK_CONFIG.chainId}', // ${parseInt(NETWORK_CONFIG.chainId, 16)} в hex
+        chainName: '${NETWORK_CONFIG.name}',
+        rpcUrls: [
+            '${NETWORK_CONFIG.rpcUrls[0]}'
+        ],
+        blockExplorerUrls: ['${NETWORK_CONFIG.blockExplorerUrls[0]}'],
+        nativeCurrency: {
+            name: '${NETWORK_CONFIG.nativeCurrency.name}',
+            symbol: '${NETWORK_CONFIG.nativeCurrency.symbol}',
+            decimals: ${NETWORK_CONFIG.nativeCurrency.decimals}
+        }
+    }`;
+            
+            configContent = beforeNetwork + newNetworkConfig + ',' + afterNetwork;
+            console.log(`🌐 Обновлена конфигурация сети: ${NETWORK_CONFIG.name}`);
+        }
+        
         // Обновляем адрес контракта
         const addressRegex = /contractAddress:\s*'[^']*'/;
         configContent = configContent.replace(addressRegex, `contractAddress: '${contractAddress}'`);
@@ -185,7 +248,7 @@ function updateConfigFile(abi, contractAddress) {
         
         // Ищем и заменяем версию в console.log
         const consoleLogRegex = /console\.log\('📦 Конфигурация CryptoMessenger загружена v[\d\.]+ - \d{4}-\d{2}-\d{2} \d{2}:\d{2} \(полный ABI\)'\);/;
-        const newConsoleLog = `console.log('📦 Конфигурация CryptoMessenger загружена ${version} (полный ABI)');`;
+        const newConsoleLog = `console.log('📦 Конфигурация CryptoMessenger загружена ${version} (полный ABI, ${NETWORK_CONFIG.name})');`;
         configContent = configContent.replace(consoleLogRegex, newConsoleLog);
         
         // Записываем обновленный файл

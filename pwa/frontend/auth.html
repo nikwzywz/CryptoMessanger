@@ -305,7 +305,7 @@
         <div class="step" id="step2">
             <div class="step-title">2. Проверка сети</div>
             <div class="step-description">
-                Проверяем, что кошелек подключен к сети Base
+                Проверяем, что кошелек подключен к правильной сети
             </div>
             <button class="btn" id="checkNetworkBtn" disabled>Проверить сеть</button>
             <div class="status hidden" id="networkStatus"></div>
@@ -548,12 +548,12 @@
 
                 if (chainId === expectedChainId) {
                     completeStep('step2');
-                    showStatus('networkStatus', 'success', '✅ Подключены к сети Base');
+                    showStatus('networkStatus', 'success', `✅ Подключены к сети ${window.CryptoMessengerConfig.network.chainName}`);
                     document.getElementById('step3').classList.add('active');
                     document.getElementById('signMessageBtn').disabled = false;
                     updateProgress(40);
                 } else {
-                    showStatus('networkStatus', 'error', '❌ Неправильная сеть. Переключитесь на Base');
+                    showStatus('networkStatus', 'error', `❌ Неправильная сеть. Переключитесь на ${window.CryptoMessengerConfig.network.chainName}`);
                     showSwitchNetworkButton();
                 }
             } catch (error) {
@@ -568,7 +568,8 @@
 
         function showSwitchNetworkButton() {
             const status = document.getElementById('networkStatus');
-            status.innerHTML += '<br><button class="btn btn-danger" onclick="window.ethereum.request({method: \'wallet_switchEthereumChain\', params: [{chainId: \'0x2105\'}]})">Переключиться на Base</button>';
+            const networkConfig = window.CryptoMessengerConfig.network;
+            status.innerHTML += `<br><button class="btn btn-danger" onclick="window.ethereum.request({method: 'wallet_switchEthereumChain', params: [{chainId: '${networkConfig.chainId}'}]})">Переключиться на ${networkConfig.chainName}</button>`;
         }
 
         async function checkWalletConnection() {

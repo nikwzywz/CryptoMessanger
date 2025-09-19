@@ -38,17 +38,17 @@ deploy-base:
 .PHONY: deploy-sepolia
 deploy-sepolia:
 	@echo "Deploying to Base Sepolia..."
-	@source .env && forge script contracts/script/Deploy.s.sol --rpc-url baseSepolia --broadcast --verify --etherscan-api-key $$ETHERSCAN_API_KEY --chain 84532
+	@bash -c "source .env && forge script contracts/script/Deploy.s.sol --rpc-url baseSepolia --broadcast --verify --etherscan-api-key $$ETHERSCAN_API_KEY --chain 84532"
 
 .PHONY: deploy-polygon
 deploy-polygon:
 	@echo "Deploying to Polygon Mainnet..."
-	@source .env && forge script contracts/script/Deploy.s.sol --rpc-url polygon --broadcast --verify --etherscan-api-key $$POLYGONSCAN_API_KEY --chain 137
+	@./deploy-polygon.sh
 
 .PHONY: deploy-local
 deploy-local:
 	@echo "Deploying to local network..."
-	@source .env && forge script contracts/script/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast
+	@bash -c "source .env && forge script contracts/script/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast"
 
 # Установка зависимостей
 .PHONY: install
@@ -80,11 +80,21 @@ snapshot:
 config:
 	forge config
 
-# Обновление ABI
+# Обновление ABI и конфигурации сети
 .PHONY: update-abi
 update-abi:
-	@echo "Updating ABI from Basescan..."
-	@node pwa/scripts/update-abi.js
+	@echo "Updating ABI from Basescan (Base network)..."
+	@node pwa/scripts/update-abi.js base
+
+.PHONY: update-abi-base
+update-abi-base:
+	@echo "Updating ABI and config for Base network..."
+	@node pwa/scripts/update-abi.js base
+
+.PHONY: update-abi-polygon
+update-abi-polygon:
+	@echo "Updating ABI and config for Polygon network..."
+	@node pwa/scripts/update-abi.js polygon
 
 # Заполнение контракта тестовыми данными
 .PHONY: populate-contract
