@@ -66,6 +66,26 @@ class ChatAreaManagerV3 {
             this.setVisiblePanelInvitationCancel(false);
             console.log(`Панель отзыта скрыта для состояния ${frontendState}`);
         }
+
+        // Для notAllowedWrite проверяем, кто отправил последнее сообщение
+        if (frontendState === 'notAllowedWrite') {
+            const isLastMessageFromMe = this.isLastMessageFromCurrentUser();            
+            if (isLastMessageFromMe) {
+                // Панель 5: Я последний писал → могу отправить новое приглашение
+                this.setVisiblePanelInvitationSend(true);
+                this.setVisiblePanelNOTallowedWrite(false);
+                console.log(`Панель отправки приглашения показана (последнее сообщение от меня)`);
+            } else {
+                // Панель 6: Собеседник последний писал → только ждем
+                this.setVisiblePanelInvitationSend(false);
+                this.setVisiblePanelNOTallowedWrite(true);
+                console.log(`Панель "чат не активен" показана (последнее сообщение НЕ от меня)`);
+            }
+        } else {
+            // Для всех остальных состояний скрываем обе панели
+            this.setVisiblePanelInvitationSend(false);
+            this.setVisiblePanelNOTallowedWrite(false);
+        }
     }
 
 
@@ -486,6 +506,49 @@ class ChatAreaManagerV3 {
     }
 
     /**
+     * Панель 5: ОТПРАВКА ПРИГЛАШЕНИЯ (чат не активен)
+     * Условие показа: frontendState === 'notAllowedWrite' И последнее сообщение от меня
+     */
+    setVisiblePanelInvitationSend(visible) {
+        const panel = document.getElementById('panelInvitationSend');
+        if (panel) {
+            panel.style.display = visible ? 'block' : 'none';
+            console.log(`🎨 Панель отправки приглашения: ${visible ? 'показана' : 'скрыта'}`);
+            
+            if (visible) {
+                // Настраиваем обработчик кнопки отправки приглашения
+                const sendBtn = document.getElementById('sendInvitationToChatBtn');
+                if (sendBtn) {
+                    sendBtn.onclick = () => this.openInvitationModalForCurrentContact();
+                }
+            }
+        }
+    }
+
+    /**
+     * Открытие модального окна приглашения для текущего контакта
+     */
+    openInvitationModalForCurrentContact() {
+        const currentContact = this.appState.currentContact;
+        if (currentContact) {
+            // Используем ContactListManager для открытия модального окна с зафиксированным адресом
+            this.appState.contactListManager.openInvitationModal(currentContact.address, true);
+        }
+    }
+
+    /**
+     * Панель 6: ЧАТ НЕ АКТИВЕН (последнее сообщение не от меня)
+     * Условие показа: frontendState === 'notAllowedWrite' И последнее сообщение НЕ от меня
+     */
+    setVisiblePanelNOTallowedWrite(visible) {
+        const panel = document.getElementById('panelNOTallowedWrite');
+        if (panel) {
+            panel.style.display = visible ? 'block' : 'none';
+            console.log(`🎨 Панель "чат не активен": ${visible ? 'показана' : 'скрыта'}`);
+        }
+    }
+
+    /**
      * Панель 4: ОТЗЫВ ПРИГЛАШЕНИЯ (после таймаута)
      * Условие показа: Состояние == waitingAcceptanceFromOther И прошло более INVITATION_TIMEOUT времени
      */
@@ -518,6 +581,27 @@ class ChatAreaManagerV3 {
                 console.log(`⏰ V3: Панель отзыва приглашения - дней с момента приглашения: ${invitationDays.daysSince}`);
             }
         }
+    }
+
+    /**
+     * Проверка, является ли последнее сообщение от текущего пользователя
+     * @returns {boolean} true если последнее сообщение от меня
+     */
+    isLastMessageFromCurrentUser() {
+        if (!this.currentChatMessages || this.currentChatMessages.length === 0) {
+            return false; // Нет сообщений
+        }
+        
+        const lastMessage = this.currentChatMessages[this.currentChatMessages.length - 1];
+        const isFromMe = lastMessage.isFromMe;
+        
+        console.log(`🔍 V3: Проверка последнего сообщения:`, {
+            messIndex: lastMessage.messIndex,
+            isFromMe: isFromMe,
+            messageTimestamp: lastMessage.messageTimestamp
+        });
+        
+        return isFromMe;
     }
 
     /**

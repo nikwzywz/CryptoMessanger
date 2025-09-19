@@ -272,7 +272,7 @@ class ContactListManagerV3 {
             } else {
                 console.error(`❌ V3: Не удалось найти данные для контакта ${addressLower} в кэше`);
                 // Временное решение, чтобы избежать полной поломки
-                this.appState.setCurrentContact({ address: addressLower, name: `User ${addressLower.slice(0, 6)}` });
+                this.appState.setCurrentContact({ address: addressLower, name: `User ${Utils.smartShortenAddress(addressLower, 15)}` });
             }
             
         } catch (error) {
@@ -1199,7 +1199,13 @@ class ContactListManagerV3 {
             }
             if (this.contactsCache.has(recipientAddressLower)) {
                 const contactData = this.contactsCache.get(recipientAddressLower);
-                throw new Error(`Контакт "${contactData.name || recipientAddressLower}" уже есть в вашем списке`);
+                
+                // Проверяем состояние чата - для notAllowedWrite разрешаем повторные приглашения
+                if (contactData.frontendState === 'notAllowedWrite') {
+                    console.log(`✅ V3: Контакт "${contactData.name}" в состоянии notAllowedWrite - разрешаем повторное приглашение`);
+                } else {
+                    throw new Error(`Контакт "${contactData.name || recipientAddressLower}" уже есть в вашем списке в состоянии "${contactData.frontendState}"`);
+                }
             }
 
             console.log('🔍 V3: Получаем публичный ключ для', recipientAddressLower);

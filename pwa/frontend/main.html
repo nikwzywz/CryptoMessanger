@@ -157,6 +157,43 @@
                 </div>
             </div>
             
+            <!-- Панель 5: ОТПРАВКА ПРИГЛАШЕНИЯ (чат не активен) -->
+            <div class="panel-component" id="panelInvitationSend" style="display: none;">
+                <div class="invitation-panel-content">
+                    <div class="panel-header">
+                        <h3>🚫 Чат не активен</h3>
+                    </div>
+                    <div class="panel-body">
+                        <div class="invitation-info">
+                            <div class="invitation-message">
+                                Для начала общения необходимо отправить приглашение
+                            </div>
+                        </div>
+                        <div class="invitation-actions">
+                            <button id="sendInvitationToChatBtn" class="btn btn-primary">
+                                📤 Отправить приглашение
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Панель 6: ЧАТ НЕ АКТИВЕН (последнее сообщение не от меня) -->
+            <div class="panel-component" id="panelNOTallowedWrite" style="display: none;">
+                <div class="invitation-panel-content">
+                    <div class="panel-header">
+                        <h3>🚫 Чат не активен</h3>
+                    </div>
+                    <div class="panel-body">
+                        <div class="invitation-info">
+                            <div class="invitation-message">
+                                Вам запрещено писать в этом чате. Активировать его может только ваш собеседник.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
             <!-- Панель 4: ОТЗЫВ ПРИГЛАШЕНИЯ (после таймаута) -->
             <div class="panel-component" id="panelInvitationCancel" style="display: none;">
                 <div class="invitation-panel-content">
@@ -631,7 +668,8 @@
 
                 // Получаем данные пользователя через ContactListManager (правильная архитектура V3)
                 const userSettings = await contactListManager.getCurrentUserInfo();
-                const shortAddress = `${currentUser.slice(0, 6)}...${currentUser.slice(-4)}`;
+                // Умное сокращение адреса пользователя (в sidebar места меньше)
+                const shortAddress = Utils.smartShortenAddress(currentUser, 20);
                 const userName = userSettings.contactName || '';
 
                 // Формируем HTML в зависимости от наличия имени
@@ -1178,21 +1216,31 @@
                     
                 // V3: Получаем имя контакта из DOM элемента (используем уже найденный contactElement)
                 const contactName = contactElement ? 
-                    contactElement.querySelector('.contact-name')?.textContent || `User ${addressLower.slice(0, 6)}` :
-                    `User ${addressLower.slice(0, 6)}`;
+                    contactElement.querySelector('.contact-name')?.textContent || `User ${Utils.smartShortenAddress(addressLower, 15)}` :
+                    `User ${Utils.smartShortenAddress(addressLower, 15)}`;
                 
                 if (chatTitle) chatTitle.textContent = contactName;
                 
                 // Показываем адрес только если имя не является адресом
                 if (chatSubtitle) {
                     const isNameAnAddress = contactName.toLowerCase().includes(addressLower.slice(2, 8));
-                    chatSubtitle.textContent = isNameAnAddress ? '' : addressLower;
+                    
+                    if (isNameAnAddress) {
+                        chatSubtitle.textContent = '';
+                    } else {
+                        // Умное сокращение адреса в зависимости от ширины экрана
+                        const isMobile = window.innerWidth <= 768;
+                        const maxLength = isMobile ? 20 : 42; // На мобильных сокращаем, на десктопе показываем полностью
+                        const displayAddress = Utils.smartShortenAddress(addressLower, maxLength);
+                        chatSubtitle.textContent = displayAddress;
+                    }
                     
                     console.log(`🏷️ V3: Установлен chatSubtitle:`, {
                         contactName: contactName,
                         contactAddress: addressLower,
                         isNameAnAddress: isNameAnAddress,
-                        displayedText: addressLower
+                        isMobile: window.innerWidth <= 768,
+                        displayedText: chatSubtitle.textContent
                     });
                 }
                 

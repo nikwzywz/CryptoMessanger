@@ -109,6 +109,32 @@ class Utils {
         return `${address.slice(0, startChars)}...${address.slice(-endChars)}`;
     }
 
+    /**
+     * Умное сокращение адреса в зависимости от доступного места
+     * @param {string} address - Полный адрес
+     * @param {number} maxLength - Максимальная длина для отображения
+     * @returns {string} Сокращенный адрес или полный если места достаточно
+     */
+    static smartShortenAddress(address, maxLength) {
+        if (!address) return '';
+        
+        // Если адрес помещается полностью, возвращаем как есть
+        if (address.length <= maxLength) {
+            return address;
+        }
+        
+        // Если места очень мало, используем стандартное сокращение
+        if (maxLength < 20) {
+            return this.shortenAddress(address, 6, 4);
+        }
+        
+        // Умное сокращение: оставляем начало и конец, убираем середину
+        const prefixLength = Math.floor((maxLength - 3) / 2); // -3 для "..."
+        const suffixLength = maxLength - 3 - prefixLength;
+        
+        return `${address.slice(0, prefixLength)}...${address.slice(-suffixLength)}`;
+    }
+
     //================================================================================
     // 🆕 ФУНКЦИИ ЧАТОВ И СТАТУСОВ (перенесено из менеджеров)
     //================================================================================
