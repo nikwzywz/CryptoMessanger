@@ -233,8 +233,11 @@ class ChatAreaManagerV3 {
             this.addMessageToUI(msg);
         });
         
-        // Прокручиваем вниз
-        this.scrollToBottom();
+        // Прокручиваем вниз (с небольшой задержкой для корректного рендеринга DOM)
+        setTimeout(() => {
+            this.scrollToBottom();
+            console.log(`📜 V3: Выполнена автопрокрутка к последнему сообщению`);
+        }, 50);
         
         console.log(`✅ V3: Отображено ${this.currentChatMessages.length} сообщений`);
     }

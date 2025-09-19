@@ -793,14 +793,7 @@
                         console.warn('⚠️ chatUIManager не инициализирован');
                     }
                     
-                    // На мобильных устройствах переключаем на чат
-                    if (window.innerWidth <= 768) {
-                        document.getElementById('appContainer').classList.add('mobile-chat');
-                        
-                        // Добавляем состояние чата в историю для поддержки кнопки "назад"
-                        const contactName = this.querySelector('.contact-name').textContent;
-                        history.pushState({page: 'chat', contact: contactAddress, name: contactName}, `Чат с ${contactName}`, `#chat/${contactAddress}`);
-                    }
+                    // 📱 МОБИЛЬНАЯ ЛОГИКА ПЕРЕНЕСЕНА В selectContact() для избежания дублирования
                 });
             });
         }
@@ -1248,6 +1241,34 @@
                 appState.setCurrentContact({ address: addressLower, name: contactName });
                 if (chatUIManager) {
                     await chatUIManager.openChat(addressLower);
+                }
+
+                // 📱 МОБИЛЬНАЯ АДАПТИВНОСТЬ: Переключаем на ChatArea если экран узкий
+                if (window.innerWidth <= 768) {
+                    const appContainer = document.getElementById('appContainer');
+                    if (appContainer) {
+                        console.log('📱 V3: ДИАГНОСТИКА мобильного режима:', {
+                            windowWidth: window.innerWidth,
+                            isMobile: window.innerWidth <= 768,
+                            appContainer: !!appContainer,
+                            currentClasses: appContainer.className
+                        });
+                        
+                        appContainer.classList.add('mobile-chat');
+                        console.log('📱 V3: Переключено на мобильный режим чата');
+                        console.log('📱 V3: Новые классы:', appContainer.className);
+                        
+                        // Добавляем состояние чата в историю для поддержки кнопки "назад"
+                        history.pushState({
+                            page: 'chat', 
+                            contact: addressLower, 
+                            name: contactName
+                        }, `Чат с ${contactName}`, `#chat/${addressLower}`);
+                    } else {
+                        console.error('❌ V3: appContainer не найден для мобильного режима!');
+                    }
+                } else {
+                    console.log('💻 V3: Десктоп режим - мобильное переключение не требуется');
                 }
 
                 console.log('✅ Чат открыт с контактом:', addressLower);
