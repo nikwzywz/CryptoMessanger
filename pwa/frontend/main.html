@@ -51,7 +51,7 @@
                 <div class="search-box">
                     <input type="text" class="search-input" placeholder="Поиск контактов..." id="searchInput">
                 </div>
-                <div class="invitation-actions" style="margin-top: 10px;">
+                <div class="invitation-actions" style="margin-top: 7px;">
                     <button class="btn btn-danger" id="clearCacheBtn" style="width: 100%; font-size: 11px; padding: 6px; display: none;">
                         🗑️ Очистить кэш
                     </button>
@@ -196,23 +196,23 @@
 
     <!-- Модальное окно редактирования имени пользователя -->
     <div class="modal" id="editNameModal" style="display: none;">
-        <div class="modal-content" style="max-width: 400px;">
+        <div class="modal-content">
             <div class="modal-header">
                 <h3>✏️ Редактирование имени</h3>
-                <button class="modal-close" onclick="closeEditNameModal()">&times;</button>
+                <span class="close" id="closeEditNameModal">&times;</span>
             </div>
             <div class="modal-body">
                 <div class="form-group">
                     <label for="editNameInput">Ваше имя:</label>
-                    <input type="text" id="editNameInput" placeholder="Введите ваше имя" maxlength="40" style="width: 100%; padding: 12px; margin-top: 8px; background: #2a2a2a; border: 1px solid #444; border-radius: 8px; color: #fff;">
+                    <input type="text" id="editNameInput" class="form-input" placeholder="Введите ваше имя" maxlength="40">
                 </div>
-                <div style="margin-top: 8px; font-size: 12px; color: #888;">
+                <div class="form-hint">
                     Максимум 40 символов. Это имя будут видеть ваши контакты.
                 </div>
             </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeEditNameModal()">Отмена</button>
+            <div class="modal-actions">
                 <button class="btn btn-primary" onclick="saveUserName()">Сохранить</button>
+                <button class="btn btn-secondary" onclick="closeEditNameModal()">Отмена</button>
             </div>
         </div>
     </div>
@@ -1027,6 +1027,9 @@
             // Закрытие модального окна отправки приглашения
             document.getElementById('closeModal').addEventListener('click', () => contactListManager.closeInvitationModal());
             document.getElementById('cancelInvitationModalBtn').addEventListener('click', () => contactListManager.closeInvitationModal());
+            
+            // Закрытие модального окна редактирования имени
+            document.getElementById('closeEditNameModal').addEventListener('click', () => closeEditNameModal());
 
             // Подтверждение отправки приглашения
             document.getElementById('confirmInvitationBtn').addEventListener('click', async () => {
@@ -1075,25 +1078,38 @@
             // Кнопки в панели приглашений в чате - обработчики настраиваются в компонентных функциях
             // Удалены устаревшие обработчики для acceptInvitationChatBtn, rejectInvitationChatBtn, createInvitationBtn
 
-            // Закрытие модального окна при клике вне него
+            // Закрытие модальных окон при клике вне них
             window.addEventListener('click', (e) => {
                 const invitationModal = document.getElementById('invitationModal');
+                const editNameModal = document.getElementById('editNameModal');
                 
                 if (e.target === invitationModal) {
                     contactListManager.closeInvitationModal();
                 }
+                
+                if (e.target === editNameModal) {
+                    closeEditNameModal();
+                }
             });
 
-            // Закрытие модального окна по клавише Esc
+            // Закрытие модальных окон по клавише Esc
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') {
                     const invitationModal = document.getElementById('invitationModal');
+                    const editNameModal = document.getElementById('editNameModal');
                     
-                    // Проверяем, открыто ли модальное окно
+                    // Проверяем, открыто ли модальное окно приглашения
                     if (invitationModal && invitationModal.style.display !== 'none') {
                         e.preventDefault();
                         contactListManager.closeInvitationModal();
-                        console.log('⌨️ V3: Модальное окно закрыто по клавише Esc');
+                        console.log('⌨️ V3: Модальное окно приглашения закрыто по клавише Esc');
+                    }
+                    
+                    // Проверяем, открыто ли модальное окно редактирования имени
+                    if (editNameModal && editNameModal.style.display !== 'none') {
+                        e.preventDefault();
+                        closeEditNameModal();
+                        console.log('⌨️ V3: Модальное окно редактирования имени закрыто по клавише Esc');
                     }
                 }
             });
