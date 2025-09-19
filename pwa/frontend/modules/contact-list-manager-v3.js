@@ -103,7 +103,7 @@ class ContactListManagerV3 {
     }
 
     /**
-     * Отрисовка всех контактов из модели данных в UI
+     * 🆕 РЕФАКТОРИНГ: Отрисовка всех контактов из модели данных в UI
      * ✅ ПУНКТ 10: Полная синхронизация DOM с моделью (Model → View)
      */
     renderContactsFromModel() {
@@ -122,16 +122,24 @@ class ContactListManagerV3 {
 
         console.log(`📋 V3: Найдено ${sortedContacts.length} контактов в модели для отрисовки`);
 
-        // 1️⃣ Создаем новые элементы (если нужно)
+        // 🆕 РЕФАКТОРИНГ: Используем единую функцию renderContactCard для всех контактов
         sortedContacts.forEach(contact => {
             const existingElement = contactsList.querySelector(`[data-address="${contact.address}"]`);
-            if (!existingElement) {
+            const createNew = !existingElement;
+            
+            if (createNew) {
                 console.log(`🎨 V3: Создаем DOM элемент для контакта ${contact.address}`);
-                this.createContactElement(contact.address, contact.name);
             }
             
-            // Обновляем UI элемента контакта (данные могли измениться)
-            this.renderContactElementUI(contact.address, contact);
+            // Полная отрисовка карточки в одной функции
+            this.renderContactCard(
+                contact.address,
+                contact.name,
+                contact.frontendState,
+                contact.unreadCount,
+                contact.lastMessageText,
+                createNew
+            );
         });
 
         // 2️⃣ Синхронизируем порядок DOM с orderIndex из модели
@@ -160,8 +168,8 @@ class ContactListManagerV3 {
                 continue;
             }
 
-            // Передаем в DOM lowercase адрес
-            this.createContactElement(addressLower, name, lastMessageTimestamp);
+            // 🆕 РЕФАКТОРИНГ: Используем renderContactCard для создания
+            this.renderContactCard(addressLower, name, 'unknown', 0, '', true);
             newContactsAdded = true;
 
             // Определяем orderIndex до добавления в кэш
@@ -198,7 +206,160 @@ class ContactListManagerV3 {
     }
 
     /**
-     * Создание DOM элемента контакта
+     * 🆕 РЕФАКТОРИНГ: Полная отрисовка карточки контакта (все в одном месте)
+     * @param {string} address - Адрес контакта
+     * @param {string} name - Имя контакта  
+     * @param {string} frontendState - Состояние чата
+     * @param {number} unreadCount - Количество непрочитанных сообщений
+     * @param {string} lastMessageText - Текст последнего сообщения
+     * @param {boolean} createNew - Создавать новый элемент или обновлять существующий
+     */
+    renderContactCard(address, name, frontendState = 'unknown', unreadCount = 0, lastMessageText = '', createNew = false) {
+        const addressLower = address.toLowerCase();
+        const contactsList = document.getElementById('contactsList');
+        
+        // Ищем существующий элемент
+        let contactElement = document.querySelector(`[data-address="${addressLower}"]`);
+        
+        // Создаем новый элемент если нужно
+        if (!contactElement || createNew) {
+            if (contactElement) {
+                contactElement.remove(); // Удаляем старый если пересоздаем
+            }
+            
+            contactElement = document.createElement('div');
+            contactElement.className = 'contact-item';
+            contactElement.setAttribute('data-address', addressLower);
+            contactElement.setAttribute('data-name', name);
+            
+            // Базовая HTML структура
+            contactElement.innerHTML = `
+                <div class="contact-avatar">
+                    <span class="contact-initial">${name.charAt(0).toUpperCase()}</span>
+                </div>
+                <div class="contact-info">
+                    <div class="contact-name">${name}</div>
+                    <div class="contact-last-message">
+                        ${lastMessageText || 'Нет сообщений'}
+                    </div>
+                    ${window.CryptoMessengerConfig.debugMode ? `
+                    <div class="contact-debug-info" style="font-size: 10px; color: #666; margin-top: 2px;">
+                        <div>📍 ${addressLower}</div>
+                        <div>🕒 <span class="debug-time">-</span></div>
+                        <div>📊 State: <span class="debug-state">${frontendState}</span></div>
+                        <div>📋 Order: <span class="debug-order">-1</span></div>
+                    </div>
+                    ` : ''}
+                </div>
+                <div class="contact-status-area">
+                    <!-- Здесь будет иконка состояния ИЛИ счетчик -->
+                </div>
+            `;
+            
+            // Добавляем обработчик клика
+            contactElement.addEventListener('click', () => {
+                this.selectContact(addressLower, name);
+            });
+            
+            contactsList.appendChild(contactElement);
+        }
+        
+        // Обновляем содержимое карточки
+        this.updateContactCardContent(contactElement, name, frontendState, unreadCount, lastMessageText);
+        
+        return contactElement;
+    }
+
+    /**
+     * Обновление содержимого карточки контакта
+     */
+    updateContactCardContent(contactElement, name, frontendState, unreadCount, lastMessageText) {
+        // Обновляем имя
+        const nameElement = contactElement.querySelector('.contact-name');
+        if (nameElement) nameElement.textContent = name;
+        
+        // Обновляем последнее сообщение
+        const lastMessageElement = contactElement.querySelector('.contact-last-message');
+        if (lastMessageElement) {
+            const displayText = lastMessageText || 'Нет сообщений';
+            const shortText = displayText.length > 40 ? displayText.substring(0, 40) + '...' : displayText;
+            lastMessageElement.textContent = shortText;
+            lastMessageElement.title = displayText;
+        }
+        
+        // Обновляем debug информацию
+        if (window.CryptoMessengerConfig.debugMode) {
+            const debugState = contactElement.querySelector('.debug-state');
+            if (debugState) debugState.textContent = frontendState;
+        }
+        
+        // Обновляем область статуса (иконка ИЛИ счетчик)
+        this.updateContactStatusArea(contactElement, frontendState, unreadCount);
+    }
+
+    /**
+     * Обновление области статуса контакта (иконка ИЛИ счетчик)
+     */
+    updateContactStatusArea(contactElement, frontendState, unreadCount) {
+        const statusArea = contactElement.querySelector('.contact-status-area');
+        if (!statusArea) return;
+        
+        // Очищаем область
+        statusArea.innerHTML = '';
+        
+        // Логика отображения по состояниям
+        if (frontendState === 'allowedWrite' && unreadCount > 0) {
+            // Показываем зеленый счетчик
+            const badge = document.createElement('div');
+            badge.className = 'unread-count';
+            badge.textContent = unreadCount > 99 ? '99+' : unreadCount.toString();
+            statusArea.appendChild(badge);
+            
+        } else {
+            // Показываем иконку состояния (если есть)
+            const statusIcon = this.getStatusIcon(frontendState, unreadCount);
+            if (statusIcon) {
+                const iconElement = document.createElement('div');
+                iconElement.className = `contact-status ${this.getStatusClass(frontendState)}`;
+                iconElement.innerHTML = statusIcon;
+                statusArea.appendChild(iconElement);
+            }
+        }
+    }
+
+    /**
+     * Получение иконки для состояния чата
+     */
+    getStatusIcon(frontendState, unreadCount) {
+        switch (frontendState) {
+            case 'allowedWrite':
+                return unreadCount > 0 ? '' : '💬'; // Пустая если есть непрочитанные
+            case 'notAllowedWrite':
+                return '🚫';
+            case 'waitingAcceptanceFromMe':
+                return '📥';
+            case 'waitingAcceptanceFromOther':
+                return '⏳';
+            default:
+                return '❓';
+        }
+    }
+
+    /**
+     * Получение CSS класса для состояния
+     */
+    getStatusClass(frontendState) {
+        switch (frontendState) {
+            case 'allowedWrite': return 'active';
+            case 'notAllowedWrite': return 'blocked';
+            case 'waitingAcceptanceFromMe': return 'incoming-request';
+            case 'waitingAcceptanceFromOther': return 'outgoing-request';
+            default: return 'unknown';
+        }
+    }
+
+    /**
+     * УСТАРЕВШАЯ: Создание DOM элемента контакта (заменена на renderContactCard)
      */
     createContactElement(address, name) {
         const contactsList = document.getElementById('contactsList');
@@ -282,7 +443,7 @@ class ContactListManagerV3 {
     }
 
     /**
-     * Отрисовка иконки состояния чата (НЕ изменяет данные модели)
+     * 🆕 РЕФАКТОРИНГ: Отрисовка иконки состояния (теперь через renderContactCard)
      */
     renderChatStateIcon(chatID, frontendState) {
         console.log(`🎨 V3: Отрисовываем иконку состояния чата:`, {
@@ -290,54 +451,29 @@ class ContactListManagerV3 {
             frontendState: frontendState
         });
         
-        // Находим соответствующий элемент контакта
+        // Находим соответствующий контакт
         const contactAddress = this.findContactByChartID(chatID);
         if (!contactAddress) {
             console.warn('⚠️ V3: Не найден контакт для chatID:', chatID.substring(0, 8));
             return;
         }
         
-        const statusElement = document.getElementById(`status-${contactAddress}`);
-        if (!statusElement) {
-            console.warn('⚠️ V3: Не найден элемент статуса для контакта:', contactAddress);
-            return;
-        }
-        
-        // Обновляем иконку в зависимости от состояния
-        switch (frontendState) {
-            case 'allowedWrite':
-                // Для allowedWrite: показываем 💬 только если НЕТ непрочитанных (счетчик приоритетнее)
-                const contactData = this.contactsCache.get(contactAddress);
-                const hasUnreadMessages = contactData && contactData.unreadCount > 0;
-                
-                statusElement.innerHTML = hasUnreadMessages ? '' : '💬'; // Пустая иконка если есть непрочитанные
-                statusElement.className = 'contact-status active';
-                break;
-                
-            case 'notAllowedWrite':
-                // Для неактивных состояний: ВСЕГДА показываем иконку (счетчики не показываем)
-                statusElement.innerHTML = '🚫'; // Заблокированный
-                statusElement.className = 'contact-status blocked';
-                break;
-                
-            case 'waitingAcceptanceFromMe':
-                statusElement.innerHTML = '📥'; // Входящее приглашение - ВСЕГДА показываем
-                statusElement.className = 'contact-status incoming-request';
-                break;
-                
-            case 'waitingAcceptanceFromOther':
-                statusElement.innerHTML = '⏳'; // Ожидание принятия - ВСЕГДА показываем
-                statusElement.className = 'contact-status outgoing-request';
-                break;
-                
-            default:
-                statusElement.innerHTML = '❓';
-                statusElement.className = 'contact-status unknown';
+        // 🆕 РЕФАКТОРИНГ: Используем renderContactCard для обновления
+        const contactData = this.contactsCache.get(contactAddress);
+        if (contactData) {
+            this.renderContactCard(
+                contactAddress,
+                contactData.name,
+                frontendState, // Обновленное состояние
+                contactData.unreadCount,
+                contactData.lastMessageText,
+                false // Только обновить
+            );
         }
     }
 
     /**
-     * Обновление иконки состояния чата (может изменять данные модели)
+     * 🆕 РЕФАКТОРИНГ: Обновление иконки состояния (теперь через renderContactCard)
      */
     updateChatStateIcon(chatID, frontendState) {
         console.log(`🔄 V3: Обновляем иконку состояния чата:`, {
@@ -345,51 +481,27 @@ class ContactListManagerV3 {
             frontendState: frontendState
         });
         
-        // ✅ ИСПРАВЛЕНИЕ ЦИКЛА: НЕ вызываем setChatState(), так как состояние уже обновлено в модели
-        
-        // Находим соответствующий элемент контакта
+        // Находим соответствующий контакт
         const contactAddress = this.findContactByChartID(chatID);
         if (!contactAddress) {
             console.warn('⚠️ V3: Не найден контакт для chatID:', chatID.substring(0, 8));
             return;
         }
         
-        const statusElement = document.getElementById(`status-${contactAddress}`);
-        if (!statusElement) {
-            console.warn('⚠️ V3: Не найден элемент статуса для контакта:', contactAddress);
-            return;
-        }
-        
-        // Обновляем иконку в зависимости от состояния
-        switch (frontendState) {
-            case 'allowedWrite':
-                // Для allowedWrite: показываем 💬 только если НЕТ непрочитанных (счетчик приоритетнее)
-                const contactData = this.contactsCache.get(contactAddress);
-                const hasUnreadMessages = contactData && contactData.unreadCount > 0;
-                
-                statusElement.innerHTML = hasUnreadMessages ? '' : '💬'; // Пустая иконка если есть непрочитанные
-                statusElement.className = 'contact-status active';
-                break;
-                
-            case 'notAllowedWrite':
-                // Для неактивных состояний: ВСЕГДА показываем иконку (счетчики не показываем)
-                statusElement.innerHTML = '🚫'; // Заблокированный
-                statusElement.className = 'contact-status blocked';
-                break;
-                
-            case 'waitingAcceptanceFromMe':
-                statusElement.innerHTML = '📥'; // Входящее приглашение - ВСЕГДА показываем
-                statusElement.className = 'contact-status incoming-request';
-                break;
-                
-            case 'waitingAcceptanceFromOther':
-                statusElement.innerHTML = '⏳'; // Ожидание принятия - ВСЕГДА показываем
-                statusElement.className = 'contact-status outgoing-request';
-                break;
-                
-            default:
-                statusElement.innerHTML = '❓';
-                statusElement.className = 'contact-status unknown';
+        // 🆕 РЕФАКТОРИНГ: Используем renderContactCard для обновления
+        const contactData = this.contactsCache.get(contactAddress);
+        if (contactData) {
+            // Обновляем состояние в модели
+            contactData.frontendState = frontendState;
+            
+            this.renderContactCard(
+                contactAddress,
+                contactData.name,
+                frontendState, // Обновленное состояние
+                contactData.unreadCount,
+                contactData.lastMessageText,
+                false // Только обновить
+            );
         }
     }
 
@@ -565,7 +677,7 @@ class ContactListManagerV3 {
     }
 
     /**
-     * Обновление UI элемента контакта (может изменять данные модели)
+     * 🆕 РЕФАКТОРИНГ: Обновление UI элемента контакта (упрощено)
      */
     updateContactElementUI(address, contactData) {
         console.log(`🎨 V3: updateContactElementUI начат для ${address}:`, {
@@ -574,66 +686,15 @@ class ContactListManagerV3 {
             lastMessageText: contactData.lastMessageText?.substring(0, 30)
         });
         
-        // Ищем элемент по lowercase адресу (консистентно с data-address)
-        const contactElement = document.querySelector(`[data-address="${address.toLowerCase()}"]`);
-        if (!contactElement) {
-            // Диагностика: показываем все существующие data-address
-            const allElements = document.querySelectorAll('[data-address]');
-            const existingAddresses = Array.from(allElements).map(el => el.getAttribute('data-address'));
-            
-            console.warn(`⚠️ V3: DOM элемент для ${address} не найден в updateContactElementUI`);
-            console.warn(`🔍 V3: Существующие data-address в DOM:`, existingAddresses);
-            console.warn(`🔍 V3: Искали адрес (lower):`, address.toLowerCase());
-            return;
-        }
-
-        // Обновляем последнее сообщение
-        const lastMessageElement = contactElement.querySelector('.contact-last-message');
-        if (lastMessageElement) {
-            console.log(`🎨 V3: Обновляем UI lastMessage для ${address}:`, {
-                hasLastMessageText: !!contactData.lastMessageText,
-                lastMessageText: contactData.lastMessageText?.substring(0, 30) + '...',
-                frontendState: contactData.frontendState
-            });
-            
-            // Показываем текст последнего сообщения (если есть)
-            const displayText = contactData.lastMessageText || '';
-            
-            // Ограничиваем длину текста для отображения
-            const shortText = displayText.length > 40 ? 
-                displayText.substring(0, 40) + '...' : 
-                displayText;
-            
-            lastMessageElement.textContent = shortText;
-            lastMessageElement.title = displayText; // Полный текст в tooltip
-            console.log(`✅ V3: UI обновлен для ${address}: "${shortText}"`);
-        }
-
-        // 🆕 Обновляем отладочную информацию если включен debugMode
-        if (window.CryptoMessengerConfig.debugMode) {
-            const debugTimeElement = contactElement.querySelector(`#debugTime-${address.toLowerCase()}`);
-            const debugStateElement = contactElement.querySelector(`#debugState-${address.toLowerCase()}`);
-            const debugOrderElement = contactElement.querySelector(`#debugOrder-${address.toLowerCase()}`);
-            
-            if (debugTimeElement) {
-                debugTimeElement.textContent = contactData.lastMessageTime ? 
-                    Utils.formatTimeDebug(new Date(contactData.lastMessageTime)) : '-';
-            }
-            
-            if (debugStateElement) {
-                debugStateElement.textContent = contactData.frontendState || 'unknown';
-            }
-            
-            if (debugOrderElement) {
-                debugOrderElement.textContent = contactData.orderIndex !== undefined ? contactData.orderIndex : '-1';
-            }
-        }
-
-        // Обновляем иконку состояния
-        this.updateChatStateIcon(contactData.chatID, contactData.frontendState);
-        
-        // Обновляем бейдж с количеством непрочитанных сообщений
-        this.updateUnreadBadge(address, contactData.unreadCount);
+        // 🆕 РЕФАКТОРИНГ: Используем единую функцию renderContactCard
+        this.renderContactCard(
+            address,
+            contactData.name,
+            contactData.frontendState,
+            contactData.unreadCount,
+            contactData.lastMessageText,
+            false // Не создавать новый, только обновить
+        );
         
         // Двухэтапное обновление позиций: сначала модель, потом DOM
         console.log(`🔄 V3: Запускаем двухэтапное обновление позиций для ${address}`);
@@ -642,41 +703,22 @@ class ContactListManagerV3 {
     }
 
     /**
-     * Обновление бейджа с количеством непрочитанных сообщений
+     * 🆕 РЕФАКТОРИНГ: Обновление бейджа (теперь через renderContactCard)
      */
     updateUnreadBadge(address, unreadCount) {
-        const contactElement = document.querySelector(`[data-address="${address}"]`);
-        if (!contactElement) return;
-
-        // Получаем состояние чата для проверки
-        const contactData = this.contactsCache.get(address);
-        const frontendState = contactData ? contactData.frontendState : 'unknown';
-        
-        let unreadBadge = contactElement.querySelector('.unread-count');
-        
-        // Показываем счетчик только для allowedWrite чатов
-        if (unreadCount > 0 && frontendState === 'allowedWrite') {
-            // Создаем бейдж если его нет
-            if (!unreadBadge) {
-                unreadBadge = document.createElement('div');
-                unreadBadge.className = 'unread-count';
-                contactElement.appendChild(unreadBadge);
-            }
+        // 🆕 РЕФАКТОРИНГ: Используем renderContactCard для обновления
+        const contactData = this.contactsCache.get(address.toLowerCase());
+        if (contactData) {
+            this.renderContactCard(
+                address,
+                contactData.name,
+                contactData.frontendState,
+                unreadCount, // Обновленный счетчик
+                contactData.lastMessageText,
+                false // Только обновить, не создавать новый
+            );
             
-            // Обновляем текст и показываем
-            unreadBadge.textContent = unreadCount > 99 ? '99+' : unreadCount.toString();
-            unreadBadge.style.display = 'block';
-            
-            console.log(`🔔 V3: Показан бейдж непрочитанных для ${address}: ${unreadCount} (состояние: ${frontendState})`);
-        } else {
-            // Скрываем бейдж если нет непрочитанных ИЛИ чат не в состоянии allowedWrite
-            if (unreadBadge) {
-                unreadBadge.style.display = 'none';
-            }
-            
-            if (unreadCount > 0 && frontendState !== 'allowedWrite') {
-                console.log(`🚫 V3: Счетчик скрыт для ${address}: ${unreadCount} непрочитанных, но состояние ${frontendState}`);
-            }
+            console.log(`🔔 V3: Обновлен бейдж через renderContactCard для ${address}: ${unreadCount}`);
         }
     }
 

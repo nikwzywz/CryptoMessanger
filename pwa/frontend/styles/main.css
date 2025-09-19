@@ -218,11 +218,9 @@ body {
    СЧЕТЧИКИ НЕПРОЧИТАННЫХ СООБЩЕНИЙ
    ============================================== */
 
-/* Универсальный стиль для всех счетчиков */
+/* Универсальный стиль для всех счетчиков (внутри contact-status-area) */
 .unread-count, .contact-badge {
-    position: absolute;
-    top: 8px;
-    right: 12px;
+    position: relative; /* Изменено с absolute на relative - позиционируется внутри .contact-status-area */
     background: #28a745; /* Зеленый цвет для всех счетчиков */
     color: white;
     border-radius: 12px;
@@ -235,7 +233,6 @@ body {
     align-items: center;
     justify-content: center;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-    z-index: 10;
     line-height: 1;
     white-space: nowrap;
     padding-top: 4px; /* Сдвигаем текст на 2px ниже для лучшего центрирования */
@@ -256,30 +253,31 @@ body {
     padding-top: 5px; /* Центрирование для овальных бейджей */
 }
 
-/* Иконки состояния чата - позиционируются в том же месте, что и счетчики */
-.contact-status {
+/* ==============================================
+   ОБЛАСТЬ СТАТУСА КОНТАКТА (РЕФАКТОРИНГ)
+   ============================================== */
+
+/* Контейнер для иконки состояния ИЛИ счетчика */
+.contact-status-area {
     position: absolute;
     top: 8px;
     right: 12px;
+    width: 20px;
+    height: 20px;
+    z-index: 10;
+}
+
+/* Иконки состояния чата (без фона) */
+.contact-status {
     width: 20px;
     height: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 14px;
-    z-index: 9; /* Ниже счетчиков, чтобы счетчики перекрывали иконки */
     border-radius: 50%;
-    padding-top: 2px; /* Такое же центрирование, как у счетчиков */
-}
-
-/* Фон только для иконок с содержимым (не для пустых) */
-.contact-status:not(:empty) {
-    background: rgba(42, 42, 42, 0.8); /* Полупрозрачный фон только если есть иконка */
-}
-
-/* Скрываем иконку состояния когда показывается счетчик */
-.contact-item:has(.unread-count[style*="block"]) .contact-status {
-    display: none;
+    padding-top: 2px; /* Центрирование как у счетчиков */
+    /* Убран background - иконки без серого кружочка */
 }
 
 /* Список контактов */
