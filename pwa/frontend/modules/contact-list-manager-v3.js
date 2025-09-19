@@ -339,7 +339,8 @@ class ContactListManagerV3 {
     getStatusIcon(frontendState, unreadCount) {
         switch (frontendState) {
             case 'allowedWrite':
-                return unreadCount > 0 ? '' : '💬'; // Пустая если есть непрочитанные
+                return ''; // Всегда пустая - счетчик или ничего
+                // return unreadCount > 0 ? '' : '💬'; // старый код
             case 'notAllowedWrite':
                 return '🚫';
             case 'waitingAcceptanceFromMe':

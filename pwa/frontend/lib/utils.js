@@ -137,6 +137,61 @@ class Utils {
     }
 
     /**
+     * Тестовая функция для демонстрации форматирования времени сообщений
+     */
+    static testMessageTimeFormatting() {
+        const now = new Date();
+        console.log('🕒 Тестирование простого форматирования времени сообщений:');
+        
+        // Сегодня
+        const today = new Date(now.getTime() - 2 * 60 * 60 * 1000); // 2 часа назад
+        console.log(`📅 Сегодня (2 часа назад): "${this.formatMessageTime(today)}"`);
+        
+        // Вчера
+        const yesterday = new Date(now.getTime() - 25 * 60 * 60 * 1000); // 25 часов назад
+        console.log(`📅 Вчера: "${this.formatMessageTime(yesterday)}"`);
+        
+        // Неделю назад
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        console.log(`📅 Неделю назад: "${this.formatMessageTime(weekAgo)}"`);
+        
+        // Месяц назад
+        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        console.log(`📅 Месяц назад: "${this.formatMessageTime(monthAgo)}"`);
+        
+        console.log('ℹ️ Логика: сегодня = только время, остальное = дата+время');
+    }
+
+    /**
+     * Тестирование форматирования времени в разных локалях
+     */
+    static testMessageTimeInDifferentLocales() {
+        const now = new Date();
+        const today = new Date(now.getTime() - 2 * 60 * 60 * 1000); // 2 часа назад
+        const yesterday = new Date(now.getTime() - 25 * 60 * 60 * 1000); // вчера
+        
+        console.log('🌍 Тестирование в разных локалях:');
+        
+        // Русская локаль
+        console.log('🇷🇺 Русская локаль (ru-RU):');
+        console.log(`   Сегодня: "${today.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}"`);
+        console.log(`   Вчера: "${yesterday.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}"`);
+        
+        // Американская локаль
+        console.log('🇺🇸 Американская локаль (en-US):');
+        console.log(`   Сегодня: "${today.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}"`);
+        console.log(`   Вчера: "${yesterday.toLocaleString('en-US', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}"`);
+        
+        // Автоматическая локаль (браузера)
+        console.log('🌐 Автоматическая локаль браузера ([]):');
+        console.log(`   Сегодня: "${today.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}"`);
+        console.log(`   Вчера: "${yesterday.toLocaleString([], { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}"`);
+        
+        // Показываем текущую локаль браузера
+        console.log(`🔍 Текущая локаль браузера: ${Intl.DateTimeFormat().resolvedOptions().locale}`);
+    }
+
+    /**
      * Сокращение длинного адреса для отображения
      * @param {string} address - Полный адрес
      * @param {number} startChars - Количество символов в начале (по умолчанию 6)
@@ -174,6 +229,36 @@ class Utils {
         const suffixLength = maxLength - 3 - prefixLength;
         
         return `${address.slice(0, prefixLength)}...${address.slice(-suffixLength)}`;
+    }
+
+    /**
+     * Простое форматирование времени сообщения
+     * @param {Date} timestamp - Время сообщения
+     * @returns {string} Отформатированное время
+     */
+    static formatMessageTime(timestamp) {
+        const now = new Date();
+        const messageDate = new Date(timestamp);
+        
+        // Проверяем, сегодня ли сообщение (сравниваем даты)
+        const isToday = now.toDateString() === messageDate.toDateString();
+        
+        if (isToday) {
+            // Сегодня - показываем только время (используем локальные настройки пользователя)
+            return messageDate.toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        } else {
+            // Не сегодня - показываем дату + время (используем локальные настройки пользователя)
+            return messageDate.toLocaleString([], {
+                day: '2-digit',
+                month: '2-digit',
+                year: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
     }
 
     /**
@@ -289,10 +374,7 @@ class Utils {
         
         const messageTime = document.createElement('div');
         messageTime.className = 'message-time';
-        messageTime.textContent = timestamp.toLocaleTimeString('ru-RU', {
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+        messageTime.textContent = this.formatMessageTime(timestamp);
         
         messageDiv.appendChild(messageContent);
         messageDiv.appendChild(messageTime);
