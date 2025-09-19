@@ -306,22 +306,27 @@ class ContactListManagerV3 {
         // Обновляем иконку в зависимости от состояния
         switch (frontendState) {
             case 'allowedWrite':
-                statusElement.innerHTML = '💬'; // Обычный чат
+                // Для allowedWrite: показываем 💬 только если НЕТ непрочитанных (счетчик приоритетнее)
+                const contactData = this.contactsCache.get(contactAddress);
+                const hasUnreadMessages = contactData && contactData.unreadCount > 0;
+                
+                statusElement.innerHTML = hasUnreadMessages ? '' : '💬'; // Пустая иконка если есть непрочитанные
                 statusElement.className = 'contact-status active';
                 break;
                 
             case 'notAllowedWrite':
+                // Для неактивных состояний: ВСЕГДА показываем иконку (счетчики не показываем)
                 statusElement.innerHTML = '🚫'; // Заблокированный
                 statusElement.className = 'contact-status blocked';
                 break;
                 
             case 'waitingAcceptanceFromMe':
-                statusElement.innerHTML = '📥'; // Входящее приглашение
+                statusElement.innerHTML = '📥'; // Входящее приглашение - ВСЕГДА показываем
                 statusElement.className = 'contact-status incoming-request';
                 break;
                 
             case 'waitingAcceptanceFromOther':
-                statusElement.innerHTML = '⏳'; // Ожидание принятия
+                statusElement.innerHTML = '⏳'; // Ожидание принятия - ВСЕГДА показываем
                 statusElement.className = 'contact-status outgoing-request';
                 break;
                 
@@ -358,22 +363,27 @@ class ContactListManagerV3 {
         // Обновляем иконку в зависимости от состояния
         switch (frontendState) {
             case 'allowedWrite':
-                statusElement.innerHTML = '💬'; // Обычный чат
+                // Для allowedWrite: показываем 💬 только если НЕТ непрочитанных (счетчик приоритетнее)
+                const contactData = this.contactsCache.get(contactAddress);
+                const hasUnreadMessages = contactData && contactData.unreadCount > 0;
+                
+                statusElement.innerHTML = hasUnreadMessages ? '' : '💬'; // Пустая иконка если есть непрочитанные
                 statusElement.className = 'contact-status active';
                 break;
                 
             case 'notAllowedWrite':
+                // Для неактивных состояний: ВСЕГДА показываем иконку (счетчики не показываем)
                 statusElement.innerHTML = '🚫'; // Заблокированный
                 statusElement.className = 'contact-status blocked';
                 break;
                 
             case 'waitingAcceptanceFromMe':
-                statusElement.innerHTML = '📥'; // Входящее приглашение
+                statusElement.innerHTML = '📥'; // Входящее приглашение - ВСЕГДА показываем
                 statusElement.className = 'contact-status incoming-request';
                 break;
                 
             case 'waitingAcceptanceFromOther':
-                statusElement.innerHTML = '⏳'; // Ожидание принятия
+                statusElement.innerHTML = '⏳'; // Ожидание принятия - ВСЕГДА показываем
                 statusElement.className = 'contact-status outgoing-request';
                 break;
                 
@@ -638,9 +648,14 @@ class ContactListManagerV3 {
         const contactElement = document.querySelector(`[data-address="${address}"]`);
         if (!contactElement) return;
 
+        // Получаем состояние чата для проверки
+        const contactData = this.contactsCache.get(address);
+        const frontendState = contactData ? contactData.frontendState : 'unknown';
+        
         let unreadBadge = contactElement.querySelector('.unread-count');
         
-        if (unreadCount > 0) {
+        // Показываем счетчик только для allowedWrite чатов
+        if (unreadCount > 0 && frontendState === 'allowedWrite') {
             // Создаем бейдж если его нет
             if (!unreadBadge) {
                 unreadBadge = document.createElement('div');
@@ -652,11 +667,15 @@ class ContactListManagerV3 {
             unreadBadge.textContent = unreadCount > 99 ? '99+' : unreadCount.toString();
             unreadBadge.style.display = 'block';
             
-            console.log(`🔔 V3: Показан бейдж непрочитанных для ${address}: ${unreadCount}`);
+            console.log(`🔔 V3: Показан бейдж непрочитанных для ${address}: ${unreadCount} (состояние: ${frontendState})`);
         } else {
-            // Скрываем бейдж если нет непрочитанных
+            // Скрываем бейдж если нет непрочитанных ИЛИ чат не в состоянии allowedWrite
             if (unreadBadge) {
                 unreadBadge.style.display = 'none';
+            }
+            
+            if (unreadCount > 0 && frontendState !== 'allowedWrite') {
+                console.log(`🚫 V3: Счетчик скрыт для ${address}: ${unreadCount} непрочитанных, но состояние ${frontendState}`);
             }
         }
     }
@@ -1443,8 +1462,10 @@ class ContactListManagerV3 {
                 throw new Error('Введите имя пользователя');
             }
 
-            if (trimmedName.length > 40) {
-                throw new Error(`Имя не должно превышать 40 символов (текущая длина: ${trimmedName.length})`);
+            // 🔍 ВАЛИДАЦИЯ: Проверяем длину имени в байтах (контракт ограничивает 40 байтов)
+            const nameBytes = new TextEncoder().encode(trimmedName).length;
+            if (nameBytes > 40) {
+                throw new Error(`Имя не должно превышать 40 байтов (текущая длина: ${nameBytes} байтов, ${trimmedName.length} символов). Русские символы занимают по 2 байта.`);
             }
 
             // Проверяем на недопустимые символы

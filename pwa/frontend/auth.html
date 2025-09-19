@@ -357,6 +357,9 @@
             <div class="input-group">
                 <label for="contactName">Имя пользователя (необязательно):</label>
                 <input type="text" id="contactName" placeholder="Введите ваше имя или оставьте пустым" maxlength="50">
+                <div class="form-hint" id="nameCounter" style="font-size: 11px; color: #666; margin-top: 5px;">
+                    0/50 байтов
+                </div>
             </div>
             <button class="btn" id="registerBtn" disabled>
                 Зарегистрироваться
@@ -498,6 +501,38 @@
             elements.generateBtn.addEventListener('click', generateEncryptionKeys);
             elements.registerBtn.addEventListener('click', registerInContract);
             elements.goToMessengerBtn.addEventListener('click', goToMessenger);
+            
+            // 📏 Счетчик символов для имени пользователя
+            const contactNameInput = document.getElementById('contactName');
+            const nameCounter = document.getElementById('nameCounter');
+            
+            if (contactNameInput && nameCounter) {
+                contactNameInput.addEventListener('input', function() {
+                    const nameBytes = new TextEncoder().encode(this.value).length;
+                    const symbolsCount = this.value.length;
+                    
+                    nameCounter.textContent = `${nameBytes}/50 байтов (${symbolsCount} симв.)`;
+                    
+                    // Меняем цвет при приближении к лимиту байтов
+                    if (nameBytes > 45) {
+                        nameCounter.style.color = '#dc3545'; // Красный при >45 байтов
+                    } else if (nameBytes > 35) {
+                        nameCounter.style.color = '#ffc107'; // Желтый при >35 байтов
+                    } else {
+                        nameCounter.style.color = '#666'; // Серый по умолчанию
+                    }
+                    
+                    // Блокируем кнопку регистрации если превышен лимит
+                    const registerBtn = document.getElementById('registerBtn');
+                    if (registerBtn && nameBytes > 50) {
+                        registerBtn.disabled = true;
+                        registerBtn.textContent = 'Имя слишком длинное';
+                    } else if (registerBtn) {
+                        registerBtn.disabled = false;
+                        registerBtn.textContent = 'Зарегистрироваться';
+                    }
+                });
+            }
         }
 
         async function checkNetwork() {
@@ -680,6 +715,12 @@
                         // В контракте v2 функция называется registerUser и принимает имя и публичный ключ
                         const contactName = document.getElementById('contactName').value.trim() || 'Пользователь';
                         console.log('📝 Имя пользователя:', contactName);
+                        
+                        // 🔍 ВАЛИДАЦИЯ: Проверяем длину имени в байтах (контракт ограничивает 50 байтов)
+                        const nameBytes = new TextEncoder().encode(contactName).length;
+                        if (nameBytes > 50) {
+                            throw new Error(`Имя слишком длинное (${nameBytes} байтов). Максимум 50 байтов для регистрации. Русские символы занимают по 2 байта.`);
+                        }
                         
                         const result = await contract.methods.registerUser(contactName, publicKeyHex).send({
                             from: userAddress,
