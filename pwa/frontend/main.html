@@ -394,12 +394,12 @@
                     console.log('❌ V3: Ключи не найдены в localStorage → редирект на auth.html');
                     showNotification('Ключи шифрования не найдены! Перенаправляем на страницу авторизации...', 'warning');
                     setTimeout(() => window.location.href = 'auth.html', 2000);
-                    return false;
+                return false;
                 }
 
                 console.log('✅ V3: Все проверки пройдены, можно инициализировать приложение');
                 return true;
-
+                
             } catch (error) {
                 console.error('❌ V3: Ошибка проверки регистрации:', error);
                 showNotification('Ошибка проверки! Перенаправляем на страницу авторизации...', 'error');
@@ -407,7 +407,7 @@
                 return false;
             }
         }
-
+        
         // Основная функция инициализации
         async function initializeApp() {
             try {
@@ -931,7 +931,7 @@
                     document.getElementById('recipientAddress').value = '';
                     document.getElementById('invitationMessage').value = '';
                     document.getElementById('invitationFee').value = '0.00000217';
-                    
+
                     console.log('✅ V3: Форма приглашения очищена после успешной отправки');
 
                     // Модальное окно закроется автоматически в contactListManager.sendInvitation()

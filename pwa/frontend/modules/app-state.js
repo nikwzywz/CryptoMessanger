@@ -268,10 +268,12 @@ class AppState {
         const timeSinceLastUpdate = now - this.pollingCoordinator.lastUpdateTime;
         const pollingIntervalMs = this.pollingCoordinator.pollingInterval; // Уже в миллисекундах!
         
+        // Если время с последнего обновления меньше интервала polling, то выходим
         if (timeSinceLastUpdate < pollingIntervalMs) {
             return;
         }
         
+        // Обновляем время последнего обновления
         this.pollingCoordinator.lastUpdateTime = now;
         
         try {
@@ -314,7 +316,13 @@ class AppState {
                 
                 // 🆕 ПУНКТЫ 10-12: Отдельный алгоритм отрисовки UI после загрузки контактов
                 this.renderUIUpdates();
-                
+
+                // Обновляем время последнего обновления, но хитро, 
+                // чтобы следующее обновление наступило не через 15 секунд, 
+                // а через 1 секунду. Потому что мы видим что данные о новых контактах поступили.
+                // А значит надо быстрее проверить на наличие новых сообщений.
+                this.pollingCoordinator.lastUpdateTime = now - 1000 * 60 * 60;
+
                 // После этого ВЫХОДИМ из этого алгоритма!
                 console.log('🚪 V3: Загружены новые контакты, ВЫХОДИМ из алгоритма (как требует пункт 6)');
                 return;
@@ -326,6 +334,13 @@ class AppState {
             // 🆕 ПУНКТ 8: Если количество новых сообщений > 0, то вызываем пересортировку
             if (newMessages.length > 0) {
                 this.pollingCoordinator.contactListManager.resortAllContacts();
+                // Если поступило предельное количество (MESSAGES_BATCH_SIZE) новых сообщений,
+                // то обновляем время последнего обновления, но хитро, 
+                // чтобы следующее обновление наступило не через 15 секунд, 
+                // а через 1 секунду. Потому что очень вероятно есть ещё новые сообщения.
+                if (newMessages.length >= MESSAGES_BATCH_SIZE) {
+                    this.pollingCoordinator.lastUpdateTime = now - 1000 * 60 * 60;
+                }
             }
             
             // 🆕 ПУНКТ 9: Конец алгоритма загрузки данных

@@ -412,16 +412,18 @@ class CryptoUtils {
         const addr1 = address1.toLowerCase();
         const addr2 = address2.toLowerCase();
         
-        // Сортируем адреса как в контракте
+        // Сортируем адреса как в контракте (сравнение 160-битных значений)
         const [smaller, larger] = addr1 < addr2 ? [addr1, addr2] : [addr2, addr1];
         
-        // Используем глобальную переменную web3
         if (typeof web3 === 'undefined') {
             throw new Error('Web3 не инициализирован для генерации chatID');
         }
         
-        // Используем encodePacked как в контракте (не encodeParameters!)
-        return web3.utils.keccak256(smaller + larger.slice(2)); // Убираем 0x из второго адреса
+        // Типобезопасно повторяем abi.encodePacked(address,address) + keccak256
+        return web3.utils.soliditySha3(
+            { t: 'address', v: smaller },
+            { t: 'address', v: larger }
+        );
     }
 
     /**

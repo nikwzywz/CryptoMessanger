@@ -92,10 +92,9 @@ class Utils {
     /**
      * Получение текста статуса для отображения (перенесено из ContactListManagerV3)
      * @param {string} frontendState - Состояние чата
-     * @param {string} lastMessageText - Текст последнего сообщения (опционально)
-     * @returns {string} Текст статуса или последнего сообщения
+     * @returns {string} Текст статуса
      */
-    static getStatusText(frontendState, lastMessageText = null) {
+    static getStatusText(frontendState) {
         switch (frontendState) {
             case 'allowedWrite':
                 return 'Активный чат';
@@ -107,12 +106,6 @@ class Utils {
                 return 'Ожидание ответа';
             case 'unknown':
             default:
-                // Для неизвестного состояния показываем последнее сообщение, если есть
-                if (lastMessageText && lastMessageText.trim()) {
-                    return lastMessageText.length > 40 ? 
-                        lastMessageText.substring(0, 40) + '...' : 
-                        lastMessageText;
-                }
                 return 'Новый контакт';
         }
     }

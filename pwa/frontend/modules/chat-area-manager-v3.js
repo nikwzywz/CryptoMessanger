@@ -40,7 +40,7 @@ class ChatAreaManagerV3 {
         
         // 🆕 Polling состояние для сообщений (согласно алгоритму)
         this.messagesBatchSize = window.CryptoMessengerConfig.pollingConfig.MESSAGES_BATCH_SIZE;
-        this.messLastIndex = 0; // Начальное состояние (пункт 20 алгоритма)
+        this.messLastIndex = -1; // Нулевая индексация → первый polling с 0
         
         // Подписываемся на изменения текущего контакта
         this.appState.subscribe('currentContact', this.onContactChanged.bind(this));

@@ -37,7 +37,7 @@ class ContactListManagerV3 {
         
         // 🆕 Polling состояние для контактов (согласно алгоритму)
         this.contactsBatchSize = window.CryptoMessengerConfig.pollingConfig.CONTACTS_BATCH_SIZE;
-        this.contactLastIndex = 0; // Начальное состояние (пункт 19 алгоритма)
+        this.contactLastIndex = -1; // Начальное состояние (нулевая индексация → первый запрос с 0)
         
         // Подписываемся на изменения состояния
         this.appState.subscribe('currentContact', this.onCurrentContactChanged.bind(this));
@@ -737,6 +737,9 @@ class ContactListManagerV3 {
      * Обновление данных последнего сообщения для контакта (упрощенная версия)
      */
     updateLastMessage(address, messageIndex, messageText, messageTime, frontendState, isFromCurrentUser = false) {
+
+        console.log(`😈😈😈😈😈 messageText = "${messageText}"`);
+        
         console.log(`🔍 V3: updateLastMessage ВЫЗВАНА для ${address}:`, {
             messageIndex: messageIndex,
             messageText: messageText?.substring(0, 50) + '...',
@@ -773,7 +776,7 @@ class ContactListManagerV3 {
             contactData.lastMessageTime = messageTime;
             contactData.frontendState = frontendState;
             contactData.unreadCount = newUnreadCount;
-            
+
             console.log(`💾 V3: Обновлен lastMessageText = "${messageText}" для ${addressLower}`);
             
             console.log(`📨 V3: Обновлено последнее сообщение для ${addressLower}:`, {
