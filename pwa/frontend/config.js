@@ -6,15 +6,15 @@ window.CryptoMessengerConfig = {
     
     // Сеть 
     network: {
-        chainId: '0x2105', // 8453 в hex
-        chainName: 'Base',
+        chainId: '0x89', // 137 в hex
+        chainName: 'Polygon',
         rpcUrls: [
-            'https://mainnet.base.org'
+            'https://polygon.rpc.subquery.network/public'
         ],
-        blockExplorerUrls: ['https://basescan.org'],
+        blockExplorerUrls: ['https://polygonscan.com'],
         nativeCurrency: {
-            name: 'Ether',
-            symbol: 'ETH',
+            name: 'POL',
+            symbol: 'POL',
             decimals: 18
         }
     },
@@ -799,6 +799,6 @@ window.CryptoMessengerConfig = {
 ]
 };
 
-console.log('📦 Конфигурация Web3shold загружена v1.0.0 - 2025-09-19 21:29 (полный ABI, Base)');
+console.log('📦 Конфигурация Web3shold загружена v1.0.0 - 2025-09-20 15:40 (полный ABI, Polygon)');
 console.log('🌐 Сеть:', window.CryptoMessengerConfig.network.chainName);
 console.log('📄 Контракт:', window.CryptoMessengerConfig.contractAddress);
