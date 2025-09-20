@@ -28,6 +28,20 @@ const NETWORKS = {
             name: 'Ether',
             symbol: 'ETH',
             decimals: 18
+        },
+        gasSettings: {
+            gasLimit: {
+                registerUser: 200000,      // Регистрация пользователя
+                sendMessage: 150000,       // Отправка сообщения
+                invitationSend: 180000,    // Отправка приглашения
+                invitationAccept: 120000,  // Принятие приглашения
+                invitationReject: 100000,  // Отклонение приглашения
+                invitationCancel: 100000,  // Отмена приглашения
+                setContactName: 80000      // Изменение имени
+            },
+            gasPrice: '1000000000', // 1 gwei для Base (дешевые транзакции)
+            maxFeePerGas: '2000000000', // 2 gwei максимум для EIP-1559
+            maxPriorityFeePerGas: '100000000' // 0.1 gwei приоритетная комиссия
         }
     },
     polygon: {
@@ -40,6 +54,20 @@ const NETWORKS = {
             name: 'POL',
             symbol: 'POL',
             decimals: 18
+        },
+        gasSettings: {
+            gasLimit: {
+                registerUser: 200000,      // Регистрация пользователя
+                sendMessage: 150000,       // Отправка сообщения
+                invitationSend: 180000,    // Отправка приглашения
+                invitationAccept: 120000,  // Принятие приглашения
+                invitationReject: 100000,  // Отклонение приглашения
+                invitationCancel: 100000,  // Отмена приглашения
+                setContactName: 80000      // Изменение имени
+            },
+            gasPrice: '30000000000', // 30 gwei для Polygon (быстрые транзакции)
+            maxFeePerGas: '50000000000', // 50 gwei максимум для EIP-1559
+            maxPriorityFeePerGas: '2000000000' // 2 gwei приоритетная комиссия
         }
     }
 };
@@ -198,9 +226,27 @@ function updateConfigFile(abi, contractAddress) {
         console.log('📝 Чтение config.js...');
         let configContent = fs.readFileSync(CONFIG_FILE, 'utf8');
         
-        // Обновляем сетевую конфигурацию
+        // Обновляем сетевую конфигурацию (ищем от network: { до закрывающей скобки)
         const networkStartIndex = configContent.indexOf('network: {');
-        const networkEndIndex = configContent.indexOf('},', networkStartIndex) + 1;
+        let networkEndIndex = -1;
+        
+        if (networkStartIndex !== -1) {
+            // Ищем закрывающую скобку для network объекта
+            let braceCount = 0;
+            let currentIndex = networkStartIndex + 'network: '.length;
+            
+            for (let i = currentIndex; i < configContent.length; i++) {
+                if (configContent[i] === '{') {
+                    braceCount++;
+                } else if (configContent[i] === '}') {
+                    braceCount--;
+                    if (braceCount === 0) {
+                        networkEndIndex = i;
+                        break;
+                    }
+                }
+            }
+        }
         
         if (networkStartIndex !== -1 && networkEndIndex !== -1) {
             const beforeNetwork = configContent.substring(0, networkStartIndex);
@@ -217,11 +263,26 @@ function updateConfigFile(abi, contractAddress) {
             name: '${NETWORK_CONFIG.nativeCurrency.name}',
             symbol: '${NETWORK_CONFIG.nativeCurrency.symbol}',
             decimals: ${NETWORK_CONFIG.nativeCurrency.decimals}
+        },
+        // Настройки газа для текущей сети
+        gasSettings: {
+            gasLimit: {
+                registerUser: ${NETWORK_CONFIG.gasSettings.gasLimit.registerUser},      // Регистрация пользователя
+                sendMessage: ${NETWORK_CONFIG.gasSettings.gasLimit.sendMessage},       // Отправка сообщения
+                invitationSend: ${NETWORK_CONFIG.gasSettings.gasLimit.invitationSend},    // Отправка приглашения
+                invitationAccept: ${NETWORK_CONFIG.gasSettings.gasLimit.invitationAccept},  // Принятие приглашения
+                invitationReject: ${NETWORK_CONFIG.gasSettings.gasLimit.invitationReject},  // Отклонение приглашения
+                invitationCancel: ${NETWORK_CONFIG.gasSettings.gasLimit.invitationCancel},  // Отмена приглашения
+                setContactName: ${NETWORK_CONFIG.gasSettings.gasLimit.setContactName}      // Изменение имени
+            },
+            gasPrice: '${NETWORK_CONFIG.gasSettings.gasPrice}', // ${parseInt(NETWORK_CONFIG.gasSettings.gasPrice) / 1000000000} gwei для ${NETWORK_CONFIG.name}
+            maxFeePerGas: '${NETWORK_CONFIG.gasSettings.maxFeePerGas}', // ${parseInt(NETWORK_CONFIG.gasSettings.maxFeePerGas) / 1000000000} gwei максимум для EIP-1559
+            maxPriorityFeePerGas: '${NETWORK_CONFIG.gasSettings.maxPriorityFeePerGas}' // ${parseInt(NETWORK_CONFIG.gasSettings.maxPriorityFeePerGas) / 1000000000} gwei приоритетная комиссия
         }
     }`;
             
-            configContent = beforeNetwork + newNetworkConfig + ',' + afterNetwork;
-            console.log(`🌐 Обновлена конфигурация сети: ${NETWORK_CONFIG.name}`);
+            configContent = beforeNetwork + newNetworkConfig + afterNetwork;
+            console.log(`🌐 Обновлена конфигурация сети: ${NETWORK_CONFIG.name} (включая настройки газа)`);
         }
         
         // Обновляем адрес контракта

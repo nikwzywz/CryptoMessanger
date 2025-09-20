@@ -395,6 +395,38 @@
     <script src="lib/crypto-utils.js"></script>
     <script src="config.js"></script>
     <script>
+        // Утилитарная функция для получения оптимальных параметров газа
+        async function getOptimalGasParams(web3, operation, fromAddress) {
+            const gasSettings = window.CryptoMessengerConfig.network.gasSettings;
+            const txParams = {
+                from: fromAddress,
+                gas: gasSettings.gasLimit[operation] || gasSettings.gasLimit.registerUser
+            };
+            
+            try {
+                // Проверяем поддержку EIP-1559
+                const feeHistory = await web3.eth.getFeeHistory(1, 'latest', []);
+                if (feeHistory && feeHistory.baseFeePerGas && feeHistory.baseFeePerGas.length > 0) {
+                    // EIP-1559 поддерживается
+                    txParams.maxFeePerGas = gasSettings.maxFeePerGas;
+                    txParams.maxPriorityFeePerGas = gasSettings.maxPriorityFeePerGas;
+                    console.log(`🔧 ${operation}: Используем EIP-1559 gas pricing`);
+                } else {
+                    // Fallback на legacy gas price
+                    txParams.gasPrice = gasSettings.gasPrice;
+                    console.log(`🔧 ${operation}: Используем legacy gas pricing`);
+                }
+            } catch (error) {
+                // Fallback на legacy gas price при ошибке
+                txParams.gasPrice = gasSettings.gasPrice;
+                console.log(`🔧 ${operation}: Fallback на legacy gas pricing:`, error.message);
+            }
+            
+            console.log(`⛽ ${operation} параметры транзакции:`, txParams);
+            return txParams;
+        }
+    </script>
+    <script>
         // Версия приложения
         const APP_VERSION = '1.0.0';
         console.log(`CryptoMessenger v${APP_VERSION} - Auth v2 Loaded`);
@@ -464,12 +496,31 @@
                     // 6. Проверяем наличие ключей в localStorage
                     const savedKeys = localStorage.getItem('cryptoMessengerKeys');
                     if (savedKeys) {
-                        console.log(`✅ Auth: Пользователь ${currentUser} зарегистрирован и ключи есть → редирект на main.html`);
-                        showStatus('step6Status', 'success', 'Пользователь уже зарегистрирован! Перенаправляем в мессенджер...');
-                        setTimeout(() => window.location.href = 'main.html', 2000);
-                        return true;
+                        try {
+                            const keys = JSON.parse(savedKeys);
+                            // 7. Проверяем, что ключи валидны и не пустые
+                            if (keys.privateKeyForEncode && keys.publicKeyForEncode && keys.address === currentUser) {
+                                console.log(`✅ Auth: Пользователь ${currentUser} зарегистрирован и ключи валидны → редирект на main.html`);
+                                showStatus('step6Status', 'success', 'Пользователь уже зарегистрирован! Перенаправляем в мессенджер...');
+                                setTimeout(() => window.location.href = 'main.html', 2000);
+                                return true;
+                            } else {
+                                console.log(`⚠️ Auth: Пользователь ${currentUser} зарегистрирован, но ключи невалидны - нужна повторная авторизация`);
+                                // Очищаем поврежденные ключи
+                                localStorage.removeItem('cryptoMessengerKeys');
+                                localStorage.removeItem('cryptoMessengerAddress');
+                                return false;
+                            }
+                        } catch (error) {
+                            console.log(`⚠️ Auth: Пользователь ${currentUser} зарегистрирован, но ключи повреждены - нужна повторная авторизация`);
+                            // Очищаем поврежденные ключи
+                            localStorage.removeItem('cryptoMessengerKeys');
+                            localStorage.removeItem('cryptoMessengerAddress');
+                            return false;
+                        }
                     } else {
-                        console.log(`⚠️ Auth: Пользователь ${currentUser} зарегистрирован, но нет ключей - нужна повторная авторизация`);
+                        console.log(`⚠️ Auth: Пользователь ${currentUser} зарегистрирован, но нет ключей (новое устройство) - нужна повторная авторизация`);
+                        showStatus('step6Status', 'info', 'Для доступа к сообщениям необходимо заново подписать сообщение для генерации ключей шифрования.');
                         return false;
                     }
                 } else {
@@ -708,7 +759,7 @@
                 const isRegistered = await contract.methods.isUserRegistered(userAddress).call();
                 
                 if (isRegistered) {
-                    showStatus('step5Status', 'success', 'Пользователь уже зарегистрирован');
+                    showStatus('step5Status', 'success', 'Пользователь уже зарегистрирован. Ключи шифрования рассчитаны заново на новом устройстве.');
                 } else {
                     // Регистрируем публичный ключ
                     const publicKeyHex = '0x' + encryptionKeys.publicKeyForEncode;
@@ -728,11 +779,10 @@
                             throw new Error(`Имя слишком длинное (${nameBytes} байтов). Максимум 50 байтов для регистрации. Русские символы занимают по 2 байта.`);
                         }
                         
-                        const result = await contract.methods.registerUser(contactName, publicKeyHex).send({
-                            from: userAddress,
-                            gas: 300000,
-                            gasPrice: '20000000000' // 20 gwei
-                        });
+                        // Получаем оптимальные параметры газа для регистрации
+                        const txParams = await getOptimalGasParams(web3, 'registerUser', userAddress);
+                        
+                        const result = await contract.methods.registerUser(contactName, publicKeyHex).send(txParams);
                         
                         console.log('✅ Результат регистрации:', result);
                         showStatus('step5Status', 'success', 'Пользователь успешно зарегистрирован в контракте v2');

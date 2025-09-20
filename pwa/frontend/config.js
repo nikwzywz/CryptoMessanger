@@ -16,6 +16,21 @@ window.CryptoMessengerConfig = {
             name: 'POL',
             symbol: 'POL',
             decimals: 18
+        },
+        // Настройки газа для текущей сети
+        gasSettings: {
+            gasLimit: {
+                registerUser: 200000,      // Регистрация пользователя
+                sendMessage: 150000,       // Отправка сообщения
+                invitationSend: 180000,    // Отправка приглашения
+                invitationAccept: 120000,  // Принятие приглашения
+                invitationReject: 100000,  // Отклонение приглашения
+                invitationCancel: 100000,  // Отмена приглашения
+                setContactName: 80000      // Изменение имени
+            },
+            gasPrice: '30000000000', // 30 gwei для Polygon
+            maxFeePerGas: '50000000000', // 50 gwei максимум для EIP-1559
+            maxPriorityFeePerGas: '2000000000' // 2 gwei приоритетная комиссия
         }
     },
     
@@ -799,6 +814,6 @@ window.CryptoMessengerConfig = {
 ]
 };
 
-console.log('📦 Конфигурация Web3shold загружена v1.0.0 - 2025-09-20 15:40 (полный ABI, Polygon)');
+console.log('📦 Конфигурация Web3shold загружена v1.0.0 - 2025-09-20 16:03 (полный ABI, Polygon)');
 console.log('🌐 Сеть:', window.CryptoMessengerConfig.network.chainName);
 console.log('📄 Контракт:', window.CryptoMessengerConfig.contractAddress);

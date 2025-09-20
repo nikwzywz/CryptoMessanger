@@ -473,10 +473,32 @@
                 // 6. Проверяем наличие ключей в localStorage
                 const savedKeys = localStorage.getItem('cryptoMessengerKeys');
                 if (!savedKeys) {
-                    console.log('❌ V3: Ключи не найдены в localStorage → редирект на auth.html');
-                    showNotification('Ключи шифрования не найдены! Перенаправляем на страницу авторизации...', 'warning');
+                    console.log('❌ V3: Ключи не найдены в localStorage (новое устройство) → редирект на auth.html');
+                    showNotification('Ключи шифрования не найдены! Необходимо заново подписать сообщение для генерации ключей...', 'warning');
                     setTimeout(() => window.location.href = 'auth.html', 2000);
-                return false;
+                    return false;
+                }
+                
+                // 7. Проверяем валидность ключей
+                try {
+                    const keys = JSON.parse(savedKeys);
+                    if (!keys.privateKeyForEncode || !keys.publicKeyForEncode || keys.address !== currentUser) {
+                        console.log('❌ V3: Ключи невалидны или для другого пользователя → редирект на auth.html');
+                        showNotification('Ключи шифрования невалидны! Необходимо заново пройти авторизацию...', 'warning');
+                        // Очищаем поврежденные ключи
+                        localStorage.removeItem('cryptoMessengerKeys');
+                        localStorage.removeItem('cryptoMessengerAddress');
+                        setTimeout(() => window.location.href = 'auth.html', 2000);
+                        return false;
+                    }
+                } catch (error) {
+                    console.log('❌ V3: Ключи повреждены → редирект на auth.html');
+                    showNotification('Ключи шифрования повреждены! Необходимо заново пройти авторизацию...', 'warning');
+                    // Очищаем поврежденные ключи
+                    localStorage.removeItem('cryptoMessengerKeys');
+                    localStorage.removeItem('cryptoMessengerAddress');
+                    setTimeout(() => window.location.href = 'auth.html', 2000);
+                    return false;
                 }
 
                 console.log('✅ V3: Все проверки пройдены, можно инициализировать приложение');
@@ -1242,7 +1264,7 @@
                     console.log(`🏷️ V3: Установлен chatSubtitle:`, {
                         contactName: contactName,
                         contactAddress: addressLower,
-                        isNameAnAddress: isNameAnAddress,
+                        hasOriginalName: !!(originalName && originalName.trim()),
                         isMobile: window.innerWidth <= 768,
                         displayedText: chatSubtitle.textContent
                     });
