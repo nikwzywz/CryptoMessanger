@@ -247,8 +247,8 @@ function updateConfigFile(abi, contractAddress) {
         const version = `v1.0.0 - ${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
         
         // Ищем и заменяем версию в console.log
-        const consoleLogRegex = /console\.log\('📦 Конфигурация CryptoMessenger загружена v[\d\.]+ - \d{4}-\d{2}-\d{2} \d{2}:\d{2} \(полный ABI\)'\);/;
-        const newConsoleLog = `console.log('📦 Конфигурация CryptoMessenger загружена ${version} (полный ABI, ${NETWORK_CONFIG.name})');`;
+        const consoleLogRegex = /console\.log\('📦 Конфигурация (CryptoMessenger|Web3shold) загружена v[\d\.]+ - \d{4}-\d{2}-\d{2} \d{2}:\d{2} \(полный ABI[^']*\)'\);/;
+        const newConsoleLog = `console.log('📦 Конфигурация Web3shold загружена ${version} (полный ABI, ${NETWORK_CONFIG.name})');`;
         configContent = configContent.replace(consoleLogRegex, newConsoleLog);
         
         // Записываем обновленный файл

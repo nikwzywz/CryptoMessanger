@@ -1,0 +1,66 @@
+# Vercel ignore file - исключаем все что не нужно в production
+
+# Environment variables (критично!)
+.env
+.env.*
+.env.local
+.env.*.local
+
+# Build artifacts and caches (критично для размера!)
+node_modules/          # 63MB - не нужен, используем lib/
+dist/
+build/
+*.log
+npm-debug.log*
+
+# Development files
+README.md
+package.json
+package-lock.json
+.vercelignore
+
+# Documentation (не нужна в production)
+memory-bank/
+docs/
+documentation/
+
+# Development folders (если случайно попадут)
+contracts/
+scripts/
+chrome-extension/
+old-old/
+
+# Development configs and backups
+config*.js.bak
+config*.js.backup
+"config base.js"
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Git files
+.git/
+.gitignore
+
+# Test files
+test-*.html
+*test*.js
+*.test.js
+
+# Development configs
+webpack.config.js
+rollup.config.js
+babel.config.js

@@ -41,3 +41,23 @@ open http://localhost:8080/test-encryption.html  # Тест ECIES шифрова
 node pwa/scripts/update-abi.js base     # Base network
 node pwa/scripts/update-abi.js polygon  # Polygon network
 ```
+
+## 🌐 Frontend Deployment
+
+### Самые простые способы:
+```bash
+make deploy-frontend-vercel    # Автоматический деплой на Vercel
+make deploy-frontend-netlify   # Подготовка для Netlify (drag & drop)
+```
+
+### Альтернативные способы:
+```bash
+# GitHub Pages
+git subtree push --prefix=pwa/frontend origin gh-pages
+
+# IPFS (децентрализованно)
+npx ipfs-deploy pwa/frontend
+
+# Локальный сервер (для тестирования)
+cd pwa/frontend && python3 -m http.server 8080
+```

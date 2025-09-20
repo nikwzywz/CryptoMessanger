@@ -1,0 +1,38 @@
+[build]
+  # Папка для публикации (только frontend)
+  publish = "pwa/frontend"
+  
+  # Команда сборки (не нужна для статического сайта)
+  command = ""
+  
+  # Базовая директория (корень проекта)
+  base = "."
+
+[build.environment]
+  # Node.js версия (если потребуется)
+  NODE_VERSION = "18"
+
+# Настройки для SPA (Single Page Application)
+[[redirects]]
+  from = "/*"
+  to = "/auth.html"
+  status = 200
+
+# Заголовки безопасности
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    
+# Настройки кэширования для статических ресурсов
+[[headers]]
+  for = "/lib/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000"
+    
+[[headers]]
+  for = "/styles/*"  
+  [headers.values]
+    Cache-Control = "public, max-age=31536000"

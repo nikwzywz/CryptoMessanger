@@ -1,7 +1,7 @@
 {
-  "name": "cryptomessenger-frontend",
+  "name": "web3shold-frontend",
   "version": "1.0.0",
-  "description": "Frontend для CryptoMessenger - децентрализованного мессенджера с ECIES шифрованием",
+  "description": "Frontend для Web3shold - децентрализованного мессенджера с ECIES шифрованием",
   "main": "test-encryption.js",
   "scripts": {
     "test": "node test-encryption.js",
@@ -20,14 +20,16 @@
     "http-server": "^14.1.1"
   },
   "keywords": [
-    "cryptomessenger",
+    "web3shold",
+    "web3",
+    "threshold",
     "encryption",
     "ecies",
-    "secp256k1",
     "blockchain",
-    "messenger"
+    "messenger",
+    "decentralized"
   ],
-  "author": "CryptoMessenger Team",
+  "author": "Web3shold Team",
   "license": "MIT",
   "engines": {
     "node": ">=16.0.0"

@@ -102,6 +102,19 @@ populate-contract:
 	@echo "Populating contract with test data..."
 	@node pwa/scripts/populate-contract-test-data.js
 
+# Frontend Deployment
+.PHONY: deploy-frontend-vercel
+deploy-frontend-vercel:
+	@echo "Deploying frontend to Vercel..."
+	@cd pwa/frontend && npx vercel --prod
+
+.PHONY: deploy-frontend-netlify
+deploy-frontend-netlify:
+	@echo "Preparing frontend for Netlify..."
+	@echo "📁 Ready to deploy: pwa/frontend/"
+	@echo "🌐 Drag & drop to: https://netlify.com"
+	@echo "✅ All dependencies included (no CDN)"
+
 # Помощь
 .PHONY: help
 help:

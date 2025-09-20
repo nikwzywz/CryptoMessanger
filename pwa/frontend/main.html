@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ru">
 <!--
-🏗️ АРХИТЕКТУРНЫЕ ПРИНЦИПЫ CryptoMessenger V3:
+🏗️ АРХИТЕКТУРНЫЕ ПРИНЦИПЫ Web3shold V3:
 
 📋 РАЗДЕЛЕНИЕ ОТВЕТСТВЕННОСТИ:
 - Все методы работы с КОНТРАКТОМ должны размещаться в соответствующих менеджерах:
@@ -26,7 +26,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CryptoMessenger v2 - Децентрализованный мессенджер</title>
+    <title>Web3shold - Децентрализованный мессенджер</title>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="styles/main.css">
     <link rel="stylesheet" href="styles/components.css">
@@ -39,7 +39,7 @@
         <!-- Боковая панель с контактами -->
         <div class="sidebar">
             <div class="sidebar-header">
-                <div class="sidebar-title">CryptoMessenger v3</div>
+                <div class="sidebar-title">Web3shold</div>
                 <div class="user-info" id="userInfo">
                     <div class="user-label">Пользователь:</div>
                     <div class="user-details" id="userDetails">
@@ -92,7 +92,7 @@
                 <div class="messages-container" id="chat-messages">
                     <div class="message incoming">
                         <div class="message-content">
-                            <div class="message-text">Добро пожаловать в CryptoMessenger! Выберите контакт для начала общения.</div>
+                            <div class="message-text">Добро пожаловать в Web3shold! Выберите контакт для начала общения.</div>
                             <div class="message-time">Система</div>
                         </div>
                     </div>
@@ -284,8 +284,8 @@
     <script src="modules/chat-area-manager-v3.js"></script>
     
     <script>
-        // CryptoMessenger v2.0.0 - Main Interface with Contract v2 Migration
-        console.log('CryptoMessenger v2.0.0 - Main Interface Loaded with Contract v2 Migration');
+        // Web3shold v3.0.0 - Main Interface with Multi-Network Support
+        console.log('Web3shold v3.0.0 - Main Interface Loaded with Multi-Network Support');
         
         // Глобальные переменные V3
         let web3;
@@ -488,7 +488,7 @@
         // Основная функция инициализации
         async function initializeApp() {
             try {
-                console.log('🚀 Инициализация CryptoMessenger...');
+                console.log('🚀 Инициализация Web3shold...');
                 
                 // Сначала проверяем, можно ли вообще запускать приложение
                 const canInitialize = await checkRegistrationAndRedirect();
@@ -628,7 +628,7 @@
                 // Обработка отключения кошелька
                 setupWalletDisconnectHandler();
                 
-                showNotification('CryptoMessenger успешно инициализирован!', 'success');
+                showNotification('Web3shold успешно инициализирован!', 'success');
                 console.log('✅ V3: Инициализация завершена');
                 console.log('👤 V3: Информация о пользователе:');
                 console.log('   📍 Адрес кошелька:', currentUser);
